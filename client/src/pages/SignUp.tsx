@@ -74,7 +74,8 @@ const SignUp: React.FC = () => {
             SIGN IN
           </Button>
         </div>
-        <div className="absolute inset-0 opacity-30 bg-cover bg-center" style={{ 
+        <div className="absolute inset-0 opacity-70 bg-cover bg-center" style={{ 
+          backgroundImage: 'url(/images/signup_img.jpg)',
           backgroundColor: 'rgba(0, 0, 0, 0.3)'
         }} />
       </div>
