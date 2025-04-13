@@ -71,6 +71,24 @@ const Profile: React.FC = () => {
     },
     photoUrl: user?.photoURL || 'https://randomuser.me/api/portraits/men/32.jpg'
   };
+  
+  const handleOpenEditDialog = () => {
+    setEditFormData({
+      fullName: userProfile.fullName,
+      title: userProfile.title,
+      phone: userProfile.phone,
+      address: userProfile.address,
+      email: userProfile.email,
+      biography: userProfile.biography
+    });
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleSaveProfile = () => {
+    // In a real app, this would send data to the server
+    // For now we'll just close the dialog
+    setIsEditDialogOpen(false);
+  };
 
   return (
     <div className="p-6">
