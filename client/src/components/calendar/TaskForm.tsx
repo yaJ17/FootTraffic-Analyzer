@@ -17,18 +17,18 @@ interface TaskFormProps {
 const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
-  const [type, setType] = useState('Regular Task');
+  const [type, setType] = useState('Medium');
   const [description, setDescription] = useState('');
 
   const handleSubmit = () => {
     if (!title || !date) return;
     
-    // Determine color based on task type
-    let color = 'bg-blue-100';
-    if (type === 'Event') {
-      color = 'bg-green-100';
-    } else if (type === 'Reminder') {
-      color = 'bg-yellow-100';
+    // Determine color based on priority
+    let color = 'bg-yellow-100';
+    if (type === 'High') {
+      color = 'bg-red-100';
+    } else if (type === 'Low') {
+      color = 'bg-blue-100';
     }
     
     onAddTask({
@@ -42,7 +42,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
     // Reset form
     setTitle('');
     setDate('');
-    setType('Regular Task');
+    setType('Medium');
     setDescription('');
   };
 
@@ -70,12 +70,27 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
             <div className="flex-1">
               <Select value={type} onValueChange={setType}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Task Type" />
+                  <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Regular Task">Regular Task</SelectItem>
-                  <SelectItem value="Event">Event</SelectItem>
-                  <SelectItem value="Reminder">Reminder</SelectItem>
+                  <SelectItem value="High">
+                    <div className="flex items-center">
+                      <span className="h-2 w-2 rounded-full bg-red-500 mr-2"></span>
+                      High Priority
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="Medium">
+                    <div className="flex items-center">
+                      <span className="h-2 w-2 rounded-full bg-yellow-500 mr-2"></span>
+                      Medium Priority
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="Low">
+                    <div className="flex items-center">
+                      <span className="h-2 w-2 rounded-full bg-blue-500 mr-2"></span>
+                      Low Priority
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

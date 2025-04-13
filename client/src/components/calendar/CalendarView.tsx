@@ -17,7 +17,7 @@ interface CalendarViewProps {
 
 const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onAddTask }) => {
   const [date, setDate] = useState<Date | undefined>(new Date());
-  const [view, setView] = useState<'week' | 'month' | 'agenda'>('month');
+  const [view, setView] = useState<'month' | 'agenda'>('month');
   
   // Group tasks by date
   const tasksByDate: Record<string, Task[]> = {};
@@ -122,25 +122,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onAddTask }) => {
         
         <div className="flex">
           <button 
-            className={`px-3 py-1 rounded border mr-1 ${view === 'week' ? 'bg-gray-600 text-white' : ''}`}
-            onClick={() => setView('week')}
-          >
-            Week
-          </button>
-          <button 
-            className={`px-3 py-1 rounded border mr-1 ${view === 'month' ? 'bg-gray-600 text-white' : ''}`}
+            className={`px-3 py-1 rounded border mr-1 ${view === 'month' ? 'bg-primary text-white' : 'bg-white'}`}
             onClick={() => setView('month')}
           >
             Month
           </button>
           <button 
-            className={`px-3 py-1 rounded border mr-1 ${view === 'agenda' ? 'bg-gray-600 text-white' : ''}`}
+            className={`px-3 py-1 rounded border mr-1 ${view === 'agenda' ? 'bg-primary text-white' : 'bg-white'}`}
             onClick={() => setView('agenda')}
           >
             Agenda
-          </button>
-          <button className="p-1 rounded border">
-            <span className="material-icons text-sm">add</span>
           </button>
         </div>
       </div>
