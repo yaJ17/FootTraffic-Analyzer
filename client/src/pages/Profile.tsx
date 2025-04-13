@@ -1,10 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    fullName: '',
+    title: '',
+    phone: '',
+    address: '',
+    email: '',
+    biography: ''
+  });
   
   const { data: profileData, isLoading } = useQuery({
     queryKey: ['/api/profile'],
