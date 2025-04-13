@@ -5,6 +5,7 @@ import Logo from '@/components/Logo';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import signinImage from '@assets/signin_img.jpg';
 
 const SignIn: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -136,7 +137,7 @@ const SignIn: React.FC = () => {
         <div 
           className="absolute inset-0 opacity-70 bg-cover bg-center" 
           style={{ 
-            backgroundImage: 'url(/images/signin_img.jpg)',
+            backgroundImage: `url(${signinImage})`,
             backgroundColor: 'rgba(0, 0, 0, 0.3)'
           }} 
         />

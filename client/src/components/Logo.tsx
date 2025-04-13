@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
+import logoImage from '@assets/Logo_sidebar collapse.png';
 
 interface LogoProps {
   className?: string;
@@ -11,7 +12,7 @@ interface LogoProps {
 
 const Logo: React.FC<LogoProps> = ({
   className,
-  size = 30,
+  size = 40,
   textClassName,
   showText = true,
   textColor = "text-white",
@@ -20,7 +21,7 @@ const Logo: React.FC<LogoProps> = ({
     <div className={cn("flex items-center", className)}>
       <div className="relative mr-2" style={{ width: size, height: size }}>
         <img 
-          src="/images/logo.png" 
+          src={logoImage} 
           alt="FootTraffic Logo" 
           className="w-full h-full object-contain" 
         />
