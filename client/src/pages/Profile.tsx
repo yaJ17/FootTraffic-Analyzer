@@ -84,14 +84,28 @@ const Profile: React.FC = () => {
     setIsEditDialogOpen(true);
   };
   
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  
   const handleSaveProfile = () => {
     // In a real app, this would send data to the server
-    // For now we'll just close the dialog
+    // For demonstration, we'll show a success message and close the dialog
     setIsEditDialogOpen(false);
+    setShowSuccessMessage(true);
+    
+    // Hide success message after 3 seconds
+    setTimeout(() => {
+      setShowSuccessMessage(false);
+    }, 3000);
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 relative">
+      {showSuccessMessage && (
+        <div className="absolute top-0 left-0 right-0 bg-green-100 text-green-800 px-4 py-2 rounded shadow-md z-50 flex items-center justify-center">
+          <span className="material-icons mr-2">check_circle</span>
+          Profile updated successfully!
+        </div>
+      )}
       <div className="bg-white rounded-lg shadow-sm">
         <div className="bg-neutral px-6 py-4 rounded-t-lg border-b">
           <div className="flex justify-between items-center">

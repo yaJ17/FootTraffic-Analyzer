@@ -42,8 +42,8 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) =>
         lon: center.lon
       },
       zoom: zoom,
-      style: 'mapbox://styles/mapbox/streets-v11', // Better quality map style
-      accesstoken: 'pk.eyJ1IjoicGxvdGx5bWFwYm94IiwiYSI6ImNrOWJqb2F4djBnMjEzbG50amg0dnJieG4ifQ.Zme1-Uzoi75IaFbieBDl3A' // Public token for improved map rendering
+      style: 'mapbox://styles/mapbox/streets-v12', // Higher resolution map style
+      accesstoken: 'pk.eyJ1IjoicGxvdGx5bWFwYm94IiwiYSI6ImNqdWl6bDBhOTExYzkzeW5ubWdpZ2VjbmMifQ.TXcBE-xg9BFdV2ocecc_7g' // More reliable public token
     },
     margin: { r: 0, t: 0, l: 0, b: 0 },
     height: 450 // Increased height for better visibility

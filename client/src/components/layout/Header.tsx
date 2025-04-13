@@ -103,6 +103,13 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       </div>
       
       <div className="flex items-center">
+        {/* Time and date - now positioned before notifications */}
+        <div className="text-sm text-gray-600 text-right mr-6">
+          <div className="font-medium">{formatDate(currentTime)}</div>
+          <div>{formatTime(currentTime)}</div>
+        </div>
+        
+        {/* Notifications - moved after time/date */}
         <div className="relative mr-6">
           <Popover>
             <PopoverTrigger asChild>
@@ -114,8 +121,12 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80 p-0" align="end">
-              <div className="p-4 border-b">
+              <div className="p-4 border-b flex justify-between items-center">
                 <h3 className="font-medium">Notifications</h3>
+                <div className="flex items-center text-xs text-gray-500">
+                  <span className="material-icons text-xs mr-1">notifications</span>
+                  <span>{notifications.filter(n => !n.read).length} new</span>
+                </div>
               </div>
               <div className="max-h-80 overflow-y-auto">
                 {notifications.length === 0 ? (
@@ -133,35 +144,39 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                     >
                       <div className="flex items-start">
                         <div className="flex-1">
-                          <h4 className="font-medium">{notification.title}</h4>
+                          <h4 className="font-medium flex items-center">
+                            {notification.title}
+                            {!notification.read && (
+                              <span className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">New</span>
+                            )}
+                          </h4>
                           <p className="text-sm text-gray-600">{notification.message}</p>
                           <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
                         </div>
-                        {!notification.read && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                        )}
                       </div>
                     </div>
                   ))
                 )}
               </div>
-              <div className="p-2 border-t">
+              <div className="p-2 border-t flex justify-between">
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="w-full text-center text-sm"
+                  className="text-center text-sm"
                   onClick={() => setNotifications(notifications.map(n => ({...n, read: true})))}
                 >
                   Mark all as read
                 </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-center text-sm"
+                >
+                  View all
+                </Button>
               </div>
             </PopoverContent>
           </Popover>
-        </div>
-        
-        <div className="text-sm text-gray-600 text-right mr-4">
-          <div className="font-medium">{formatDate(currentTime)}</div>
-          <div>{formatTime(currentTime)}</div>
         </div>
         
         <div>
