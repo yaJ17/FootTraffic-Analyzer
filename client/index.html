@@ -11,5 +11,26 @@
     <script type="module" src="/src/main.tsx"></script>
     <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
     <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
+    
+    <!-- Firebase Configuration -->
+    <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+      // TODO: Add SDKs for Firebase products that you want to use
+      // https://firebase.google.com/docs/web/setup#available-libraries
+
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyBgSU1plo0po4C6XnzweoIGHyhZo2ASK7k",
+        authDomain: "foottech-af93a.firebaseapp.com",
+        projectId: "foottech-af93a",
+        storageBucket: "foottech-af93a.firebasestorage.app",
+        messagingSenderId: "942697824763",
+        appId: "1:942697824763:web:3ee3eb1908bad319720b5e"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+    </script>
   </body>
 </html>

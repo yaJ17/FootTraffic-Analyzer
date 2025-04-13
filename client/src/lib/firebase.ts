@@ -11,12 +11,12 @@ import {
 } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "demo-key",
-  authDomain: `${import.meta.env.VITE_FIREBASE_PROJECT_ID || "demo-project"}.firebaseapp.com`,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "demo-project",
-  storageBucket: `${import.meta.env.VITE_FIREBASE_PROJECT_ID || "demo-project"}.appspot.com`,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "demo-sender-id",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "demo-app-id"
+  apiKey: "AIzaSyBgSU1plo0po4C6XnzweoIGHyhZo2ASK7k",
+  authDomain: "foottech-af93a.firebaseapp.com",
+  projectId: "foottech-af93a",
+  storageBucket: "foottech-af93a.firebasestorage.app",
+  messagingSenderId: "942697824763",
+  appId: "1:942697824763:web:3ee3eb1908bad319720b5e"
 };
 
 // Initialize Firebase
