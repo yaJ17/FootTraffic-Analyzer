@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { formatDateTime } from '@/lib/utils';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -8,6 +7,36 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const [location] = useLocation();
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Update time every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    
+    return () => {
+      clearInterval(timer);
+    };
+  }, []);
+  
+  // Format date and time
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(date);
+  };
+  
+  const formatTime = (date: Date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true
+    }).format(date);
+  };
   
   // Set the page title based on current route
   const getPageTitle = () => {
@@ -26,16 +55,13 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         return 'Dashboard';
     }
   };
-  
-  // Split the formatted date time by newline for display
-  const [date, time] = formatDateTime().split('\n');
 
   return (
-    <header className="bg-white shadow-sm px-6 py-3 flex items-center justify-between">
+    <header className="bg-white shadow-md px-6 py-4 flex items-center justify-between sticky top-0 z-20">
       <div className="flex items-center">
         <button 
           onClick={onToggleSidebar}
-          className="mr-4 focus:outline-none"
+          className="md:hidden mr-4 p-1 hover:bg-gray-100 rounded-lg focus:outline-none"
           aria-label="Toggle sidebar"
         >
           <span className="material-icons">menu</span>
@@ -45,12 +71,21 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       
       <div className="flex items-center">
         <div className="mr-6 text-sm text-gray-600 text-right">
-          <div>{date}</div>
-          <div>{time}</div>
+          <div className="font-medium">{formatDate(currentTime)}</div>
+          <div>{formatTime(currentTime)}</div>
         </div>
-        <div className="relative mr-4">
-          <span className="material-icons cursor-pointer">notifications</span>
-          <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+        <div className="relative">
+          <button className="p-2 relative hover:bg-gray-100 rounded-full">
+            <span className="material-icons">notifications</span>
+            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          </button>
+        </div>
+        <div className="ml-4">
+          <button className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-100">
+            <div className="w-8 h-8 rounded-full bg-primary-800 flex items-center justify-center text-white">
+              <span className="text-sm font-medium">U</span>
+            </div>
+          </button>
         </div>
       </div>
     </header>

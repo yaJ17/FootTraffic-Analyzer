@@ -33,23 +33,34 @@ function AuthenticatedRoute({ component: Component }: { component: React.Compone
 }
 
 function Router() {
+  const [location] = useLocation();
+  
+  // Check if path is one of the authenticated routes
+  const isAuthPath = (
+    location === "/" || 
+    location === "/dashboard" || 
+    location === "/statistics" || 
+    location === "/reports" || 
+    location === "/calendar" || 
+    location === "/profile"
+  );
+
   return (
     <Switch>
       <Route path="/signin" component={SignIn} />
       <Route path="/signup" component={SignUp} />
-      <Route path="/">
-        <AppLayout>
-          <Switch>
-            <Route path="/" component={() => <AuthenticatedRoute component={Dashboard} />} />
-            <Route path="/dashboard" component={() => <AuthenticatedRoute component={Dashboard} />} />
-            <Route path="/statistics" component={() => <AuthenticatedRoute component={Statistics} />} />
-            <Route path="/reports" component={() => <AuthenticatedRoute component={Reports} />} />
-            <Route path="/calendar" component={() => <AuthenticatedRoute component={Calendar} />} />
-            <Route path="/profile" component={() => <AuthenticatedRoute component={Profile} />} />
-            <Route component={NotFound} />
-          </Switch>
-        </AppLayout>
-      </Route>
+      {isAuthPath && (
+        <Route path={location}>
+          <AppLayout>
+            {location === "/" && <AuthenticatedRoute component={Dashboard} />}
+            {location === "/dashboard" && <AuthenticatedRoute component={Dashboard} />}
+            {location === "/statistics" && <AuthenticatedRoute component={Statistics} />}
+            {location === "/reports" && <AuthenticatedRoute component={Reports} />}
+            {location === "/calendar" && <AuthenticatedRoute component={Calendar} />}
+            {location === "/profile" && <AuthenticatedRoute component={Profile} />}
+          </AppLayout>
+        </Route>
+      )}
       <Route component={NotFound} />
     </Switch>
   );
