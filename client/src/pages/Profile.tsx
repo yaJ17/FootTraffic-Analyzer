@@ -96,7 +96,10 @@ const Profile: React.FC = () => {
         <div className="bg-neutral px-6 py-4 rounded-t-lg border-b">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold">{userProfile.fullName}'s Profile</h2>
-            <Button className="bg-primary text-white px-4 py-2 rounded-md flex items-center hover:bg-secondary transition">
+            <Button 
+              onClick={handleOpenEditDialog}
+              className="bg-primary text-white px-4 py-2 rounded-md flex items-center hover:bg-secondary transition"
+            >
               <span className="material-icons mr-1 text-sm">edit</span>
               Edit Profile
             </Button>
@@ -165,6 +168,100 @@ const Profile: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Edit Profile Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Profile Information</DialogTitle>
+            <DialogDescription>
+              Make changes to your profile information here. Click save when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="fullName" className="text-right">
+                Full Name
+              </Label>
+              <Input
+                id="fullName"
+                value={editFormData.fullName}
+                onChange={(e) => setEditFormData({...editFormData, fullName: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="title" className="text-right">
+                Title
+              </Label>
+              <Input
+                id="title"
+                value={editFormData.title}
+                onChange={(e) => setEditFormData({...editFormData, title: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="phone" className="text-right">
+                Phone
+              </Label>
+              <Input
+                id="phone"
+                value={editFormData.phone}
+                onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="address" className="text-right">
+                Address
+              </Label>
+              <Input
+                id="address"
+                value={editFormData.address}
+                onChange={(e) => setEditFormData({...editFormData, address: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="email" className="text-right">
+                Email
+              </Label>
+              <Input
+                id="email"
+                value={editFormData.email}
+                onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="biography" className="text-right align-top mt-2">
+                Biography
+              </Label>
+              <Textarea
+                id="biography"
+                value={editFormData.biography}
+                onChange={(e) => setEditFormData({...editFormData, biography: e.target.value})}
+                className="col-span-3"
+                rows={4}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleSaveProfile} type="submit">Save changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

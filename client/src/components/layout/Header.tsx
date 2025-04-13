@@ -1,13 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
 }
 
+interface Notification {
+  id: number;
+  title: string;
+  message: string;
+  time: string;
+  read: boolean;
+}
+
 const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const [location] = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [notifications, setNotifications] = useState<Notification[]>([
+    {
+      id: 1,
+      title: 'Traffic Alert',
+      message: 'Unusual foot traffic detected in Binondo area',
+      time: '10 min ago',
+      read: false
+    },
+    {
+      id: 2,
+      title: 'System Update',
+      message: 'System maintenance scheduled for tonight',
+      time: '1 hour ago',
+      read: false
+    },
+    {
+      id: 3,
+      title: 'New Report Available',
+      message: 'Weekly foot traffic summary is now available',
+      time: '3 hours ago',
+      read: true
+    }
+  ]);
   
   // Update time every minute
   useEffect(() => {
@@ -70,17 +103,68 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       </div>
       
       <div className="flex items-center">
-        <div className="mr-6 text-sm text-gray-600 text-right">
+        <div className="relative mr-6">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative rounded-full">
+                <span className="material-icons">notifications</span>
+                {notifications.some(n => !n.read) && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="end">
+              <div className="p-4 border-b">
+                <h3 className="font-medium">Notifications</h3>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">No notifications</div>
+                ) : (
+                  notifications.map(notification => (
+                    <div 
+                      key={notification.id} 
+                      className={`p-4 border-b hover:bg-gray-50 cursor-pointer ${!notification.read ? 'bg-blue-50' : ''}`}
+                      onClick={() => {
+                        setNotifications(notifications.map(n => 
+                          n.id === notification.id ? {...n, read: true} : n
+                        ));
+                      }}
+                    >
+                      <div className="flex items-start">
+                        <div className="flex-1">
+                          <h4 className="font-medium">{notification.title}</h4>
+                          <p className="text-sm text-gray-600">{notification.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                        </div>
+                        {!notification.read && (
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="p-2 border-t">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full text-center text-sm"
+                  onClick={() => setNotifications(notifications.map(n => ({...n, read: true})))}
+                >
+                  Mark all as read
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+        
+        <div className="text-sm text-gray-600 text-right mr-4">
           <div className="font-medium">{formatDate(currentTime)}</div>
           <div>{formatTime(currentTime)}</div>
         </div>
-        <div className="relative">
-          <button className="p-2 relative hover:bg-gray-100 rounded-full">
-            <span className="material-icons">notifications</span>
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
-        </div>
-        <div className="ml-4">
+        
+        <div>
           <button className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-100">
             <div className="w-8 h-8 rounded-full bg-primary-800 flex items-center justify-center text-white">
               <span className="text-sm font-medium">U</span>

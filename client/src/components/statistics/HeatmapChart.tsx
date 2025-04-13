@@ -17,7 +17,6 @@ const HeatmapChart: React.FC<HeatmapChartProps> = ({ data, locations, metrics })
   const [selectedLocation, setSelectedLocation] = useState<string>(locations[0]);
   const [selectedMetric, setSelectedMetric] = useState<string>(metrics[0]);
   const [timePeriod, setTimePeriod] = useState<string>("month");
-  const [isMetricDropdownOpen, setIsMetricDropdownOpen] = useState(false);
 
   // Create the Plotly heatmap data
   const plotlyData = [
@@ -79,29 +78,18 @@ const HeatmapChart: React.FC<HeatmapChartProps> = ({ data, locations, metrics })
         <div className="flex items-center w-full md:w-auto">
           <label className="mr-2 text-sm font-medium">Metric:</label>
           <div className="relative w-full md:w-48">
-            <div 
-              className="bg-primary text-white p-2 rounded flex justify-between items-center cursor-pointer"
-              onClick={() => setIsMetricDropdownOpen(!isMetricDropdownOpen)}
+            <select 
+              className="appearance-none bg-primary text-white w-full p-2 rounded"
+              value={selectedMetric}
+              onChange={(e) => setSelectedMetric(e.target.value)}
             >
-              <span>{selectedMetric}</span>
+              {metrics.map(metric => (
+                <option key={metric} value={metric}>{metric}</option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
               <span className="material-icons text-sm">expand_more</span>
             </div>
-            {isMetricDropdownOpen && (
-              <div className="absolute top-full left-0 right-0 bg-white shadow-lg rounded mt-1 border border-gray-200 z-20">
-                {metrics.map(metric => (
-                  <div 
-                    key={metric}
-                    className="p-2 hover:bg-gray-100 cursor-pointer"
-                    onClick={() => {
-                      setSelectedMetric(metric);
-                      setIsMetricDropdownOpen(false);
-                    }}
-                  >
-                    {metric}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
         
