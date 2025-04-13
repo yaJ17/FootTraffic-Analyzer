@@ -30,7 +30,15 @@ const SignUp: React.FC = () => {
     
     try {
       await registerWithEmail(email, password);
-      setLocation('/dashboard');
+      toast({
+        title: "Registration Success",
+        description: "Your account has been created. Redirecting to sign in...",
+        variant: "default"
+      });
+      // Redirect to sign in page after successful registration
+      setTimeout(() => {
+        setLocation('/signin');
+      }, 1500);
     } catch (error: any) {
       toast({
         title: "Registration Failed",
@@ -81,7 +89,7 @@ const SignUp: React.FC = () => {
         <form className="w-full max-w-md" onSubmit={handleEmailSignUp}>
           <div className="mb-4">
             <div className="flex items-center p-2 border border-gray-300 rounded-md bg-[#E6F0FF]">
-              <span className="material-icons text-gray-500 mr-2">email</span>
+              <i className="material-icons text-gray-500 mr-2">email</i>
               <Input 
                 type="email" 
                 placeholder="Email" 
@@ -95,7 +103,7 @@ const SignUp: React.FC = () => {
           
           <div className="mb-4">
             <div className="flex items-center p-2 border border-gray-300 rounded-md bg-[#E6F0FF]">
-              <span className="material-icons text-gray-500 mr-2">lock</span>
+              <i className="material-icons text-gray-500 mr-2">lock</i>
               <Input 
                 type={showPassword ? "text" : "password"}
                 placeholder="Password" 
@@ -104,18 +112,18 @@ const SignUp: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-              <span 
+              <i 
                 className="material-icons text-gray-500 cursor-pointer"
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? "visibility_off" : "visibility"}
-              </span>
+              </i>
             </div>
           </div>
           
           <div className="mb-6">
             <div className="flex items-center p-2 border border-gray-300 rounded-md bg-[#E6F0FF]">
-              <span className="material-icons text-gray-500 mr-2">lock</span>
+              <i className="material-icons text-gray-500 mr-2">lock</i>
               <Input 
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="Confirm Password" 
@@ -124,12 +132,12 @@ const SignUp: React.FC = () => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
-              <span 
+              <i 
                 className="material-icons text-gray-500 cursor-pointer"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               >
                 {showConfirmPassword ? "visibility_off" : "visibility"}
-              </span>
+              </i>
             </div>
           </div>
           

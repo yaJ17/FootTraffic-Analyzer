@@ -54,7 +54,7 @@ const SignIn: React.FC = () => {
         <form className="w-full max-w-md" onSubmit={handleEmailLogin}>
           <div className="mb-4">
             <div className="flex items-center p-2 border border-gray-300 rounded-md bg-[#FFF8D6]">
-              <span className="material-icons text-gray-500 mr-2">&#xe0be;</span>
+              <i className="material-icons text-gray-500 mr-2">email</i>
               <Input 
                 type="email" 
                 placeholder="Email" 
@@ -68,7 +68,7 @@ const SignIn: React.FC = () => {
           
           <div className="mb-2">
             <div className="flex items-center p-2 border border-gray-300 rounded-md bg-[#FFF8D6]">
-              <span className="material-icons text-gray-500 mr-2">&#xe897;</span>
+              <i className="material-icons text-gray-500 mr-2">lock</i>
               <Input 
                 type={showPassword ? "text" : "password"}
                 placeholder="Password" 
@@ -77,12 +77,12 @@ const SignIn: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-              <span 
+              <i 
                 className="material-icons text-gray-500 cursor-pointer"
                 onClick={() => setShowPassword(!showPassword)}
               >
-                {showPassword ? "&#xe8f5;" : "&#xe8f4;"}
-              </span>
+                {showPassword ? "visibility_off" : "visibility"}
+              </i>
             </div>
           </div>
           
