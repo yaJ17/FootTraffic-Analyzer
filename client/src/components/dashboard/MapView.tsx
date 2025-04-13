@@ -42,17 +42,11 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) =>
         lon: center.lon
       },
       zoom: zoom,
-      style: 'carto-positron', // Using a cleaner map style similar to the provided image
-      layers: [
-        {
-          sourcetype: 'raster',
-          source: ['https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}'],
-          below: 'traces'
-        }
-      ]
+      style: 'mapbox://styles/mapbox/streets-v11', // Better quality map style
+      accesstoken: 'pk.eyJ1IjoicGxvdGx5bWFwYm94IiwiYSI6ImNrOWJqb2F4djBnMjEzbG50amg0dnJieG4ifQ.Zme1-Uzoi75IaFbieBDl3A' // Public token for improved map rendering
     },
     margin: { r: 0, t: 0, l: 0, b: 0 },
-    height: 350
+    height: 450 // Increased height for better visibility
   };
 
   const config = {
@@ -79,7 +73,7 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) =>
             data={mapData}
             layout={layout}
             config={config}
-            style={{ width: '100%', height: '350px' }}
+            style={{ width: '100%', height: '450px' }}
           />
         </div>
         <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
