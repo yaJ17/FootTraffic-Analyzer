@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -34,6 +34,7 @@ function AuthenticatedRoute({ component: Component }: { component: React.Compone
 
 function Router() {
   const [location] = useLocation();
+  const { user, loading } = useAuth();
   
   // Check if path is one of the authenticated routes
   const isAuthPath = (
@@ -44,23 +45,49 @@ function Router() {
     location === "/calendar" || 
     location === "/profile"
   );
+  
+  // Handle root path redirection
+  if (location === "/" && user && !loading) {
+    return <Redirect to="/dashboard" />;
+  }
+  
+  // Handle authentication redirection for login/signup pages
+  if ((location === "/signin" || location === "/signup") && user && !loading) {
+    return <Redirect to="/dashboard" />;
+  }
 
   return (
     <Switch>
       <Route path="/signin" component={SignIn} />
       <Route path="/signup" component={SignUp} />
-      {isAuthPath && (
-        <Route path={location}>
-          <AppLayout>
-            {location === "/" && <AuthenticatedRoute component={Dashboard} />}
-            {location === "/dashboard" && <AuthenticatedRoute component={Dashboard} />}
-            {location === "/statistics" && <AuthenticatedRoute component={Statistics} />}
-            {location === "/reports" && <AuthenticatedRoute component={Reports} />}
-            {location === "/calendar" && <AuthenticatedRoute component={Calendar} />}
-            {location === "/profile" && <AuthenticatedRoute component={Profile} />}
-          </AppLayout>
-        </Route>
-      )}
+      <Route path="/dashboard">
+        <AppLayout>
+          <AuthenticatedRoute component={Dashboard} />
+        </AppLayout>
+      </Route>
+      <Route path="/statistics">
+        <AppLayout>
+          <AuthenticatedRoute component={Statistics} />
+        </AppLayout>
+      </Route>
+      <Route path="/reports">
+        <AppLayout>
+          <AuthenticatedRoute component={Reports} />
+        </AppLayout>
+      </Route>
+      <Route path="/calendar">
+        <AppLayout>
+          <AuthenticatedRoute component={Calendar} />
+        </AppLayout>
+      </Route>
+      <Route path="/profile">
+        <AppLayout>
+          <AuthenticatedRoute component={Profile} />
+        </AppLayout>
+      </Route>
+      <Route path="/">
+        <Redirect to="/dashboard" />
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );

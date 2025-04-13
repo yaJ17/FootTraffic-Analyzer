@@ -43,7 +43,7 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) =>
       },
       zoom: zoom,
       style: 'mapbox://styles/mapbox/streets-v12', // Higher resolution map style
-      accesstoken: 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNrZXE1bG1vYjB4dGcydG8zNmNoYzZhZjkifQ.zGwXK5a_5exw2j8A8vJNXA' // Updated public token
+      accesstoken: 'pk.eyJ1IjoicGxvdGx5bWFwYm94IiwiYSI6ImNrOWJqb2F4djBnMjEzbG50amg0dnJieG4ifQ.Zme1-Uzoi75IaFbieBDl3A' // Reliable public token
     },
     margin: { r: 0, t: 0, l: 0, b: 0 },
     height: 450 // Increased height for better visibility
