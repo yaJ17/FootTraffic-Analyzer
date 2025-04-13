@@ -20,12 +20,33 @@ const Reports: React.FC = () => {
   if (isLoading) {
     return (
       <div className="p-6">
-        <div className="bg-white rounded-lg shadow-sm p-4">
-          <h2 className="text-xl font-bold mb-4">Reports</h2>
-          <div className="h-80 bg-gray-100 animate-pulse rounded"></div>
-          <div className="mt-8">
-            <h3 className="font-bold mb-4">Forecast Interpretation</h3>
-            <div className="bg-lightBlue p-4 rounded-lg h-40 animate-pulse"></div>
+        {/* Loading state for main reports container */}
+        <div className="bg-white rounded-lg shadow-sm mb-6">
+          <div className="p-4 border-b">
+            <h2 className="text-xl font-bold flex items-center">
+              <span className="material-icons mr-2 text-primary">assessment</span>
+              Barangay Foot Traffic Reports
+            </h2>
+          </div>
+          <div className="p-4">
+            <div className="h-80 bg-gray-100 animate-pulse rounded"></div>
+          </div>
+        </div>
+        
+        {/* Loading state for forecast interpretation */}
+        <div className="bg-white rounded-lg shadow-sm">
+          <div className="p-4 border-b">
+            <h2 className="text-xl font-bold flex items-center">
+              <span className="material-icons mr-2 text-primary">insights</span>
+              Forecast Interpretation
+            </h2>
+          </div>
+          <div className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="h-40 bg-gray-100 animate-pulse rounded"></div>
+              <div className="h-40 bg-gray-100 animate-pulse rounded"></div>
+              <div className="h-40 bg-gray-100 animate-pulse rounded"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -51,42 +72,106 @@ const Reports: React.FC = () => {
 
   return (
     <div className="p-6">
-      <div className="bg-white rounded-lg shadow-sm p-4">
-        <h2 className="text-xl font-bold mb-4">Reports</h2>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white">
-            <thead>
-              <tr className="bg-primary text-white text-left">
-                <th className="py-3 px-4 rounded-tl-lg">Location</th>
-                <th className="py-3 px-4">Population</th>
-                <th className="py-3 px-4">Avg. Foot Traffic</th>
-                <th className="py-3 px-4">Total Foot Traffic</th>
-                <th className="py-3 px-4">Avg. Dwell Time</th>
-                <th className="py-3 px-4 rounded-tr-lg">Total Dwell Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {barangayReports.map((barangay, index) => (
-                <tr key={barangay.id} className={index < barangayReports.length - 1 ? "border-b" : ""}>
-                  <td className="py-3 px-4 font-medium">{index + 1}. {barangay.name}</td>
-                  <td className="py-3 px-4">{barangay.population.toLocaleString()}</td>
-                  <td className="py-3 px-4">{barangay.avgFootTraffic}</td>
-                  <td className="py-3 px-4">{barangay.totalFootTraffic.toLocaleString()}</td>
-                  <td className="py-3 px-4">{barangay.avgDwellTime}</td>
-                  <td className="py-3 px-4">{barangay.totalDwellTime}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Main Reports Container */}
+      <div className="bg-white rounded-lg shadow-sm mb-6">
+        <div className="p-4 border-b">
+          <h2 className="text-xl font-bold flex items-center">
+            <span className="material-icons mr-2 text-primary">assessment</span>
+            Barangay Foot Traffic Reports
+          </h2>
         </div>
         
-        <div className="mt-8">
-          <h3 className="font-bold mb-4">Forecast Interpretation</h3>
-          <div className="bg-lightBlue p-4 rounded-lg">
-            <p className="mb-3">{forecastInterpretation.manilaCathedral}</p>
-            <p className="mb-3">{forecastInterpretation.divisoriaMarket}</p>
-            <p>{forecastInterpretation.fortSantiago}</p>
+        <div className="p-4">
+          <div className="overflow-x-auto">
+            <table className="min-w-full bg-white">
+              <thead>
+                <tr className="bg-primary text-white text-left">
+                  <th className="py-3 px-4 rounded-tl-lg">Location</th>
+                  <th className="py-3 px-4">Population</th>
+                  <th className="py-3 px-4">Avg. Foot Traffic</th>
+                  <th className="py-3 px-4">Total Foot Traffic</th>
+                  <th className="py-3 px-4">Avg. Dwell Time</th>
+                  <th className="py-3 px-4 rounded-tr-lg">Total Dwell Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {barangayReports.map((barangay, index) => (
+                  <tr key={barangay.id} className={index < barangayReports.length - 1 ? "border-b" : ""}>
+                    <td className="py-3 px-4 font-medium">{index + 1}. {barangay.name}</td>
+                    <td className="py-3 px-4">{barangay.population.toLocaleString()}</td>
+                    <td className="py-3 px-4">{barangay.avgFootTraffic}</td>
+                    <td className="py-3 px-4">{barangay.totalFootTraffic.toLocaleString()}</td>
+                    <td className="py-3 px-4">{barangay.avgDwellTime}</td>
+                    <td className="py-3 px-4">{barangay.totalDwellTime}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      {/* Separate Forecast Interpretation Container */}
+      <div className="bg-white rounded-lg shadow-sm">
+        <div className="p-4 border-b">
+          <h2 className="text-xl font-bold flex items-center">
+            <span className="material-icons mr-2 text-primary">insights</span>
+            Forecast Interpretation
+          </h2>
+        </div>
+        
+        <div className="p-4">
+          {/* Cards for each location */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Manila Cathedral */}
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h3 className="font-bold text-lg mb-2 flex items-center">
+                <span className="material-icons text-primary mr-2 text-sm">place</span>
+                Manila Cathedral
+              </h3>
+              <p className="text-sm">{forecastInterpretation.manilaCathedral}</p>
+              <div className="mt-3 flex justify-end">
+                <button className="text-xs text-primary flex items-center">
+                  <span className="material-icons text-xs mr-1">trending_up</span>
+                  View Trend
+                </button>
+              </div>
+            </div>
+            
+            {/* Divisoria Market */}
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h3 className="font-bold text-lg mb-2 flex items-center">
+                <span className="material-icons text-primary mr-2 text-sm">place</span>
+                Divisoria Market
+              </h3>
+              <p className="text-sm">{forecastInterpretation.divisoriaMarket}</p>
+              <div className="mt-3 flex justify-end">
+                <button className="text-xs text-primary flex items-center">
+                  <span className="material-icons text-xs mr-1">trending_up</span>
+                  View Trend
+                </button>
+              </div>
+            </div>
+            
+            {/* Fort Santiago */}
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h3 className="font-bold text-lg mb-2 flex items-center">
+                <span className="material-icons text-primary mr-2 text-sm">place</span>
+                Fort Santiago
+              </h3>
+              <p className="text-sm">{forecastInterpretation.fortSantiago}</p>
+              <div className="mt-3 flex justify-end">
+                <button className="text-xs text-primary flex items-center">
+                  <span className="material-icons text-xs mr-1">trending_up</span>
+                  View Trend
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-4 p-3 bg-gray-100 rounded text-sm text-gray-600 flex items-start">
+            <span className="material-icons mr-2 text-amber-500">info</span>
+            <p>These forecasts are generated based on historical foot traffic data and predictive analytics. For more detailed analysis, please check the full report or contact the analytics team.</p>
           </div>
         </div>
       </div>
