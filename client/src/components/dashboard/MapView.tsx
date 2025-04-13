@@ -25,10 +25,10 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) =>
     lon: [marker.lon],
     mode: 'markers',
     marker: {
-      size: 15,
+      size: Math.max(15, Math.min(30, marker.count / 30)),
       color: marker.color
     },
-    text: `${marker.name}<br>Foot Traffic: ${marker.count}`,
+    text: `<b>${marker.name}</b><br>Foot Traffic: ${marker.count}<br>Point of Interest`,
     hoverinfo: 'text',
     name: marker.name
   }));
@@ -42,25 +42,54 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) =>
         lon: center.lon
       },
       zoom: zoom,
-      style: 'open-street-map'
+      style: 'carto-positron', // Using a cleaner map style similar to the provided image
+      layers: [
+        {
+          sourcetype: 'raster',
+          source: ['https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}'],
+          below: 'traces'
+        }
+      ]
     },
     margin: { r: 0, t: 0, l: 0, b: 0 },
-    height: 300
+    height: 350
+  };
+
+  const config = {
+    displayModeBar: false,
+    responsive: true,
+    scrollZoom: true
   };
 
   return (
     <div className="bg-white rounded-lg shadow-sm mb-6">
       <div className="p-4">
-        <div className="relative w-full rounded-lg overflow-hidden">
-          <div className="absolute top-2 left-2 bg-white rounded px-2 py-1 text-xs font-medium z-10">
-            {zoneInfo}
+        <h2 className="text-lg font-bold mb-3 flex items-center">
+          <span className="material-icons mr-2 text-primary">location_on</span>
+          Traffic Locations
+        </h2>
+        <div className="relative w-full rounded-lg overflow-hidden border border-gray-200">
+          <div className="absolute bottom-3 left-3 bg-white/80 backdrop-blur-sm rounded-md px-3 py-2 text-sm font-medium z-10 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <span className="material-icons text-primary text-sm mr-1">location_on</span>
+              {zoneInfo}
+            </div>
           </div>
           <Plot
             data={mapData}
             layout={layout}
-            config={{ displayModeBar: false, responsive: true }}
-            style={{ width: '100%', height: '300px' }}
+            config={config}
+            style={{ width: '100%', height: '350px' }}
           />
+        </div>
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+          {markers.map(marker => (
+            <div key={marker.id} className="flex items-center p-2 bg-gray-50 rounded">
+              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: marker.color }}></div>
+              <span className="text-sm font-medium">{marker.name}</span>
+              <span className="ml-auto text-sm font-bold">{marker.count}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>

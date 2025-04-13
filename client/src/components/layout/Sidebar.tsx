@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLocation, Link } from 'wouter';
+import { useLocation } from 'wouter';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
 import { useAuth } from '@/context/AuthContext';
@@ -26,11 +26,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     { path: '/calendar', icon: 'calendar_today', label: 'Calendar' },
   ];
 
+  const handleNavigation = (path: string) => {
+    window.location.href = path;
+  };
+
   return (
     <nav 
       className={cn(
         'fixed top-0 left-0 h-full bg-primary z-30 overflow-hidden',
-        expanded ? 'sidebar-expanded' : 'sidebar-collapsed',
+        expanded ? 'sidebar-expanded w-64' : 'sidebar-collapsed w-20',
         visible ? 'show' : ''
       )}
     >
@@ -49,17 +53,16 @@ const Sidebar: React.FC<SidebarProps> = ({
               
               return (
                 <li key={item.path} className="mb-2">
-                  <Link href={item.path}>
-                    <a 
-                      className={cn(
-                        "flex items-center px-4 py-3 text-white hover:bg-secondary transition",
-                        isActive && "bg-secondary"
-                      )}
-                    >
-                      <span className="material-icons w-6">{item.icon}</span>
-                      {expanded && <span className="ml-4">{item.label}</span>}
-                    </a>
-                  </Link>
+                  <button 
+                    onClick={() => handleNavigation(item.path)}
+                    className={cn(
+                      "flex items-center w-full px-4 py-3 text-white hover:bg-secondary transition",
+                      isActive && "bg-secondary"
+                    )}
+                  >
+                    <span className="material-icons w-6">{item.icon}</span>
+                    {expanded && <span className="ml-4">{item.label}</span>}
+                  </button>
                 </li>
               );
             })}
