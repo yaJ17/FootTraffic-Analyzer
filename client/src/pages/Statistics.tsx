@@ -4,6 +4,7 @@ import BusiestPlaces from '@/components/statistics/BusiestPlaces';
 import AverageFootTrafficChart from '@/components/statistics/AverageFootTrafficChart';
 import MonthFootTrafficChart from '@/components/statistics/MonthFootTrafficChart';
 import { useQuery } from '@tanstack/react-query';
+import Plot from 'react-plotly.js';
 
 const Statistics: React.FC = () => {
   const { data: statisticsData, isLoading } = useQuery({
@@ -91,28 +92,143 @@ const Statistics: React.FC = () => {
 
   return (
     <div className="p-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Heatmap */}
-        <HeatmapChart 
-          data={heatmapData} 
-          locations={locations}
-          metrics={metrics}
-        />
-        
-        {/* Busiest Places */}
-        <BusiestPlaces places={busiestPlacesData.places} />
+      <h1 className="text-2xl font-bold mb-6">Statistics</h1>
+      
+      {/* Top section */}
+      <div className="mb-6">
+        <div className="bg-white rounded-lg shadow-sm">
+          <div className="p-4 border-b">
+            <h3 className="font-bold">Heatmap</h3>
+          </div>
+          <div className="p-4">
+            <div className="overflow-x-auto mb-4">
+              <Plot
+                data={[
+                  {
+                    z: heatmapData.z,
+                    x: heatmapData.x,
+                    y: heatmapData.y,
+                    type: 'heatmap',
+                    colorscale: [
+                      [0, '#fff7bc'],
+                      [0.2, '#fee391'],
+                      [0.4, '#fec44f'],
+                      [0.6, '#fe9929'],
+                      [0.8, '#ec7014'],
+                      [1, '#cc4c02']
+                    ]
+                  }
+                ]}
+                layout={{
+                  autosize: true,
+                  height: 250,
+                  margin: { l: 50, r: 10, t: 10, b: 30 },
+                }}
+                config={{ displayModeBar: false, responsive: true }}
+                style={{ width: '100%', height: '250px' }}
+              />
+            </div>
+          </div>
+          
+          {/* Heatmap Controls - Similar to reference image */}
+          <div className="border-t p-4 bg-gray-50 rounded-b-lg">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Location:</label>
+                <div className="relative">
+                  <select 
+                    className="w-full bg-white border border-gray-300 rounded px-3 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {locations.map(location => (
+                      <option key={location} value={location}>{location}</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                    <span className="material-icons text-sm">expand_more</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Metric:</label>
+                <div className="relative">
+                  <select 
+                    className="w-full bg-white border border-gray-300 rounded px-3 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {metrics.map(metric => (
+                      <option key={metric} value={metric}>{metric}</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                    <span className="material-icons text-sm">expand_more</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Time Period:</label>
+                <div className="flex items-center bg-white border border-gray-300 rounded px-3 py-2">
+                  <label className="inline-flex items-center">
+                    <input 
+                      type="radio" 
+                      name="time-period" 
+                      className="form-radio text-primary"
+                    />
+                    <span className="ml-2 text-sm">Last Week</span>
+                  </label>
+                  <label className="inline-flex items-center ml-4">
+                    <input 
+                      type="radio" 
+                      name="time-period" 
+                      className="form-radio text-primary"
+                      defaultChecked
+                    />
+                    <span className="ml-2 text-sm">Last Month</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       
-      {/* Additional Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        {/* Foot Traffic by Hour */}
-        <AverageFootTrafficChart 
-          gates={avgFootTrafficData.gates}
-          timeLabels={avgFootTrafficData.timeLabels}
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Busiest Places - Match reference image styling */}
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="bg-blue-800 text-white py-3 px-4">
+            <h3 className="font-bold text-center text-base">BUSIEST PLACES TODAY</h3>
+          </div>
+          <div className="divide-y">
+            {busiestPlacesData.places.map((place: { id: number; name: string }, index: number) => (
+              <div key={place.id} className="py-3 px-4">
+                {index + 1}. {place.name}
+              </div>
+            ))}
+          </div>
+        </div>
         
-        {/* Foot Traffic Last Month */}
-        <MonthFootTrafficChart buildings={monthFootTrafficData.buildings} />
+        {/* Bottom charts section */}
+        <div className="flex flex-col">
+          <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <div className="border-b pb-2 mb-3">
+              <h3 className="font-bold">Average Foot Traffic by Hour</h3>
+            </div>
+            <AverageFootTrafficChart 
+              gates={avgFootTrafficData.gates}
+              timeLabels={avgFootTrafficData.timeLabels}
+            />
+          </div>
+        </div>
+      </div>
+      
+      {/* Bottom Chart */}
+      <div className="mt-6">
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <div className="border-b pb-2 mb-3">
+            <h3 className="font-bold">Foot Traffic in the Last Month</h3>
+          </div>
+          <MonthFootTrafficChart buildings={monthFootTrafficData.buildings} />
+        </div>
       </div>
     </div>
   );

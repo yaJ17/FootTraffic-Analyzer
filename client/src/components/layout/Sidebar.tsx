@@ -80,8 +80,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <button 
                     onClick={() => handleNavigation(item.path)}
                     className={cn(
-                      "flex items-center w-full px-3 py-3 text-white rounded-lg transition-colors",
-                      isActive ? "bg-blue-800" : "hover:bg-blue-700",
+                      "flex items-center w-full px-3 py-3 rounded-lg transition-colors",
+                      isActive 
+                        ? "bg-white text-primary" 
+                        : "text-white hover:bg-white hover:text-primary",
                       expanded ? "" : "justify-center"
                     )}
                   >
