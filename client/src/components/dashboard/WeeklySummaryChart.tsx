@@ -19,57 +19,110 @@ const WeeklySummaryChart: React.FC<WeeklySummaryProps> = ({
       values: [monday, weekend, weekday],
       labels: ['Monday', 'Weekend', 'Weekday'],
       marker: {
-        colors: ['#f87171', '#fbbf24', '#60a5fa']
+        colors: ['#ef4444', '#f59e0b', '#3b82f6']
       },
       type: 'pie',
-      hole: 0.6,
+      hole: 0.7,
       textinfo: 'none',
-      hoverinfo: 'label+percent'
+      hoverinfo: 'label+percent+value',
+      hovertemplate: '<b>%{label}</b><br>Traffic: %{value}<br>Percentage: %{percent}<extra></extra>'
     }
   ];
 
   const layout = {
     autosize: true,
     showlegend: false,
-    margin: { t: 0, b: 0, l: 0, r: 0 },
-    height: 200,
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    margin: { t: 10, b: 10, l: 10, r: 10 },
+    height: 240,
     annotations: [
       {
-        font: { size: 20 },
+        font: { 
+          size: 24,
+          family: 'Inter, sans-serif',
+          color: '#1e293b',
+          weight: 'bold'
+        },
         showarrow: false,
         text: total.toString(),
         x: 0.5,
         y: 0.5
+      },
+      {
+        font: { 
+          size: 11,
+          family: 'Inter, sans-serif',
+          color: '#64748b'
+        },
+        showarrow: false,
+        text: 'TOTAL',
+        x: 0.5,
+        y: 0.4
       }
     ]
   };
 
+  const config = {
+    displayModeBar: false,
+    responsive: true
+  };
+
+  // Calculate percentages
+  const total100 = monday + weekend + weekday;
+  const mondayPercent = Math.round((monday / total100) * 100);
+  const weekendPercent = Math.round((weekend / total100) * 100);
+  const weekdayPercent = Math.round((weekday / total100) * 100);
+
   return (
-    <div className="bg-white rounded-lg shadow-sm">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-100">
       <div className="p-4">
-        <h3 className="font-bold mb-3">Weekly Summary</h3>
+        <h3 className="font-bold mb-3 flex items-center">
+          <span className="material-icons mr-2 text-primary">pie_chart</span>
+          Weekly Traffic Summary
+        </h3>
         
         <div className="flex justify-center">
           <Plot
             data={data}
             layout={layout}
-            config={{ displayModeBar: false, responsive: true }}
-            style={{ width: '100%', height: '200px' }}
+            config={config}
+            style={{ width: '100%', height: '240px' }}
           />
         </div>
         
-        <div className="flex flex-wrap mt-2 text-sm">
-          <div className="flex items-center mr-4 mb-2">
-            <span className="w-3 h-3 bg-red-400 rounded-full mr-1"></span>
-            <span>Monday</span>
+        <div className="grid grid-cols-3 gap-2 mt-2 text-sm">
+          <div className="bg-gray-50 rounded-lg p-2">
+            <div className="flex items-center mb-1">
+              <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+              <span className="font-medium">Monday</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">{monday}</span>
+              <span className="font-bold text-red-500">{mondayPercent}%</span>
+            </div>
           </div>
-          <div className="flex items-center mr-4 mb-2">
-            <span className="w-3 h-3 bg-yellow-400 rounded-full mr-1"></span>
-            <span>Weekend</span>
+          
+          <div className="bg-gray-50 rounded-lg p-2">
+            <div className="flex items-center mb-1">
+              <div className="w-3 h-3 bg-amber-500 rounded-full mr-2"></div>
+              <span className="font-medium">Weekend</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">{weekend}</span>
+              <span className="font-bold text-amber-500">{weekendPercent}%</span>
+            </div>
           </div>
-          <div className="flex items-center mr-4 mb-2">
-            <span className="w-3 h-3 bg-blue-400 rounded-full mr-1"></span>
-            <span>Weekday</span>
+          
+          <div className="bg-gray-50 rounded-lg p-2">
+            <div className="flex items-center mb-1">
+              <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+              <span className="font-medium">Weekday</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">{weekday}</span>
+              <span className="font-bold text-blue-500">{weekdayPercent}%</span>
+            </div>
           </div>
         </div>
       </div>
