@@ -14,7 +14,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBgSU1plo0po4C6XnzweoIGHyhZo2ASK7k",
   authDomain: "foottech-af93a.firebaseapp.com",
   projectId: "foottech-af93a",
-  storageBucket: "foottech-af93a.firebasestorage.app",
+  storageBucket: "foottech-af93a.appspot.com",
   messagingSenderId: "942697824763",
   appId: "1:942697824763:web:3ee3eb1908bad319720b5e"
 };
