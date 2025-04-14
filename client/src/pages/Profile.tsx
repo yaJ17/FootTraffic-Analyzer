@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 const Profile: React.FC = () => {
   const { user } = useAuth();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [editFormData, setEditFormData] = useState({
     fullName: '',
     title: '',
@@ -83,8 +84,6 @@ const Profile: React.FC = () => {
     });
     setIsEditDialogOpen(true);
   };
-  
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   
   const handleSaveProfile = () => {
     // In a real app, this would send data to the server

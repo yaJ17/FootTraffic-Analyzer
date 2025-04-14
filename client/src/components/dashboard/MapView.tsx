@@ -18,6 +18,9 @@ interface MapViewProps {
 }
 
 const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) => {
+  // Manila coordinates
+  const manilaCenter = { lat: 14.5995, lon: 120.9842 };
+  
   // Prepare data for Plotly scatter map
   const mapData = markers.map(marker => ({
     type: 'scattermapbox',
@@ -26,7 +29,8 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) =>
     mode: 'markers',
     marker: {
       size: Math.max(15, Math.min(30, marker.count / 30)),
-      color: marker.color
+      color: marker.color,
+      opacity: 0.8
     },
     text: `<b>${marker.name}</b><br>Foot Traffic: ${marker.count}<br>Point of Interest`,
     hoverinfo: 'text',
@@ -38,15 +42,15 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) =>
     hovermode: 'closest',
     mapbox: {
       center: {
-        lat: center.lat,
-        lon: center.lon
+        lat: manilaCenter.lat,
+        lon: manilaCenter.lon
       },
-      zoom: zoom,
-      style: 'mapbox://styles/mapbox/streets-v12', // Higher resolution map style
-      accesstoken: 'pk.eyJ1IjoicGxvdGx5bWFwYm94IiwiYSI6ImNrOWJqb2F4djBnMjEzbG50amg0dnJieG4ifQ.Zme1-Uzoi75IaFbieBDl3A' // Reliable public token
+      zoom: 12, // Appropriate zoom level for Manila
+      style: 'mapbox://styles/mapbox/streets-v11', // High-resolution map style
+      accesstoken: 'pk.eyJ1IjoicGxvdGx5bWFwYm94IiwiYSI6ImNrOWJqb2F4djBnMjEzbG50amg0dnJieG4ifQ.Zme1-Uzoi75IaFbieBDl3A'
     },
     margin: { r: 0, t: 0, l: 0, b: 0 },
-    height: 450 // Increased height for better visibility
+    height: 450
   };
 
   const config = {
