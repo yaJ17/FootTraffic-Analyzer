@@ -48,26 +48,26 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
 
   return (
     <div className="col-span-7 mt-6">
-      <h3 className="font-bold mb-2">Add Task</h3>
+      <h3 className="font-bold mb-4">Add Task</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="col-span-2">
           <Input
             type="text"
             placeholder="Task title"
-            className="w-full p-2 border rounded mb-2"
+            className="w-full mb-4"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
-          <div className="flex gap-2">
-            <div className="flex-1">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="w-full sm:w-1/2">
               <Input
                 type="date"
-                className="w-full p-2 border rounded"
+                className="w-full"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
               />
             </div>
-            <div className="flex-1">
+            <div className="w-full sm:w-1/2">
               <Select value={type} onValueChange={setType}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Priority" />
@@ -100,7 +100,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
         <div>
           <Textarea
             placeholder="Description (optional)"
-            className="w-full p-2 border rounded h-full"
+            className="w-full h-full resize-none min-h-[100px]"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />

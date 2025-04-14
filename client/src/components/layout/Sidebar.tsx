@@ -96,30 +96,33 @@ const Sidebar: React.FC<SidebarProps> = ({
           </ul>
         </div>
         
-        {/* Toggle button (when collapsed) */}
-        {!expanded && (
-          <div className="py-4 px-2 flex justify-center">
+        {/* Profile section */}
+        <div className="py-4 px-2">
+          {/* Toggle button (when collapsed) - Moved above logout */}
+          {!expanded && (
+            <div className="mb-4 flex justify-center">
+              <button 
+                onClick={handleToggleExpand}
+                className="text-white p-2 rounded-full hover:bg-blue-800 transition-colors"
+              >
+                <span className="material-icons">chevron_right</span>
+              </button>
+            </div>
+          )}
+          
+          {/* Logout Button */}
+          <div className="border-t border-blue-900 pt-4">
             <button 
-              onClick={handleToggleExpand}
-              className="text-white p-2 rounded-full hover:bg-blue-800 transition-colors"
+              onClick={handleLogout}
+              className={cn(
+                "flex items-center text-white hover:bg-red-700 rounded-lg p-3 w-full transition-colors",
+                expanded ? "" : "justify-center"
+              )}
             >
-              <span className="material-icons">chevron_right</span>
+              <span className="material-icons">logout</span>
+              {expanded && <span className="ml-3">Logout</span>}
             </button>
           </div>
-        )}
-        
-        {/* Logout Button */}
-        <div className="py-4 px-2 border-t border-blue-900">
-          <button 
-            onClick={handleLogout}
-            className={cn(
-              "flex items-center text-white hover:bg-red-700 rounded-lg p-3 w-full transition-colors",
-              expanded ? "" : "justify-center"
-            )}
-          >
-            <span className="material-icons">logout</span>
-            {expanded && <span className="ml-3">Logout</span>}
-          </button>
         </div>
       </div>
     </aside>

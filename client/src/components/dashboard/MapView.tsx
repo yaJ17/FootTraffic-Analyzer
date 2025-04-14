@@ -45,9 +45,9 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) =>
         lat: manilaCenter.lat,
         lon: manilaCenter.lon
       },
-      zoom: 12, // Appropriate zoom level for Manila
-      style: 'mapbox://styles/mapbox/streets-v11', // High-resolution map style
-      accesstoken: 'pk.eyJ1IjoicGxvdGx5bWFwYm94IiwiYSI6ImNrOWJqb2F4djBnMjEzbG50amg0dnJieG4ifQ.Zme1-Uzoi75IaFbieBDl3A'
+      zoom: 13, // Higher zoom level for better Manila view
+      style: 'mapbox://styles/mapbox/streets-v11', // Clearer map style with street details
+      accesstoken: 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw' // Updated token
     },
     margin: { r: 0, t: 0, l: 0, b: 0 },
     height: 450
