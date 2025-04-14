@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import HeatmapChart from '@/components/statistics/HeatmapChart';
 import BusiestPlaces from '@/components/statistics/BusiestPlaces';
 import AverageFootTrafficChart from '@/components/statistics/AverageFootTrafficChart';
@@ -87,12 +87,14 @@ const Statistics: React.FC = () => {
     ]
   };
 
+  // Defining these state variables conditionally causes the React Hooks error
+  // Moving them to the top level fixes the "Rendered more hooks than during previous render" issue
+  const [selectedLocation, setSelectedLocation] = useState('All Locations');
+  const [selectedMetric, setSelectedMetric] = useState('Count');
+  const [timePeriod, setTimePeriod] = useState('month');
+  
   const locations = ['All Locations', 'Divisoria', 'Manila Cathedral', 'Fort Santiago'];
   const metrics = ['Count', 'Dwell'];
-  
-  const [selectedLocation, setSelectedLocation] = React.useState('All Locations');
-  const [selectedMetric, setSelectedMetric] = React.useState('Count');
-  const [timePeriod, setTimePeriod] = React.useState('month');
 
   const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedLocation(e.target.value);

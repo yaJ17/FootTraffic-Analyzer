@@ -1,6 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import logoImage from '@assets/logo.png';
+import { Link } from 'wouter';
 
 interface LogoProps {
   className?: string;
@@ -18,7 +19,7 @@ const Logo: React.FC<LogoProps> = ({
   textColor = "text-white",
 }) => {
   return (
-    <div className={cn("flex items-center", className)}>
+    <Link href="/dashboard" className={cn("flex items-center cursor-pointer", className)}>
       <div className="relative mr-2" style={{ width: size, height: size }}>
         <img 
           src={logoImage} 
@@ -31,7 +32,7 @@ const Logo: React.FC<LogoProps> = ({
           FootTraffic
         </h1>
       )}
-    </div>
+    </Link>
   );
 };
 
