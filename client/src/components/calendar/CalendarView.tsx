@@ -16,7 +16,7 @@ interface CalendarViewProps {
   onDeleteTask?: (taskId: number) => void;
 }
 
-const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onAddTask }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onAddTask, onDeleteTask }) => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [view, setView] = useState<'month' | 'agenda'>('month');
   
@@ -159,11 +159,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onAddTask }) => {
               {tasksForDay.map((task) => (
                 <div 
                   key={task.id}
-                  className={`${task.color} px-2 py-1 text-xs rounded mb-1 border-l-4 border-${task.color}-500`}
+                  className={`${task.color} px-2 py-1 text-xs rounded mb-1 border-l-4 border-${task.color}-500 flex items-center`}
                 >
-                  <span className="font-bold">
-                    {new Date(task.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                  </span> {task.title}
+                  <div className="flex-1">
+                    <span className="font-bold">
+                      {new Date(task.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    </span> {task.title}
+                  </div>
+                  {onDeleteTask && (
+                    <button 
+                      className="opacity-70 hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteTask(task.id);
+                      }}
+                    >
+                      <span className="material-icons text-sm">delete</span>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

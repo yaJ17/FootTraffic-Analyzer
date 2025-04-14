@@ -38,6 +38,10 @@ const Calendar: React.FC = () => {
     
     setTasks([...tasks, newTask]);
   };
+  
+  const handleDeleteTask = (taskId: number) => {
+    setTasks(tasks.filter(task => task.id !== taskId));
+  };
 
   if (isLoading) {
     return (
@@ -73,8 +77,16 @@ const Calendar: React.FC = () => {
                   .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
                   .slice(0, 5)
                   .map(task => (
-                    <div key={task.id} className="border-l-4 pl-3 py-2" style={{ borderColor: task.color.includes('green') ? '#10b981' : task.color.includes('yellow') ? '#f59e0b' : '#3b82f6' }}>
-                      <p className="font-medium">{task.title}</p>
+                    <div key={task.id} className="border-l-4 pl-3 py-2 group relative" style={{ borderColor: task.color.includes('green') ? '#10b981' : task.color.includes('yellow') ? '#f59e0b' : '#3b82f6' }}>
+                      <div className="flex justify-between items-start">
+                        <p className="font-medium">{task.title}</p>
+                        <button 
+                          className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleDeleteTask(task.id)}
+                        >
+                          <span className="material-icons text-sm">delete</span>
+                        </button>
+                      </div>
                       <div className="flex items-center text-sm text-gray-500">
                         <span className="material-icons text-xs mr-1">event</span>
                         <span>{new Date(task.start).toLocaleDateString()}</span>
@@ -95,6 +107,7 @@ const Calendar: React.FC = () => {
           <CalendarView 
             tasks={tasks}
             onAddTask={handleAddTask}
+            onDeleteTask={handleDeleteTask}
           />
         </div>
       </div>
