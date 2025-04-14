@@ -89,6 +89,22 @@ const Statistics: React.FC = () => {
 
   const locations = ['All Locations', 'Divisoria', 'Manila Cathedral', 'Fort Santiago'];
   const metrics = ['Count', 'Dwell'];
+  
+  const [selectedLocation, setSelectedLocation] = React.useState('All Locations');
+  const [selectedMetric, setSelectedMetric] = React.useState('Count');
+  const [timePeriod, setTimePeriod] = React.useState('month');
+
+  const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedLocation(e.target.value);
+  };
+
+  const handleMetricChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedMetric(e.target.value);
+  };
+
+  const handleTimePeriodChange = (value: string) => {
+    setTimePeriod(value);
+  };
 
   return (
     <div className="p-6">
@@ -138,6 +154,8 @@ const Statistics: React.FC = () => {
                 <div className="relative">
                   <select 
                     className="w-full bg-white border border-gray-300 rounded px-3 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
+                    value={selectedLocation}
+                    onChange={handleLocationChange}
                   >
                     {locations.map(location => (
                       <option key={location} value={location}>{location}</option>
@@ -154,6 +172,8 @@ const Statistics: React.FC = () => {
                 <div className="relative">
                   <select 
                     className="w-full bg-white border border-gray-300 rounded px-3 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
+                    value={selectedMetric}
+                    onChange={handleMetricChange}
                   >
                     {metrics.map(metric => (
                       <option key={metric} value={metric}>{metric}</option>
@@ -173,6 +193,8 @@ const Statistics: React.FC = () => {
                       type="radio" 
                       name="time-period" 
                       className="form-radio text-primary"
+                      checked={timePeriod === 'week'}
+                      onChange={() => handleTimePeriodChange('week')}
                     />
                     <span className="ml-2 text-sm">Last Week</span>
                   </label>
@@ -181,7 +203,8 @@ const Statistics: React.FC = () => {
                       type="radio" 
                       name="time-period" 
                       className="form-radio text-primary"
-                      defaultChecked
+                      checked={timePeriod === 'month'}
+                      onChange={() => handleTimePeriodChange('month')}
                     />
                     <span className="ml-2 text-sm">Last Month</span>
                   </label>
@@ -200,8 +223,13 @@ const Statistics: React.FC = () => {
           </div>
           <div className="divide-y">
             {busiestPlacesData.places.map((place: { id: number; name: string }, index: number) => (
-              <div key={place.id} className="py-3 px-4">
-                {index + 1}. {place.name}
+              <div key={place.id} className="py-3 px-4 flex items-center">
+                <span className="mr-2 font-medium">{index + 1}.</span> 
+                <span className="flex-1">{place.name}</span>
+                <span className="text-gray-500 flex items-center">
+                  <span className="material-icons text-sm mr-1">people</span>
+                  {Math.floor(Math.random() * 100) + 50}
+                </span>
               </div>
             ))}
           </div>

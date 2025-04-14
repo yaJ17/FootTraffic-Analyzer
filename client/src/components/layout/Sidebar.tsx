@@ -19,11 +19,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { logoutUser } = useAuth();
 
   const navItems = [
+    { path: '/profile', icon: 'person', label: 'Profile' },
     { path: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
     { path: '/statistics', icon: 'insert_chart', label: 'Statistics' },
     { path: '/calendar', icon: 'calendar_today', label: 'Calendar' },
     { path: '/reports', icon: 'description', label: 'Reports' },
-    { path: '/profile', icon: 'person', label: 'Profile' },
   ];
 
   const handleNavigation = (path: string) => {
@@ -68,8 +68,20 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
         
+        {/* Toggle button (when collapsed) */}
+        {!expanded && (
+          <div className="py-3 flex justify-center border-b border-blue-900 mb-2">
+            <button 
+              onClick={handleToggleExpand}
+              className="text-white p-2 rounded-full hover:bg-blue-800 transition-colors"
+            >
+              <span className="material-icons">chevron_right</span>
+            </button>
+          </div>
+        )}
+        
         {/* Menu Items */}
-        <div className="flex-1 py-6">
+        <div className="flex-1 py-2">
           <ul className="space-y-1 px-2">
             {navItems.map((item) => {
               const isActive = location === item.path || 
@@ -98,17 +110,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         
         {/* Profile section */}
         <div className="py-4 px-2">
-          {/* Toggle button (when collapsed) - Moved above logout */}
-          {!expanded && (
-            <div className="mb-4 flex justify-center">
-              <button 
-                onClick={handleToggleExpand}
-                className="text-white p-2 rounded-full hover:bg-blue-800 transition-colors"
-              >
-                <span className="material-icons">chevron_right</span>
-              </button>
-            </div>
-          )}
           
           {/* Logout Button */}
           <div className="border-t border-blue-900 pt-4">

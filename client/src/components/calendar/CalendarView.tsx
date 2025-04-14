@@ -13,6 +13,7 @@ interface Task {
 interface CalendarViewProps {
   tasks: Task[];
   onAddTask: (task: Omit<Task, 'id'>) => void;
+  onDeleteTask?: (taskId: number) => void;
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onAddTask }) => {
