@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import Logo from '@/components/Logo';
@@ -13,7 +13,7 @@ const SignUp: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { registerWithEmail, loginWithGoogle } = useAuth();
+  const { registerWithEmail, loginWithGoogle, logoutUser } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -74,15 +74,25 @@ const SignUp: React.FC = () => {
     }
   };
 
+  // Track animation state
+  const [isNavigating, setIsNavigating] = useState(false);
+  
+  const handleNavigateToSignIn = () => {
+    setIsNavigating(true);
+    setTimeout(() => {
+      setLocation('/signin');
+    }, 300); // Wait for animation to complete
+  };
+
   return (
     <div className="min-h-screen flex overflow-hidden">
-      <div className="hidden md:flex md:w-1/2 bg-primary items-center justify-center relative transition-all duration-500 ease-in-out transform">
+      <div className={`hidden md:flex md:w-1/2 bg-primary items-center justify-center relative transition-all duration-500 ease-in-out auth-left-panel ${isNavigating ? 'slide-out-left' : ''}`}>
         <div className="text-center z-10 p-8">
           <h2 className="text-3xl font-bold mb-4 text-lightText">Welcome back</h2>
           <p className="mb-6 text-lightText">Already have an account? To keep connected with us, please login your account.</p>
           <Button 
             className="px-8 py-2 bg-white text-darkText rounded-full font-medium hover:bg-gray-100 transition"
-            onClick={() => setLocation('/signin')}
+            onClick={handleNavigateToSignIn}
           >
             SIGN IN
           </Button>
@@ -93,7 +103,7 @@ const SignUp: React.FC = () => {
         }} />
       </div>
       
-      <div className="w-full md:w-1/2 flex flex-col p-8 justify-center items-center transition-all duration-500 ease-in-out">
+      <div className={`w-full md:w-1/2 flex flex-col p-8 justify-center items-center transition-all duration-500 ease-in-out auth-right-panel ${isNavigating ? 'slide-out-right' : ''}`}>
         <div className="flex items-center mb-8">
           <Logo textColor="text-black" />
         </div>
@@ -176,6 +186,18 @@ const SignUp: React.FC = () => {
               Sign Up with Google
             </Button>
           </form>
+          
+          {/* Mobile sign in button (only visible on mobile) */}
+          <div className="mt-6 text-center md:hidden">
+            <p className="text-sm text-gray-600 mb-2">Already have an account?</p>
+            <Button
+              variant="outline"
+              className="text-primary border-primary hover:bg-primary/10"
+              onClick={handleNavigateToSignIn}
+            >
+              Sign In
+            </Button>
+          </div>
         </div>
       </div>
     </div>

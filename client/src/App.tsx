@@ -14,6 +14,7 @@ import Profile from "@/pages/Profile";
 import NotFound from "@/pages/not-found";
 import AppLayout from "@/components/layout/AppLayout";
 import { useEffect } from "react";
+import './App.css';
 
 function AuthenticatedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, loading } = useAuth();
