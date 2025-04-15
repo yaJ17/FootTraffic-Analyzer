@@ -5,7 +5,7 @@ import Logo from '@/components/Logo';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import signupImage from '@assets/signup_img.svg';
+import signupImage from '../assets/signup_img.jpg';
 
 const SignUp: React.FC = () => {
   const [email, setEmail] = useState('');

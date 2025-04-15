@@ -5,7 +5,7 @@ import Logo from '@/components/Logo';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import signinImage from '@assets/signin_img.svg';
+import signinImage from '../assets/signin_img.jpg';
 
 const SignIn: React.FC = () => {
   const [email, setEmail] = useState('');
