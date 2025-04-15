@@ -48,10 +48,7 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({ locations, timeLabe
       gridcolor: 'rgba(211, 211, 211, 0.3)',
       zeroline: false
     },
-    legend: {
-      orientation: 'h',
-      y: -0.2
-    },
+    showlegend: false, // Remove the plotly legend since we have our own custom legend
     height: 300,
     margin: { l: 40, r: 20, t: 60, b: 40 }
   };

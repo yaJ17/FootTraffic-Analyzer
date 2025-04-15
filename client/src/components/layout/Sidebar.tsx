@@ -26,8 +26,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     { path: '/reports', icon: 'description', label: 'Reports' },
   ];
 
+  const [, setLocation] = useLocation();
+  
   const handleNavigation = (path: string) => {
-    window.location.href = path;
+    setLocation(path);
   };
 
   const handleToggleExpand = (e: React.MouseEvent) => {
@@ -38,7 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleLogout = async () => {
     try {
       await logoutUser();
-      window.location.href = '/signin';
+      setLocation('/signin');
     } catch (error) {
       console.error('Logout failed:', error);
     }

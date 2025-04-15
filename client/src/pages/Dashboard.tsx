@@ -111,7 +111,7 @@ const Dashboard: React.FC = () => {
     <div className="p-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - KPI Card, Peak Hours, Weekly Summary */}
-        <div className="col-span-1">
+        <div className="col-span-1 flex flex-col gap-6">
           <KpiCard 
             title={kpiData.title} 
             value={kpiData.value} 
@@ -133,7 +133,7 @@ const Dashboard: React.FC = () => {
         </div>
         
         {/* Right Column - Map and Charts */}
-        <div className="col-span-1 lg:col-span-2">
+        <div className="col-span-1 lg:col-span-2 flex flex-col gap-6">
           <MapView 
             center={mapData.center}
             zoom={mapData.zoom}
