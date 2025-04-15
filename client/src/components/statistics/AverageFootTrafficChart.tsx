@@ -26,7 +26,8 @@ const AverageFootTrafficChart: React.FC<AverageFootTrafficChartProps> = ({ gates
   const layout = {
     autosize: true,
     title: {
-      text: 'Average Foot Traffic by Hour',
+      // Remove title as it's already in the parent component
+      text: '',
       font: { size: 16, family: 'Inter, sans-serif', weight: 'bold' }
     },
     xaxis: {
@@ -40,11 +41,12 @@ const AverageFootTrafficChart: React.FC<AverageFootTrafficChartProps> = ({ gates
       zeroline: false
     },
     legend: {
-      x: 0.7,
-      y: 0.1
+      // Position legend at the top to save space
+      orientation: 'h',
+      y: 1.1
     },
     height: 300,
-    margin: { l: 40, r: 20, t: 40, b: 40 }
+    margin: { l: 40, r: 20, t: 10, b: 40 }
   };
 
   return (
