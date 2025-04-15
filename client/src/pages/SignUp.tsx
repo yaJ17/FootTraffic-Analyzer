@@ -48,10 +48,31 @@ const SignUp: React.FC = () => {
       });
     }
   };
+  
+  const handleGoogleSignUp = async () => {
+    try {
+      await loginWithGoogle();
+      toast({
+        title: "Registration Success",
+        description: "Your account has been created with Google. Redirecting to sign in...",
+        variant: "default"
+      });
+      // Redirect to sign in page after successful registration with Google
+      setTimeout(() => {
+        setLocation('/signin');
+      }, 1500);
+    } catch (error: any) {
+      toast({
+        title: "Registration Failed",
+        description: error.message || "Failed to sign up with Google",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden md:flex md:w-1/2 bg-primary items-center justify-center relative">
+    <div className="min-h-screen flex overflow-hidden">
+      <div className="hidden md:flex md:w-1/2 bg-primary items-center justify-center relative transition-all duration-500 ease-in-out transform">
         <div className="text-center z-10 p-8">
           <h2 className="text-3xl font-bold mb-4 text-lightText">Welcome back</h2>
           <p className="mb-6 text-lightText">Already have an account? To keep connected with us, please login your account.</p>
@@ -62,13 +83,13 @@ const SignUp: React.FC = () => {
             SIGN IN
           </Button>
         </div>
-        <div className="absolute inset-0 opacity-70 bg-cover bg-center" style={{ 
+        <div className="absolute inset-0 opacity-70 bg-cover bg-center transition-opacity duration-500" style={{ 
           backgroundImage: `url(${signupImage})`,
           backgroundColor: 'rgba(0, 0, 0, 0.3)'
         }} />
       </div>
       
-      <div className="w-full md:w-1/2 flex flex-col p-8 justify-center items-center">
+      <div className="w-full md:w-1/2 flex flex-col p-8 justify-center items-center transition-all duration-500 ease-in-out">
         <div className="flex items-center mb-8">
           <Logo textColor="text-black" />
         </div>
