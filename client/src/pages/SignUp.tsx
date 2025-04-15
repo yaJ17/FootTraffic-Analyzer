@@ -49,27 +49,6 @@ const SignUp: React.FC = () => {
     }
   };
 
-  const handleGoogleSignUp = async () => {
-    try {
-      await loginWithGoogle();
-      // Redirect to sign in page after successful registration with Google
-      toast({
-        title: "Registration Success",
-        description: "Your account has been created with Google. Redirecting to sign in...",
-        variant: "default"
-      });
-      setTimeout(() => {
-        setLocation('/signin');
-      }, 1500);
-    } catch (error: any) {
-      toast({
-        title: "Registration Failed",
-        description: error.message || "Failed to sign up with Google",
-        variant: "destructive"
-      });
-    }
-  };
-
   return (
     <div className="min-h-screen flex">
       <div className="hidden md:flex md:w-1/2 bg-primary items-center justify-center relative">
