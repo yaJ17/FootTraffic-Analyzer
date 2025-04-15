@@ -51,12 +51,16 @@ const SignUp: React.FC = () => {
   
   const handleGoogleSignUp = async () => {
     try {
-      await loginWithGoogle();
+      const user = await loginWithGoogle();
+      // Log out immediately after Google sign-up
+      await logoutUser();
+      
       toast({
         title: "Registration Success",
-        description: "Your account has been created with Google. Redirecting to sign in...",
+        description: "Your account has been created with Google. Please sign in now.",
         variant: "default"
       });
+      
       // Redirect to sign in page after successful registration with Google
       setTimeout(() => {
         setLocation('/signin');

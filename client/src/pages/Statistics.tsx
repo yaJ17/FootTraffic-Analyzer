@@ -6,7 +6,18 @@ import MonthFootTrafficChart from '@/components/statistics/MonthFootTrafficChart
 import { useQuery } from '@tanstack/react-query';
 import Plot from 'react-plotly.js';
 
+// Define state values outside the component 
+// to avoid the "Rendered more hooks than during previous render" issue
+const defaultLocation = 'All Locations';
+const defaultMetric = 'Count';
+const defaultTimePeriod = 'month';
+
 const Statistics: React.FC = () => {
+  // Move all useState hooks to the very top of the component
+  const [selectedLocation, setSelectedLocation] = useState(defaultLocation);
+  const [selectedMetric, setSelectedMetric] = useState(defaultMetric);
+  const [timePeriod, setTimePeriod] = useState(defaultTimePeriod);
+  
   const { data: statisticsData, isLoading } = useQuery({
     queryKey: ['/api/statistics'],
     queryFn: () => fetch('/api/statistics').then(res => res.json()),
@@ -86,12 +97,6 @@ const Statistics: React.FC = () => {
       { id: 'shop', name: 'Shopping', value: 176 }
     ]
   };
-
-  // Defining these state variables conditionally causes the React Hooks error
-  // Moving them to the top level fixes the "Rendered more hooks than during previous render" issue
-  const [selectedLocation, setSelectedLocation] = useState('All Locations');
-  const [selectedMetric, setSelectedMetric] = useState('Count');
-  const [timePeriod, setTimePeriod] = useState('month');
   
   const locations = ['All Locations', 'Divisoria', 'Manila Cathedral', 'Fort Santiago'];
   const metrics = ['Count', 'Dwell'];

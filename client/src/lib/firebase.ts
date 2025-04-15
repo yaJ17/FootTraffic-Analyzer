@@ -45,6 +45,8 @@ export const signInWithEmail = async (email: string, password: string) => {
 export const signUpWithEmail = async (email: string, password: string) => {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, password);
+    // Immediately sign out after registration to prevent auto-login
+    await signOut(auth);
     return result.user;
   } catch (error) {
     throw error;
