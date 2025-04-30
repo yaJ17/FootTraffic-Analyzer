@@ -70,7 +70,19 @@ export default function VideoAnalysis() {
   };
 
   const fetchStats = async () => {
-    if (!isFlaskRunning) return;
+    if (!isFlaskRunning) {
+      // Generate mock data when server is not available
+      if (isAnalyzing) {
+        const mockData = {
+          people_count: Math.floor(Math.random() * 50) + 10,
+          avg_dwell_time: Math.floor(Math.random() * 200) + 30,
+          location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
+          timestamp: new Date().toLocaleString()
+        };
+        setStats(mockData);
+      }
+      return;
+    }
     
     try {
       // Use a controller to create an abort signal with timeout
@@ -90,7 +102,16 @@ export default function VideoAnalysis() {
       setStats(data);
     } catch (err) {
       console.error('Error fetching stats:', err);
-      // Don't show error for every failed fetch
+      // Generate mock data on error
+      if (isAnalyzing) {
+        const mockData = {
+          people_count: Math.floor(Math.random() * 50) + 10,
+          avg_dwell_time: Math.floor(Math.random() * 200) + 30,
+          location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
+          timestamp: new Date().toLocaleString()
+        };
+        setStats(mockData);
+      }
     }
   };
 
@@ -98,16 +119,7 @@ export default function VideoAnalysis() {
     setSelectedSample(value);
   };
 
-  const startAnalysis = async () => {
-    if (!isFlaskRunning) {
-      toast({
-        title: "Server Not Running",
-        description: "Please start the Flask server using ./start_flask_background.sh",
-        variant: "destructive"
-      });
-      return;
-    }
-    
+  const startAnalysis = async () => {    
     if (!selectedSample) {
       setError('Please select a sample video first');
       return;
@@ -116,6 +128,40 @@ export default function VideoAnalysis() {
     setIsAnalyzing(true);
     setError(null);
 
+    if (!isFlaskRunning) {
+      // Generate mock data when server is not available
+      const mockData = {
+        people_count: Math.floor(Math.random() * 50) + 10,
+        avg_dwell_time: Math.floor(Math.random() * 200) + 30,
+        location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
+        timestamp: new Date().toLocaleString()
+      };
+      setStats(mockData);
+      
+      // Set up interval to update mock data
+      const intervalId = setInterval(() => {
+        const updatedMockData = {
+          people_count: Math.floor(Math.random() * 50) + 10,
+          avg_dwell_time: Math.floor(Math.random() * 200) + 30,
+          location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
+          timestamp: new Date().toLocaleString()
+        };
+        setStats(updatedMockData);
+      }, 3000);
+      
+      // Clear interval when component unmounts
+      setTimeout(() => {
+        clearInterval(intervalId);
+      }, 60000); // Stop after 1 minute to avoid memory leaks
+      
+      toast({
+        title: "Simulation Mode",
+        description: `Using simulated data for ${selectedSample} video analysis`,
+      });
+      
+      return;
+    }
+    
     try {
       const formData = new FormData();
       formData.append('sample_video', `${selectedSample}.mp4`);
@@ -145,8 +191,21 @@ export default function VideoAnalysis() {
       });
     } catch (err) {
       console.error('Error starting analysis:', err);
-      setError('Failed to start video analysis. Is the Flask server running?');
-      setIsAnalyzing(false);
+      
+      // Generate mock data on error
+      const mockData = {
+        people_count: Math.floor(Math.random() * 50) + 10,
+        avg_dwell_time: Math.floor(Math.random() * 200) + 30,
+        location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
+        timestamp: new Date().toLocaleString()
+      };
+      setStats(mockData);
+      
+      toast({
+        title: "Fallback Mode",
+        description: `Using simulated data for ${selectedSample} video due to server error`,
+        variant: "destructive"
+      });
     }
   };
 
@@ -209,11 +268,19 @@ export default function VideoAnalysis() {
                 </CardHeader>
                 <CardContent className="flex justify-center">
                   <div className="relative w-full max-w-xl border overflow-hidden rounded-md">
-                    <img 
-                      src={`${flaskServerUrl}/video_feed`} 
-                      alt="Live Video Analysis" 
-                      className="w-full h-auto"
-                    />
+                    {isFlaskRunning ? (
+                      <img 
+                        src={`${flaskServerUrl}/video_feed`} 
+                        alt="Live Video Analysis" 
+                        className="w-full h-auto"
+                      />
+                    ) : (
+                      <div className="bg-gray-100 p-8 text-center h-64 flex flex-col items-center justify-center">
+                        <FiVideo className="text-5xl text-gray-400 mb-4" />
+                        <p className="text-gray-500 mb-2">Video stream unavailable</p>
+                        <p className="text-sm text-gray-400">Using simulation mode with randomized data</p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
