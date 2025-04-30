@@ -239,22 +239,47 @@ export default function VideoAnalysis() {
                       In a real implementation with the Flask server running:
                       <img src={`${flaskServerUrl}/video_feed`} alt="Live Video Analysis" className="w-full h-auto" />
                     */}
-                    <div className="aspect-video bg-gray-200 flex flex-col items-center justify-center">
-                      <FiVideo className="text-gray-400 text-6xl mb-4" />
-                      <p className="text-gray-500 text-center">
-                        {selectedSample === 'palengke' ? 'Palengke Market Video Feed' : 'School Entrance Video Feed'}
-                        <br />
-                        <span className="text-sm">(Video stream simulation)</span>
-                      </p>
-                      
-                      {/* Simulated detection bounding boxes */}
+                    <div className="aspect-video bg-gray-200 overflow-hidden">
                       {selectedSample && (
-                        <div className="mt-4 w-full max-w-xs">
-                          <div className="h-2 bg-gray-300 rounded-full mb-2 relative overflow-hidden">
-                            <div className="h-full bg-green-500 absolute top-0 left-0" 
-                                 style={{width: `${(stats?.people_count || 0) * 5}%`, maxWidth: '100%'}}></div>
+                        <video 
+                          autoPlay 
+                          loop 
+                          muted 
+                          className="w-full h-full object-cover"
+                          poster={selectedSample === 'palengke' ? "/palengke_poster.jpg" : "/school_poster.jpg"}
+                        >
+                          <source 
+                            src={selectedSample === 'palengke' 
+                              ? "https://assets.codepen.io/9394943/market-view-compressed.mp4" 
+                              : "https://assets.codepen.io/9394943/school-hallway.mp4"} 
+                            type="video/mp4" 
+                          />
+                          Your browser does not support video playback.
+                        </video>
+                      )}
+                      
+                      {!selectedSample && (
+                        <div className="w-full h-full flex flex-col items-center justify-center">
+                          <FiVideo className="text-gray-400 text-6xl mb-4" />
+                          <p className="text-gray-500 text-center">
+                            Select a video to begin analysis
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* Detection overlay - this would show bounding boxes in a real implementation */}
+                      {selectedSample && (
+                        <div className="absolute top-0 left-0 w-full h-full">
+                          <div className="absolute bottom-4 left-4 right-4 bg-black bg-opacity-50 text-white text-sm p-2 rounded">
+                            <div className="flex justify-between mb-1">
+                              <span>People detected: {stats?.people_count || 0}</span>
+                              <span>Processing...</span>
+                            </div>
+                            <div className="h-2 bg-gray-700 rounded-full relative overflow-hidden">
+                              <div className="h-full bg-green-500 absolute top-0 left-0 transition-all duration-300" 
+                                   style={{width: `${(stats?.people_count || 0) * 5}%`, maxWidth: '100%'}}></div>
+                            </div>
                           </div>
-                          <p className="text-xs text-gray-500 text-center">Processing video analysis...</p>
                         </div>
                       )}
                     </div>
