@@ -3,6 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { CalendarIcon, Clock } from "lucide-react";
 
 interface TaskFormProps {
   onAddTask: (task: {
@@ -16,12 +21,16 @@ interface TaskFormProps {
 
 const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
   const [title, setTitle] = useState('');
-  const [date, setDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [time, setTime] = useState('09:00');
   const [type, setType] = useState('Medium');
   const [description, setDescription] = useState('');
 
   const handleSubmit = () => {
-    if (!title || !date) return;
+    if (!title || !selectedDate) {
+      // Show error or validation message
+      return;
+    }
     
     // Determine color based on priority
     let color = 'bg-yellow-100';
@@ -31,9 +40,13 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
       color = 'bg-blue-100';
     }
     
+    // Format the date with time
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const dateTimeStr = `${dateStr}T${time}:00`;
+    
     onAddTask({
       title,
-      date,
+      date: dateTimeStr,
       type,
       description,
       color
@@ -41,7 +54,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
     
     // Reset form
     setTitle('');
-    setDate('');
+    setSelectedDate(undefined);
+    setTime('09:00');
     setType('Medium');
     setDescription('');
   };
@@ -60,40 +74,71 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
           />
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="w-full sm:w-1/2">
-              <Input
-                type="date"
-                className="w-full"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
+              {/* Date Picker */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !selectedDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
+            
             <div className="w-full sm:w-1/2">
-              <Select value={type} onValueChange={setType}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="High">
-                    <div className="flex items-center">
-                      <span className="h-2 w-2 rounded-full bg-red-500 mr-2"></span>
-                      High Priority
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="Medium">
-                    <div className="flex items-center">
-                      <span className="h-2 w-2 rounded-full bg-yellow-500 mr-2"></span>
-                      Medium Priority
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="Low">
-                    <div className="flex items-center">
-                      <span className="h-2 w-2 rounded-full bg-blue-500 mr-2"></span>
-                      Low Priority
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Time Picker */}
+              <div className="flex items-center space-x-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
             </div>
+          </div>
+          
+          <div className="mt-4">
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="High">
+                  <div className="flex items-center">
+                    <span className="h-2 w-2 rounded-full bg-red-500 mr-2"></span>
+                    High Priority
+                  </div>
+                </SelectItem>
+                <SelectItem value="Medium">
+                  <div className="flex items-center">
+                    <span className="h-2 w-2 rounded-full bg-yellow-500 mr-2"></span>
+                    Medium Priority
+                  </div>
+                </SelectItem>
+                <SelectItem value="Low">
+                  <div className="flex items-center">
+                    <span className="h-2 w-2 rounded-full bg-blue-500 mr-2"></span>
+                    Low Priority
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         

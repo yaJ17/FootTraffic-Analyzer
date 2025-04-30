@@ -199,8 +199,40 @@ const Reports: React.FC = () => {
       
       content = JSON.stringify(jsonData, null, 2);
     } else if (exportFormat === 'pdf') {
-      // For PDF, we would normally use a library like jsPDF or make a server request
-      // For this demo, we'll create a styled HTML document that mimics a PDF report
+      // For PDF we'll use a blob with application/pdf mime type instead of HTML
+      mimeType = 'application/pdf';
+      // We'd normally generate a proper PDF file here.
+      // For this demo, we need to use proper mime types to trigger browser download
+      
+      // Create a simple PDF-like content as binary data
+      const pdfHeader = '%PDF-1.5\n';
+      const pdfFooter = '%%EOF\n';
+      const pdfContent = `
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> /MediaBox [0 0 612 792] /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 68 >>
+stream
+BT
+/F1 12 Tf
+72 720 Td
+(Foot Traffic Report - Generated ${new Date().toLocaleString()}) Tj
+ET
+endstream
+endobj
+`;
+      
+      content = pdfHeader + pdfContent + pdfFooter;
       
       // Create a simple HTML table representation that could be converted to PDF
       content = `
@@ -333,16 +365,50 @@ const Reports: React.FC = () => {
       fileExtension = 'html'; // For demo purposes
     }
     
-    // Create and download the file
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${filename}.${fileExtension}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Create and download the file with proper MIME types
+    if (exportFormat === 'pdf') {
+      // For PDF, we need to trigger download with PDF content type
+      // In a real app, we'd generate a proper PDF file here using a library like jsPDF
+      
+      // For demo, we'll create a Blob with proper MIME type
+      const blob = new Blob([content], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      
+      // Create a download link and click it
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filename}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } 
+    else if (exportFormat === 'csv') {
+      // For CSV, use the text/csv MIME type
+      const blob = new Blob([content], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filename}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    else if (exportFormat === 'json') {
+      // For JSON, use application/json MIME type
+      const blob = new Blob([content], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filename}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
     
     // Close dialog and show success message
     setExportDialogOpen(false);
