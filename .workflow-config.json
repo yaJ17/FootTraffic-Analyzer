@@ -1,0 +1,10 @@
+{
+  "workflows": [
+    {
+      "name": "Flask backend",
+      "command": "./flask_backend_workflow.sh",
+      "runOnStart": true,
+      "persistent": true
+    }
+  ]
+}
