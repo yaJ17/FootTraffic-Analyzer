@@ -261,12 +261,12 @@ export default function VideoAnalysis() {
           </Card>
           
           {isAnalyzing && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="flex flex-col">
                 <CardHeader>
                   <CardTitle>Live Video Stream</CardTitle>
                 </CardHeader>
-                <CardContent className="flex justify-center">
+                <CardContent className="flex justify-center flex-1">
                   <div className="relative w-full max-w-xl border overflow-hidden rounded-md">
                     {isFlaskRunning ? (
                       <img 
@@ -285,26 +285,26 @@ export default function VideoAnalysis() {
                 </CardContent>
               </Card>
               
-              <Card>
+              <Card className="flex flex-col">
                 <CardHeader>
                   <CardTitle>Analysis Results</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex-1">
                   {stats ? (
                     <div className="space-y-4">
-                      <div className="flex items-center">
-                        <FiMapPin className="text-blue-500 mr-3 text-xl" />
-                        <div>
+                      <div className="flex flex-wrap items-center">
+                        <FiMapPin className="text-blue-500 mr-3 text-xl flex-shrink-0" />
+                        <div className="flex-grow min-w-0">
                           <p className="text-sm text-gray-500">Location</p>
-                          <p className="font-medium text-lg">{stats.location}</p>
+                          <p className="font-medium text-lg truncate">{stats.location}</p>
                         </div>
                       </div>
                       
                       <Separator />
                       
-                      <div className="flex items-center">
-                        <FiUsers className="text-green-500 mr-3 text-xl" />
-                        <div>
+                      <div className="flex flex-wrap items-center">
+                        <FiUsers className="text-green-500 mr-3 text-xl flex-shrink-0" />
+                        <div className="flex-grow min-w-0">
                           <p className="text-sm text-gray-500">People Count</p>
                           <p className="font-medium text-lg">{stats.people_count}</p>
                         </div>
@@ -312,9 +312,9 @@ export default function VideoAnalysis() {
                       
                       <Separator />
                       
-                      <div className="flex items-center">
-                        <FiClock className="text-orange-500 mr-3 text-xl" />
-                        <div>
+                      <div className="flex flex-wrap items-center">
+                        <FiClock className="text-orange-500 mr-3 text-xl flex-shrink-0" />
+                        <div className="flex-grow min-w-0">
                           <p className="text-sm text-gray-500">Average Dwell Time</p>
                           <p className="font-medium text-lg">{stats.avg_dwell_time} seconds</p>
                         </div>
