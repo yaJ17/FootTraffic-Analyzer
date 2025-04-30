@@ -5,6 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { FiUpload, FiVideo, FiBarChart2, FiClock, FiUsers, FiMapPin } from 'react-icons/fi';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 interface Stats {
   people_count: number;
@@ -18,22 +20,54 @@ export default function VideoAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isFlaskRunning, setIsFlaskRunning] = useState<boolean>(false);
   const flaskServerUrl = 'http://localhost:5001';
+  const { toast } = useToast();
+
+  // Check if Flask server is running on component mount
+  useEffect(() => {
+    checkFlaskServer();
+  }, []);
 
   useEffect(() => {
-    // Fetch stats every 5 seconds when analyzing
+    // Fetch stats every 3 seconds when analyzing
     if (isAnalyzing) {
       const interval = setInterval(() => {
         fetchStats();
-      }, 5000);
+      }, 3000);
       
       return () => clearInterval(interval);
     }
   }, [isAnalyzing]);
 
-  const fetchStats = async () => {
+  const checkFlaskServer = async () => {
     try {
-      const response = await fetch(`${flaskServerUrl}/api/stats`);
+      const response = await fetch(`${flaskServerUrl}/api/stats`, { 
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        // Prevent fetch from hanging for too long
+        signal: AbortSignal.timeout(3000)
+      });
+      
+      if (response.ok) {
+        setIsFlaskRunning(true);
+        const data = await response.json();
+        console.log("Initial stats:", data);
+      }
+    } catch (err) {
+      console.error('Flask server check failed:', err);
+      setIsFlaskRunning(false);
+      setError('The Flask video analysis server is not running. Please start it using the provided script.');
+    }
+  };
+
+  const fetchStats = async () => {
+    if (!isFlaskRunning) return;
+    
+    try {
+      const response = await fetch(`${flaskServerUrl}/api/stats`, {
+        signal: AbortSignal.timeout(3000)
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch stats');
       }
@@ -41,7 +75,7 @@ export default function VideoAnalysis() {
       setStats(data);
     } catch (err) {
       console.error('Error fetching stats:', err);
-      setError('Could not fetch statistics from server');
+      // Don't show error for every failed fetch
     }
   };
 
@@ -50,6 +84,15 @@ export default function VideoAnalysis() {
   };
 
   const startAnalysis = async () => {
+    if (!isFlaskRunning) {
+      toast({
+        title: "Server Not Running",
+        description: "Please start the Flask server using ./start_simple_flask.sh",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (!selectedSample) {
       setError('Please select a sample video first');
       return;
@@ -73,6 +116,11 @@ export default function VideoAnalysis() {
       
       // Start fetching stats
       fetchStats();
+      
+      toast({
+        title: "Analysis Started",
+        description: `Now analyzing ${selectedSample} video`,
+      });
     } catch (err) {
       console.error('Error starting analysis:', err);
       setError('Failed to start video analysis. Is the Flask server running?');
