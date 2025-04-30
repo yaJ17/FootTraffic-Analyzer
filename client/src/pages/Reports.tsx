@@ -49,11 +49,38 @@ const Reports: React.FC = () => {
   
   // Export report state
   const [exportFormat, setExportFormat] = useState<string>("pdf");
-  const [exportLocation, setExportLocation] = useState<string>("all");
   const [startDate, setStartDate] = useState<Date | undefined>(new Date());
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
   const [exportDialogOpen, setExportDialogOpen] = useState<boolean>(false);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>(["all"]);
   const { toast } = useToast();
+  
+  // Handle location checkbox selection
+  const toggleLocation = (location: string) => {
+    if (location === "all") {
+      // If "All Locations" is checked, clear other selections
+      if (selectedLocations.includes("all")) {
+        setSelectedLocations([]);
+      } else {
+        setSelectedLocations(["all"]);
+      }
+    } else {
+      // Remove "all" if it's selected and we're checking individual locations
+      let newLocations = [...selectedLocations];
+      if (newLocations.includes("all")) {
+        newLocations = newLocations.filter(loc => loc !== "all");
+      }
+      
+      // Toggle the selected location
+      if (newLocations.includes(location)) {
+        newLocations = newLocations.filter(loc => loc !== location);
+      } else {
+        newLocations.push(location);
+      }
+      
+      setSelectedLocations(newLocations);
+    }
+  };
   
   if (isLoading) {
     return (
@@ -110,12 +137,30 @@ const Reports: React.FC = () => {
 
   // Handle exporting reports
   const handleExport = () => {
+    if (selectedLocations.length === 0) {
+      toast({
+        title: "Export Error",
+        description: "Please select at least one location.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Format dates for filename
     const startDateFormatted = startDate ? format(startDate, 'yyyyMMdd') : 'all';
     const endDateFormatted = endDate ? format(endDate, 'yyyyMMdd') : 'all';
+    const locationsStr = selectedLocations.length > 1 ? 'multiple' : selectedLocations[0];
     
     // Create filename based on selected options
-    const filename = `FootTrafficReport_${exportLocation}_${startDateFormatted}_${endDateFormatted}.${exportFormat}`;
+    const filename = `FootTrafficReport_${locationsStr}_${startDateFormatted}_${endDateFormatted}`;
+    
+    // Filter reports based on selected locations
+    const filteredReports = selectedLocations.includes('all') 
+      ? barangayReports 
+      : barangayReports.filter(report => {
+          const reportLocationId = report.name.toLowerCase().replace(/\s+/g, '_');
+          return selectedLocations.includes(reportLocationId);
+        });
     
     // In a real implementation, we would make an API call to generate the report
     // For demonstration, we'll create a simple CSV/JSON/PDF based on current data
@@ -128,7 +173,7 @@ const Reports: React.FC = () => {
       mimeType = 'text/csv';
       // Create CSV content
       content = 'Location,Population,Avg Foot Traffic,Total Foot Traffic,Avg Dwell Time,Total Dwell Time\n';
-      barangayReports.forEach(report => {
+      filteredReports.forEach(report => {
         content += `${report.name},${report.population},${report.avgFootTraffic},${report.totalFootTraffic},"${report.avgDwellTime}","${report.totalDwellTime}"\n`;
       });
     } else if (exportFormat === 'json') {
@@ -136,72 +181,156 @@ const Reports: React.FC = () => {
       // Create JSON content
       const jsonData = {
         reportInfo: {
-          location: exportLocation,
+          locations: selectedLocations,
           dateRange: {
             start: startDate ? format(startDate, 'yyyy-MM-dd') : 'all',
             end: endDate ? format(endDate, 'yyyy-MM-dd') : 'all'
           },
           generatedAt: new Date().toISOString()
         },
-        data: barangayReports,
-        forecastInterpretation
+        data: filteredReports,
+        forecastInterpretation: selectedLocations.includes('all') ? 
+          forecastInterpretation : 
+          Object.fromEntries(
+            Object.entries(forecastInterpretation)
+              .filter(([key]) => selectedLocations.includes(key))
+          )
       };
       
       content = JSON.stringify(jsonData, null, 2);
-    } else {
-      // For PDF, we'll create a data URI with a simple HTML representation
-      // In a real implementation, this would be handled on the server side
-      mimeType = 'application/pdf';
+    } else if (exportFormat === 'pdf') {
+      // For PDF, we would normally use a library like jsPDF or make a server request
+      // For this demo, we'll create a styled HTML document that mimics a PDF report
       
       // Create a simple HTML table representation that could be converted to PDF
-      // For demonstration, we'll just download this as text
       content = `
-        <html>
-          <head>
-            <title>Foot Traffic Report</title>
-            <style>
-              body { font-family: Arial, sans-serif; }
-              table { border-collapse: collapse; width: 100%; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-              th { background-color: #f2f2f2; }
-            </style>
-          </head>
-          <body>
-            <h1>Foot Traffic Report</h1>
-            <p>Location: ${exportLocation}</p>
-            <p>Date Range: ${startDate ? format(startDate, 'yyyy-MM-dd') : 'All'} to ${endDate ? format(endDate, 'yyyy-MM-dd') : 'All'}</p>
-            <h2>Barangay Reports</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Location</th>
-                  <th>Population</th>
-                  <th>Avg. Foot Traffic</th>
-                  <th>Total Foot Traffic</th>
-                  <th>Avg. Dwell Time</th>
-                  <th>Total Dwell Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${barangayReports.map(report => `
-                  <tr>
-                    <td>${report.name}</td>
-                    <td>${report.population}</td>
-                    <td>${report.avgFootTraffic}</td>
-                    <td>${report.totalFootTraffic}</td>
-                    <td>${report.avgDwellTime}</td>
-                    <td>${report.totalDwellTime}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </body>
-        </html>
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Foot Traffic Report</title>
+    <style>
+      body { 
+        font-family: Arial, sans-serif; 
+        margin: 0;
+        padding: 20px;
+        color: #333;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+        border-bottom: 2px solid #444;
+        padding-bottom: 10px;
+      }
+      h1 { 
+        color: #1a56db;
+        margin-bottom: 5px; 
+      }
+      .meta-info {
+        display: flex;
+        justify-content: space-between;
+        margin: 20px 0;
+        font-size: 14px;
+        color: #555;
+      }
+      table { 
+        border-collapse: collapse; 
+        width: 100%; 
+        margin: 20px 0;
+      }
+      th, td { 
+        border: 1px solid #ddd; 
+        padding: 12px; 
+        text-align: left; 
+      }
+      th { 
+        background-color: #1a56db; 
+        color: white;
+        font-weight: bold;
+      }
+      tr:nth-child(even) {
+        background-color: #f2f2f2;
+      }
+      .footer {
+        margin-top: 30px;
+        border-top: 1px solid #ddd;
+        padding-top: 10px;
+        font-size: 12px;
+        color: #777;
+        text-align: center;
+      }
+      .location-section {
+        margin: 30px 0;
+      }
+      .location-title {
+        font-size: 18px;
+        color: #1a56db;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>Foot Traffic Analysis Report</h1>
+      <p>Generated on ${format(new Date(), 'MMMM d, yyyy')}</p>
+    </div>
+    
+    <div class="meta-info">
+      <div>
+        <strong>Date Range:</strong> ${startDate ? format(startDate, 'MMMM d, yyyy') : 'All'} to ${endDate ? format(endDate, 'MMMM d, yyyy') : 'All'}
+      </div>
+      <div>
+        <strong>Selected Locations:</strong> ${selectedLocations.join(', ')}
+      </div>
+    </div>
+    
+    <h2>Barangay Reports</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Location</th>
+          <th>Population</th>
+          <th>Avg. Foot Traffic</th>
+          <th>Total Foot Traffic</th>
+          <th>Avg. Dwell Time</th>
+          <th>Total Dwell Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filteredReports.map(report => `
+          <tr>
+            <td>${report.name}</td>
+            <td>${report.population.toLocaleString()}</td>
+            <td>${report.avgFootTraffic}</td>
+            <td>${report.totalFootTraffic.toLocaleString()}</td>
+            <td>${report.avgDwellTime}</td>
+            <td>${report.totalDwellTime}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    
+    ${Object.entries(forecastInterpretation)
+      .filter(([key]) => selectedLocations.includes('all') || selectedLocations.includes(key))
+      .map(([key, value]) => `
+        <div class="location-section">
+          <div class="location-title">${key === 'manilaCathedral' ? 'Manila Cathedral' : 
+                                        key === 'divisoriaMarket' ? 'Divisoria Market' : 
+                                        key === 'fortSantiago' ? 'Fort Santiago' : key}</div>
+          <p>${value}</p>
+        </div>
+      `).join('')}
+    
+    <div class="footer">
+      <p>This report is generated by the Foot Traffic Analysis System. © 2025</p>
+    </div>
+  </body>
+</html>
       `;
       
-      // In a real app, this would be converted to PDF
       mimeType = 'text/html';
-      fileExtension = 'html'; // Download as HTML for demonstration
+      fileExtension = 'html'; // For demo purposes
     }
     
     // Create and download the file
@@ -209,7 +338,7 @@ const Reports: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `FootTrafficReport_${exportLocation}_${startDateFormatted}_${endDateFormatted}.${fileExtension}`;
+    a.download = `${filename}.${fileExtension}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -226,7 +355,7 @@ const Reports: React.FC = () => {
 
   return (
     <div className="p-6">
-      {/* Export Report Dialog */}
+      {/* Export Report Dialog - Simplified Version */}
       <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
@@ -237,120 +366,172 @@ const Reports: React.FC = () => {
           </DialogHeader>
           
           <div className="py-4 space-y-5">
-            <Tabs defaultValue="format" className="w-full">
-              <TabsList className="w-full grid grid-cols-3">
-                <TabsTrigger value="format">Format</TabsTrigger>
-                <TabsTrigger value="date">Date Range</TabsTrigger>
-                <TabsTrigger value="location">Location</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="format" className="pt-4">
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-500">Select export format:</p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <Button 
-                      variant={exportFormat === "pdf" ? "default" : "outline"} 
-                      onClick={() => setExportFormat("pdf")}
-                      className="flex items-center justify-center gap-2"
-                    >
-                      <span className="material-icons">picture_as_pdf</span>
-                      PDF
-                    </Button>
-                    <Button 
-                      variant={exportFormat === "csv" ? "default" : "outline"} 
-                      onClick={() => setExportFormat("csv")}
-                      className="flex items-center justify-center gap-2"
-                    >
-                      <span className="material-icons">table_view</span>
-                      CSV
-                    </Button>
-                    <Button 
-                      variant={exportFormat === "json" ? "default" : "outline"} 
-                      onClick={() => setExportFormat("json")}
-                      className="flex items-center justify-center gap-2"
-                    >
-                      <span className="material-icons">data_object</span>
-                      JSON
-                    </Button>
-                  </div>
+            {/* Format Section */}
+            <div className="space-y-3">
+              <h3 className="font-medium text-sm">Export Format</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <Button 
+                  variant={exportFormat === "pdf" ? "default" : "outline"} 
+                  onClick={() => setExportFormat("pdf")}
+                  className="flex items-center justify-center gap-2"
+                >
+                  <span className="material-icons">picture_as_pdf</span>
+                  PDF
+                </Button>
+                <Button 
+                  variant={exportFormat === "csv" ? "default" : "outline"} 
+                  onClick={() => setExportFormat("csv")}
+                  className="flex items-center justify-center gap-2"
+                >
+                  <span className="material-icons">table_view</span>
+                  CSV
+                </Button>
+                <Button 
+                  variant={exportFormat === "json" ? "default" : "outline"} 
+                  onClick={() => setExportFormat("json")}
+                  className="flex items-center justify-center gap-2"
+                >
+                  <span className="material-icons">data_object</span>
+                  JSON
+                </Button>
+              </div>
+            </div>
+            
+            {/* Date Range Section */}
+            <div className="space-y-3">
+              <h3 className="font-medium text-sm">Date Range</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Start date:</p>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal text-sm"
+                      >
+                        <span className="material-icons mr-2 text-sm">calendar_today</span>
+                        {startDate ? format(startDate, "MMM d, yyyy") : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={startDate}
+                        onSelect={setStartDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
-              </TabsContent>
-              
-              <TabsContent value="date" className="pt-4">
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-gray-500 mb-2">Start date:</p>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <span className="material-icons mr-2">calendar_today</span>
-                          {startDate ? format(startDate, "PPP") : "Select date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={startDate}
-                          onSelect={setStartDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm text-gray-500 mb-2">End date:</p>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <span className="material-icons mr-2">calendar_today</span>
-                          {endDate ? format(endDate, "PPP") : "Select date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={endDate}
-                          onSelect={setEndDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+                
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">End date:</p>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal text-sm"
+                      >
+                        <span className="material-icons mr-2 text-sm">calendar_today</span>
+                        {endDate ? format(endDate, "MMM d, yyyy") : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={endDate}
+                        onSelect={setEndDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
-              </TabsContent>
+              </div>
+            </div>
+            
+            {/* Locations Section with Checkboxes */}
+            <div className="space-y-3">
+              <h3 className="font-medium text-sm">Locations</h3>
               
-              <TabsContent value="location" className="pt-4">
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-500">Select location:</p>
-                  <Select 
-                    value={exportLocation} 
-                    onValueChange={setExportLocation}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Locations</SelectItem>
-                      <SelectItem value="manilaCathedral">Manila Cathedral</SelectItem>
-                      <SelectItem value="divisoriaMarket">Divisoria Market</SelectItem>
-                      <SelectItem value="fortSantiago">Fort Santiago</SelectItem>
-                      {barangayReports.map((barangay) => (
-                        <SelectItem key={barangay.id} value={barangay.name.toLowerCase().replace(/\s+/g, '_')}>
-                          {barangay.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="grid grid-cols-2 gap-2 max-h-[180px] overflow-y-auto border rounded-md p-3">
+                {/* All Locations checkbox */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="location-all"
+                    checked={selectedLocations.includes('all')}
+                    onChange={() => toggleLocation('all')}
+                    className="rounded border-gray-300"
+                  />
+                  <label htmlFor="location-all" className="text-sm">
+                    All Locations
+                  </label>
                 </div>
-              </TabsContent>
-            </Tabs>
+                
+                {/* Main locations */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="location-manilaCathedral"
+                    checked={selectedLocations.includes('manilaCathedral')}
+                    onChange={() => toggleLocation('manilaCathedral')}
+                    className="rounded border-gray-300"
+                    disabled={selectedLocations.includes('all')}
+                  />
+                  <label htmlFor="location-manilaCathedral" className="text-sm">
+                    Manila Cathedral
+                  </label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="location-divisoriaMarket"
+                    checked={selectedLocations.includes('divisoriaMarket')}
+                    onChange={() => toggleLocation('divisoriaMarket')}
+                    className="rounded border-gray-300"
+                    disabled={selectedLocations.includes('all')}
+                  />
+                  <label htmlFor="location-divisoriaMarket" className="text-sm">
+                    Divisoria Market
+                  </label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="location-fortSantiago"
+                    checked={selectedLocations.includes('fortSantiago')}
+                    onChange={() => toggleLocation('fortSantiago')}
+                    className="rounded border-gray-300"
+                    disabled={selectedLocations.includes('all')}
+                  />
+                  <label htmlFor="location-fortSantiago" className="text-sm">
+                    Fort Santiago
+                  </label>
+                </div>
+                
+                {/* Barangay locations */}
+                {barangayReports.map((barangay) => {
+                  const locationId = barangay.name.toLowerCase().replace(/\s+/g, '_');
+                  return (
+                    <div key={barangay.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`location-${locationId}`}
+                        checked={selectedLocations.includes(locationId)}
+                        onChange={() => toggleLocation(locationId)}
+                        className="rounded border-gray-300"
+                        disabled={selectedLocations.includes('all')}
+                      />
+                      <label htmlFor={`location-${locationId}`} className="text-sm">
+                        {barangay.name}
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
           
           <DialogFooter>
@@ -424,7 +605,7 @@ const Reports: React.FC = () => {
           <Button 
             onClick={() => {
               setExportFormat("pdf");
-              setExportLocation("all");
+              setSelectedLocations(["all"]);
               setExportDialogOpen(true);
             }}
             variant="outline" 
