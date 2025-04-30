@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { FiUpload, FiVideo, FiBarChart2, FiClock, FiUsers, FiMapPin } from 'react-icons/fi';
+import { FiUpload, FiVideo, FiBarChart2, FiClock, FiUsers, FiMapPin, FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 
@@ -13,6 +13,9 @@ interface Stats {
   avg_dwell_time: number;
   location: string;
   timestamp: string;
+  peak_hour?: string;
+  total_count_today?: number;
+  average_speed?: string;
 }
 
 export default function VideoAnalysis() {
@@ -21,10 +24,11 @@ export default function VideoAnalysis() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isFlaskRunning, setIsFlaskRunning] = useState<boolean>(false);
-  // Use the Replit domain with port 5003 for the Flask server
+  const [flaskCheckAttempted, setFlaskCheckAttempted] = useState<boolean>(false);
+  // Use the Replit domain with port 5001 for the Flask server
   const flaskServerUrl = window.location.hostname.includes('replit') 
-    ? `https://${window.location.hostname.replace('5000', '5003')}` 
-    : 'http://localhost:5003';
+    ? `https://${window.location.hostname.replace('3000', '5001')}` 
+    : 'http://localhost:5001';
   const { toast } = useToast();
 
   // Check if Flask server is running on component mount
@@ -44,12 +48,13 @@ export default function VideoAnalysis() {
   }, [isAnalyzing]);
 
   const checkFlaskServer = async () => {
+    setFlaskCheckAttempted(true);
     try {
       // Use a controller to create an abort signal with timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
       
-      const response = await fetch(`${flaskServerUrl}/api/stats`, { 
+      const response = await fetch(`${flaskServerUrl}/api/status`, { 
         method: 'GET',
         headers: { 'Accept': 'application/json' },
         signal: controller.signal
@@ -60,12 +65,53 @@ export default function VideoAnalysis() {
       if (response.ok) {
         setIsFlaskRunning(true);
         const data = await response.json();
-        console.log("Initial stats:", data);
+        console.log("Flask server status:", data);
+        // If status check works, also load initial stats
+        try {
+          const statsResponse = await fetch(`${flaskServerUrl}/api/stats`);
+          if (statsResponse.ok) {
+            const statsData = await statsResponse.json();
+            setStats(statsData);
+          }
+        } catch (statsErr) {
+          console.error('Initial stats fetch failed:', statsErr);
+        }
+        setError(null);
+      } else {
+        throw new Error('Flask server returned an error');
       }
     } catch (err) {
       console.error('Flask server check failed:', err);
       setIsFlaskRunning(false);
-      setError('The Flask video analysis server is not running. Please start it using the provided script.');
+      setError('The Flask video analysis server is not responding. Please run the start_flask_server.sh script to start it.');
+    }
+  };
+  
+  const handleRestartFlask = () => {
+    toast({
+      title: "Attempting to use simulation mode",
+      description: "The application will continue with simulated data since the Flask server is unavailable",
+    });
+    
+    // Simply mark as analyzing and use the built-in mock data generation
+    if (selectedSample) {
+      setIsAnalyzing(true);
+      const mockData = {
+        people_count: 15,
+        avg_dwell_time: 45.5,
+        location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
+        timestamp: new Date().toLocaleString(),
+        peak_hour: "10:00 AM - 11:00 AM",
+        total_count_today: 156,
+        average_speed: "1.2 m/s"
+      };
+      setStats(mockData);
+    } else {
+      toast({
+        title: "Select a video first",
+        description: "Please select a sample video before starting analysis",
+        variant: "destructive"
+      });
     }
   };
 
@@ -245,7 +291,31 @@ export default function VideoAnalysis() {
               
               {error && (
                 <div className="bg-red-100 text-red-700 p-3 rounded-md mb-4">
-                  {error}
+                  <div className="flex items-start">
+                    <FiAlertTriangle className="mr-2 mt-1 flex-shrink-0" />
+                    <div>
+                      <p>{error}</p>
+                      {flaskCheckAttempted && !isFlaskRunning && (
+                        <div className="mt-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={handleRestartFlask}
+                            className="mr-2"
+                          >
+                            <FiRefreshCw className="mr-1" /> Use Simulation Mode
+                          </Button>
+                          <Button 
+                            variant="link" 
+                            size="sm"
+                            onClick={() => window.open("https://github.com/your-repo/foot-traffic-analyzer", "_blank")}
+                          >
+                            View Instructions
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
               

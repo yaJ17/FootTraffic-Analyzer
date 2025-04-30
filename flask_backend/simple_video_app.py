@@ -121,8 +121,21 @@ def get_stats():
     """API endpoint to get current statistics"""
     return jsonify(current_stats)
 
-def start_flask_server():
-    app.run(host='0.0.0.0', port=5001, debug=False)
+@app.route('/api/status', methods=['GET'])
+def get_status():
+    """API endpoint to check if Flask server is running"""
+    return jsonify({
+        "status": "running",
+        "message": "Flask video analysis server is running",
+        "version": "1.0.0",
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
+
+# This function is no longer used - direct app.run used in run_simple.py instead
+def start_flask_server(port=5001):
+    app.run(host='0.0.0.0', port=port, debug=False)
 
 if __name__ == '__main__':
-    start_flask_server()
+    # Get port from environment variable or use default
+    port = int(os.environ.get('FLASK_PORT', 5001))
+    app.run(host='0.0.0.0', port=port, debug=False)

@@ -1,4 +1,5 @@
-[workflow]
-name = "Start Flask Backend"
-command = "cd flask_backend && PYTHONPATH=$(pwd)/.. python run_simple.py"
-description = "Starts the Flask backend for video processing on port 5001"
+[Start application]
+command = "npm run dev"
+
+[Flask server]
+command = "cd flask_backend && python simple_video_app.py"
