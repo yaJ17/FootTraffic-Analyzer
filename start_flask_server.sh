@@ -1,30 +1,25 @@
 #!/bin/bash
 
-# Kill any existing Python processes
-pkill -f "python.*stable_server.py" || true
-
-echo "Starting stable Flask server for video analysis..."
-
 # Create required directories
 mkdir -p flask_backend/uploads
 mkdir -p flask_backend/templates
 
-# Start the Flask server with nohup to keep it running
-cd flask_backend
-nohup python stable_server.py > flask_stable.log 2>&1 &
-PID=$!
-
-echo "Flask server started with PID: $PID"
-echo "Waiting for server to initialize..."
-sleep 3
-
-# Check if server started successfully
-if ps -p $PID > /dev/null; then
-  echo "Flask server is running on port 5001"
-  curl -s http://localhost:5001/api/status
-  echo 
-  echo "You can now use the Video Analysis feature in the main application."
-else
-  echo "Failed to start Flask server"
-  cat flask_stable.log
+# Copy sample videos to uploads folder if they don't exist
+if [ ! -f "flask_backend/uploads/palengke.mp4" ]; then
+  cp attached_assets/palengke.mp4 flask_backend/uploads/
 fi
+
+if [ ! -f "flask_backend/uploads/school.mp4" ]; then
+  cp attached_assets/school.mp4 flask_backend/uploads/
+fi
+
+# Copy YOLO model to the flask backend directory
+if [ ! -f "flask_backend/yolo12l.pt" ]; then
+  cp attached_assets/model.pt flask_backend/yolo12l.pt
+fi
+
+# Set the Python path to include the current directory
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+
+# Start the Flask server
+cd flask_backend && python run_flask.py
