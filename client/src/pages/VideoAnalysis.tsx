@@ -42,12 +42,17 @@ export default function VideoAnalysis() {
 
   const checkFlaskServer = async () => {
     try {
+      // Use a controller to create an abort signal with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
       const response = await fetch(`${flaskServerUrl}/api/stats`, { 
         method: 'GET',
         headers: { 'Accept': 'application/json' },
-        // Prevent fetch from hanging for too long
-        signal: AbortSignal.timeout(3000)
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         setIsFlaskRunning(true);
@@ -65,9 +70,16 @@ export default function VideoAnalysis() {
     if (!isFlaskRunning) return;
     
     try {
+      // Use a controller to create an abort signal with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
       const response = await fetch(`${flaskServerUrl}/api/stats`, {
-        signal: AbortSignal.timeout(3000)
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
+      
       if (!response.ok) {
         throw new Error('Failed to fetch stats');
       }
@@ -105,10 +117,17 @@ export default function VideoAnalysis() {
       const formData = new FormData();
       formData.append('sample_video', `${selectedSample}.mp4`);
       
+      // Use a controller to create an abort signal with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // Longer timeout for POST
+      
       const response = await fetch(`${flaskServerUrl}/process_sample`, {
         method: 'POST',
         body: formData,
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         throw new Error('Failed to start video analysis');
