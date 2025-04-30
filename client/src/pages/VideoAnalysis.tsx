@@ -21,7 +21,10 @@ export default function VideoAnalysis() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isFlaskRunning, setIsFlaskRunning] = useState<boolean>(false);
-  const flaskServerUrl = 'http://localhost:5001';
+  // Use the Replit domain with port 5001 for the Flask server
+  const flaskServerUrl = window.location.hostname.includes('replit') 
+    ? `https://${window.location.hostname.replace('5000', '5001')}` 
+    : 'http://localhost:5001';
   const { toast } = useToast();
 
   // Check if Flask server is running on component mount
@@ -99,7 +102,7 @@ export default function VideoAnalysis() {
     if (!isFlaskRunning) {
       toast({
         title: "Server Not Running",
-        description: "Please start the Flask server using ./start_simple_flask.sh",
+        description: "Please start the Flask server using ./start_flask_background.sh",
         variant: "destructive"
       });
       return;
