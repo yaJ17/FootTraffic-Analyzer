@@ -199,189 +199,232 @@ const Reports: React.FC = () => {
       
       content = JSON.stringify(jsonData, null, 2);
     } else if (exportFormat === 'pdf') {
-      // For PDF we'll use a blob with application/pdf mime type instead of HTML
-      mimeType = 'application/pdf';
-      // We'd normally generate a proper PDF file here.
-      // For this demo, we need to use proper mime types to trigger browser download
+      // For PDF, we'll create an HTML representation that will be properly converted to PDF
+      // using the browser's built-in print-to-PDF functionality
       
-      // Create a simple PDF-like content as binary data
-      const pdfHeader = '%PDF-1.5\n';
-      const pdfFooter = '%%EOF\n';
-      const pdfContent = `
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> /MediaBox [0 0 612 792] /Contents 5 0 R >>
-endobj
-4 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-5 0 obj
-<< /Length 68 >>
-stream
-BT
-/F1 12 Tf
-72 720 Td
-(Foot Traffic Report - Generated ${new Date().toLocaleString()}) Tj
-ET
-endstream
-endobj
-`;
+      mimeType = 'text/html';
+      fileExtension = 'pdf'; // This will be used for the download filename
       
-      content = pdfHeader + pdfContent + pdfFooter;
-      
-      // Create a simple HTML table representation that could be converted to PDF
+      // Create an HTML document specifically styled for printing to PDF
       content = `
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Foot Traffic Report</title>
+    <title>Foot Traffic Report - ${selectedLocations.includes('all') ? 'All Locations' : selectedLocations.join(', ')}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-      body { 
-        font-family: Arial, sans-serif; 
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        color: #333;
         margin: 0;
         padding: 20px;
-        color: #333;
+        background: white;
+      }
+      .report-container {
+        max-width: 1000px;
+        margin: 0 auto;
       }
       .header {
         text-align: center;
         margin-bottom: 30px;
-        border-bottom: 2px solid #444;
         padding-bottom: 10px;
+        border-bottom: 2px solid #1a56db;
       }
-      h1 { 
+      h1 {
         color: #1a56db;
-        margin-bottom: 5px; 
+        margin-bottom: 5px;
+      }
+      h2 {
+        color: #1a56db;
+        margin-top: 30px;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 5px;
       }
       .meta-info {
         display: flex;
         justify-content: space-between;
         margin: 20px 0;
-        font-size: 14px;
         color: #555;
       }
-      table { 
-        border-collapse: collapse; 
-        width: 100%; 
+      table {
+        width: 100%;
+        border-collapse: collapse;
         margin: 20px 0;
       }
-      th, td { 
-        border: 1px solid #ddd; 
-        padding: 12px; 
-        text-align: left; 
+      th, td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
       }
-      th { 
-        background-color: #1a56db; 
+      th {
+        background-color: #1a56db;
         color: white;
-        font-weight: bold;
       }
       tr:nth-child(even) {
-        background-color: #f2f2f2;
+        background-color: #f9f9f9;
       }
       .footer {
-        margin-top: 30px;
-        border-top: 1px solid #ddd;
-        padding-top: 10px;
+        margin-top: 50px;
+        text-align: center;
         font-size: 12px;
         color: #777;
-        text-align: center;
+        border-top: 1px solid #ddd;
+        padding-top: 20px;
       }
       .location-section {
         margin: 30px 0;
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 5px;
       }
       .location-title {
         font-size: 18px;
         color: #1a56db;
         margin-bottom: 10px;
-        border-bottom: 1px solid #ddd;
-        padding-bottom: 5px;
+      }
+      @media print {
+        body {
+          padding: 0;
+          margin: 0;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .no-print {
+          display: none;
+        }
+        .page-break {
+          page-break-after: always;
+        }
+      }
+      .print-button {
+        display: block;
+        margin: 20px auto;
+        padding: 10px 20px;
+        background: #1a56db;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
       }
     </style>
+    <script>
+      // Auto-trigger print dialog when the page loads
+      window.onload = function() {
+        // Small delay to ensure the page is fully rendered
+        setTimeout(function() {
+          document.getElementById('print-instructions').style.display = 'block';
+        }, 1000);
+      }
+      
+      function printDocument() {
+        // Hide the button during printing
+        document.getElementById('print-button').style.display = 'none';
+        document.getElementById('print-instructions').style.display = 'none';
+        
+        window.print();
+        
+        // Show the button again after printing dialog is closed
+        setTimeout(function() {
+          document.getElementById('print-button').style.display = 'block';
+          document.getElementById('print-instructions').style.display = 'block';
+        }, 1000);
+      }
+    </script>
   </head>
   <body>
-    <div class="header">
-      <h1>Foot Traffic Analysis Report</h1>
-      <p>Generated on ${format(new Date(), 'MMMM d, yyyy')}</p>
+    <div id="print-instructions" class="no-print" style="display:none; position:fixed; top:0; left:0; right:0; background:#fffde7; text-align:center; padding:15px; border-bottom:2px solid #fbc02d; z-index:999;">
+      <p><strong>To save this report as a PDF:</strong> Click the "Save as PDF" button below or use your browser's print function and select "Save as PDF" from the destination options.</p>
+      <button id="print-button" class="print-button" onclick="printDocument()">Save as PDF</button>
     </div>
     
-    <div class="meta-info">
-      <div>
-        <strong>Date Range:</strong> ${startDate ? format(startDate, 'MMMM d, yyyy') : 'All'} to ${endDate ? format(endDate, 'MMMM d, yyyy') : 'All'}
+    <div class="report-container">
+      <div class="header">
+        <h1>Foot Traffic Analysis Report</h1>
+        <p>Generated on ${format(new Date(), 'MMMM d, yyyy')}</p>
       </div>
-      <div>
-        <strong>Selected Locations:</strong> ${selectedLocations.join(', ')}
+      
+      <div class="meta-info">
+        <div>
+          <strong>Date Range:</strong> ${startDate ? format(startDate, 'MMMM d, yyyy') : 'All'} to ${endDate ? format(endDate, 'MMMM d, yyyy') : 'All'}
+        </div>
+        <div>
+          <strong>Selected Locations:</strong> ${selectedLocations.includes('all') ? 'All Locations' : selectedLocations.join(', ')}
+        </div>
       </div>
-    </div>
-    
-    <h2>Barangay Reports</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Location</th>
-          <th>Population</th>
-          <th>Avg. Foot Traffic</th>
-          <th>Total Foot Traffic</th>
-          <th>Avg. Dwell Time</th>
-          <th>Total Dwell Time</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${filteredReports.map(report => `
+      
+      <h2>Barangay Reports</h2>
+      <table>
+        <thead>
           <tr>
-            <td>${report.name}</td>
-            <td>${report.population.toLocaleString()}</td>
-            <td>${report.avgFootTraffic}</td>
-            <td>${report.totalFootTraffic.toLocaleString()}</td>
-            <td>${report.avgDwellTime}</td>
-            <td>${report.totalDwellTime}</td>
+            <th>Location</th>
+            <th>Population</th>
+            <th>Avg. Foot Traffic</th>
+            <th>Total Foot Traffic</th>
+            <th>Avg. Dwell Time</th>
+            <th>Total Dwell Time</th>
           </tr>
-        `).join('')}
-      </tbody>
-    </table>
-    
-    ${Object.entries(forecastInterpretation)
-      .filter(([key]) => selectedLocations.includes('all') || selectedLocations.includes(key))
-      .map(([key, value]) => `
-        <div class="location-section">
-          <div class="location-title">${key === 'manilaCathedral' ? 'Manila Cathedral' : 
+        </thead>
+        <tbody>
+          ${filteredReports.map(report => `
+            <tr>
+              <td>${report.name}</td>
+              <td>${report.population.toLocaleString()}</td>
+              <td>${report.avgFootTraffic}</td>
+              <td>${report.totalFootTraffic.toLocaleString()}</td>
+              <td>${report.avgDwellTime}</td>
+              <td>${report.totalDwellTime}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      
+      <div class="page-break"></div>
+      
+      <h2>Forecast Interpretation</h2>
+      ${Object.entries(forecastInterpretation)
+        .filter(([key]) => selectedLocations.includes('all') || selectedLocations.includes(key))
+        .map(([key, value]) => `
+          <div class="location-section">
+            <div class="location-title">${key === 'manilaCathedral' ? 'Manila Cathedral' : 
                                         key === 'divisoriaMarket' ? 'Divisoria Market' : 
                                         key === 'fortSantiago' ? 'Fort Santiago' : key}</div>
-          <p>${value}</p>
-        </div>
-      `).join('')}
-    
-    <div class="footer">
-      <p>This report is generated by the Foot Traffic Analysis System. © 2025</p>
+            <p>${value}</p>
+          </div>
+        `).join('')}
+      
+      <div class="footer">
+        <p>This report is generated by the Foot Traffic Analysis System. © 2025</p>
+      </div>
     </div>
   </body>
 </html>
       `;
-      
-      mimeType = 'text/html';
-      fileExtension = 'html'; // For demo purposes
     }
     
     // Create and download the file with proper MIME types
     if (exportFormat === 'pdf') {
-      // For PDF, we need to trigger download with PDF content type
-      // In a real app, we'd generate a proper PDF file here using a library like jsPDF
-      
-      // For demo, we'll create a Blob with proper MIME type
-      const blob = new Blob([content], { type: 'application/pdf' });
+      // For PDF, we'll create an HTML file that can be printed to PDF
+      const blob = new Blob([content], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
       
-      // Create a download link and click it
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${filename}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // Open the HTML in a new window/tab for printing
+      const printWindow = window.open(url, '_blank');
+      if (!printWindow) {
+        toast({
+          title: "Pop-up Blocked",
+          description: "Please allow pop-ups to view and save your PDF report.",
+          variant: "destructive",
+        });
+        URL.revokeObjectURL(url);
+        return;
+      }
+      
+      // The script in the HTML will handle showing print instructions
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
     } 
     else if (exportFormat === 'csv') {
       // For CSV, use the text/csv MIME type

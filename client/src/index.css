@@ -6,6 +6,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Authentication page sliding animations */
+.auth-left-panel {
+  transform: translateX(0);
+}
+
+.auth-right-panel {
+  transform: translateX(0);
+}
+
+.slide-out-left {
+  transform: translateX(-100%);
+}
+
+.slide-out-right {
+  transform: translateX(100%);
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
