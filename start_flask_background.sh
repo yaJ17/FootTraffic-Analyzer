@@ -42,8 +42,8 @@ def hello():
     return "Hello from Flask!"
 
 if __name__ == '__main__':
-    print("Starting test Flask server on port 5002...")
-    app.run(host='0.0.0.0', port=5002, debug=False)
+    print("Starting test Flask server on port 5003...")
+    app.run(host='0.0.0.0', port=5003, debug=False)
 EOF
 
 echo "Starting minimal test Flask server to verify installation..."
@@ -76,8 +76,8 @@ logger = logging.getLogger('flask_app')
 try:
     from simple_video_app import app
     logger.info('Imported simple_video_app successfully')
-    logger.info('Starting Flask server on port 5002')
-    app.run(host='0.0.0.0', port=5002, debug=False)
+    logger.info('Starting Flask server on port 5003')
+    app.run(host='0.0.0.0', port=5003, debug=False)
 except Exception as e:
     logger.error(f'Error starting Flask app: {e}', exc_info=True)
     sys.exit(1)
@@ -88,7 +88,7 @@ sleep 3
 
 # Check if the server is running
 if pgrep -f "simple_video_app" > /dev/null; then
-  echo "Flask server started successfully on port 5001!"
+  echo "Flask server started successfully on port 5003!"
   echo "Server logs are in flask_backend/flask_server.log"
 else
   echo "Failed to start Flask server. Check flask_backend/flask_server.log for details."
