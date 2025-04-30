@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Stream - Foot Traffic Analysis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f8;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .video-stream {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .stats-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .stats-panel h2 {
+            margin-top: 0;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .stats-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .stats-item {
+            flex: 1;
+            min-width: 200px;
+            margin: 5px;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .stats-item strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Foot Traffic Video Analysis</h1>
+        
+        <div class="video-container">
+            <img src="{{ url_for('video_feed') }}" class="video-stream" alt="Video Stream">
+        </div>
+        
+        <div class="stats-panel">
+            <h2>Live Statistics</h2>
+            <div class="stats-row">
+                <div class="stats-item">
+                    <strong>Location:</strong>
+                    <span id="location">Divisoria</span>
+                </div>
+                <div class="stats-item">
+                    <strong>People Count:</strong>
+                    <span id="people-count">Processing...</span>
+                </div>
+                <div class="stats-item">
+                    <strong>Average Dwell Time:</strong>
+                    <span id="dwell-time">Processing...</span>
+                </div>
+            </div>
+            <div class="stats-row">
+                <div class="stats-item">
+                    <strong>Date:</strong>
+                    <span id="date"></span>
+                </div>
+                <div class="stats-item">
+                    <strong>Time:</strong>
+                    <span id="time"></span>
+                </div>
+                <div class="stats-item">
+                    <strong>Day:</strong>
+                    <span id="day"></span>
+                </div>
+            </div>
+        </div>
+        
+        <p>
+            <a href="/upload" class="btn">Analyze Another Video</a>
+            <a href="/" class="btn" style="background-color: #666;">Back to Home</a>
+            <a href="/download_stats" class="btn" style="background-color: #0275d8;">Download Statistics</a>
+        </p>
+    </div>
+
+    <script>
+        // Update time and date
+        function updateDateTime() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const dateStr = now.toLocaleDateString('en-US', options);
+            const timeStr = now.toLocaleTimeString('en-US');
+            
+            const dateParts = dateStr.split(',');
+            document.getElementById('day').textContent = dateParts[0];
+            document.getElementById('date').textContent = dateParts.slice(1).join(',').trim();
+            document.getElementById('time').textContent = timeStr;
+        }
+        
+        // Update the date and time every second
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+        
+        // In a real implementation, these would be updated via WebSocket or Server-Sent Events
+        // For now, we'll simulate updates every 3 seconds
+        function simulateStatsUpdate() {
+            // This would be replaced with real data from the server
+            const peopleCount = Math.floor(Math.random() * 20) + 5;
+            const dwellTime = (Math.random() * 60 + 30).toFixed(1) + ' seconds';
+            
+            document.getElementById('people-count').textContent = peopleCount;
+            document.getElementById('dwell-time').textContent = dwellTime;
+        }
+        
+        // Update stats every 3 seconds
+        setTimeout(simulateStatsUpdate, 2000);
+        setInterval(simulateStatsUpdate, 3000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Video - Foot Traffic Analysis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f8;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-control {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .sample-videos {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .sample-videos h2 {
+            margin-bottom: 15px;
+        }
+        .video-card {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .video-card h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Upload Video for Analysis</h1>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file">Select Video File (MP4, AVI, MOV):</label>
+                <input type="file" name="file" id="file" class="form-control" accept=".mp4,.avi,.mov" required>
+            </div>
+            <button type="submit" class="btn">Upload & Analyze</button>
+        </form>
+        
+        <div class="sample-videos">
+            <h2>Or Use Sample Videos</h2>
+            <div class="video-card">
+                <h3>Palengke (Market) Video</h3>
+                <p>Sample footage from a local market with various foot traffic patterns.</p>
+                <form action="/process_sample" method="post">
+                    <input type="hidden" name="sample_video" value="palengke.mp4">
+                    <button type="submit" class="btn">Analyze Palengke Video</button>
+                </form>
+            </div>
+            <div class="video-card">
+                <h3>School Entrance Video</h3>
+                <p>Sample footage from a school entrance showing student movement patterns.</p>
+                <form action="/process_sample" method="post">
+                    <input type="hidden" name="sample_video" value="school.mp4">
+                    <button type="submit" class="btn">Analyze School Video</button>
+                </form>
+            </div>
+        </div>
+        
+        <p><a href="/" class="btn" style="background-color: #666;">Back to Home</a></p>
+    </div>
+</body>
+</html>
