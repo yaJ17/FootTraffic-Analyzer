@@ -11,6 +11,7 @@ import Statistics from "@/pages/Statistics";
 import Reports from "@/pages/Reports";
 import Calendar from "@/pages/Calendar";
 import Profile from "@/pages/Profile";
+import VideoAnalysis from "@/pages/VideoAnalysis";
 import NotFound from "@/pages/not-found";
 import AppLayout from "@/components/layout/AppLayout";
 import { useEffect } from "react";
@@ -44,7 +45,8 @@ function Router() {
     location === "/statistics" || 
     location === "/reports" || 
     location === "/calendar" || 
-    location === "/profile"
+    location === "/profile" ||
+    location === "/video-analysis"
   );
   
   // Handle root path redirection
@@ -84,6 +86,11 @@ function Router() {
       <Route path="/profile">
         <AppLayout>
           <AuthenticatedRoute component={Profile} />
+        </AppLayout>
+      </Route>
+      <Route path="/video-analysis">
+        <AppLayout>
+          <AuthenticatedRoute component={VideoAnalysis} />
         </AppLayout>
       </Route>
       <Route path="/">

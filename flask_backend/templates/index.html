@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Foot Traffic Analysis</title>
+    <title>Foot Traffic Analysis System</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -23,6 +23,23 @@
             color: #333;
             text-align: center;
         }
+        .features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .feature-card {
+            flex: 1 1 300px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .feature-card h2 {
+            color: #4CAF50;
+            margin-top: 0;
+        }
         .btn {
             display: inline-block;
             background-color: #4CAF50;
@@ -34,17 +51,42 @@
             cursor: pointer;
             text-decoration: none;
             font-size: 16px;
+            text-align: center;
         }
         .btn:hover {
             background-color: #45a049;
+        }
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Foot Traffic Video Analysis</h1>
-        <p>Welcome to the foot traffic analysis system. You can upload a video for processing or view the live stream.</p>
-        <a href="/upload" class="btn">Upload Video</a>
+        <h1>Foot Traffic Analysis System</h1>
+        <p>Welcome to the Foot Traffic Analysis System. This application allows you to analyze foot traffic patterns in various locations through video processing.</p>
+        
+        <div class="features">
+            <div class="feature-card">
+                <h2>Video Analysis</h2>
+                <p>Upload and analyze videos to detect people and measure foot traffic metrics. Our system uses advanced computer vision techniques to count people and track their movements.</p>
+            </div>
+            <div class="feature-card">
+                <h2>Real-time Monitoring</h2>
+                <p>View real-time statistics and visualizations of foot traffic data. Monitor busy periods, dwell times, and traffic flow patterns to optimize space utilization.</p>
+            </div>
+            <div class="feature-card">
+                <h2>Data Export</h2>
+                <p>Export analysis results for further processing and reporting. Generate insights on traffic patterns over time to support data-driven decision making.</p>
+            </div>
+        </div>
+        
+        <div class="btn-group">
+            <a href="/upload" class="btn">Upload Video for Analysis</a>
+        </div>
     </div>
 </body>
 </html>

@@ -24,6 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { path: '/statistics', icon: 'insert_chart', label: 'Statistics' },
     { path: '/calendar', icon: 'calendar_today', label: 'Calendar' },
     { path: '/reports', icon: 'description', label: 'Reports' },
+    { path: '/video-analysis', icon: 'videocam', label: 'Video Analysis' },
   ];
 
   const [, setLocation] = useLocation();
