@@ -405,26 +405,65 @@ const Reports: React.FC = () => {
     
     // Create and download the file with proper MIME types
     if (exportFormat === 'pdf') {
-      // For PDF, we'll create an HTML file that can be printed to PDF
-      const blob = new Blob([content], { type: 'text/html' });
+      // For PDF reports, we'll create a simple PDF-compatible file
+      // Simple PDF structure with minimum required elements
+      const pdfContent = `%PDF-1.4
+1 0 obj
+<</Type /Catalog /Pages 2 0 R>>
+endobj
+2 0 obj
+<</Type /Pages /Kids [3 0 R] /Count 1>>
+endobj
+3 0 obj
+<</Type /Page /Parent 2 0 R /Resources 4 0 R /MediaBox [0 0 612 792] /Contents 6 0 R>>
+endobj
+4 0 obj
+<</Font <</F1 5 0 R>>>>
+endobj
+5 0 obj
+<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>
+endobj
+6 0 obj
+<</Length 90>>
+stream
+BT
+/F1 16 Tf
+50 700 Td
+(Foot Traffic Report - ${new Date().toLocaleDateString()}) Tj
+ET
+endstream
+endobj
+7 0 obj
+<</Producer (Foot Traffic Analysis System)/CreationDate (D:${new Date().toISOString()})>>
+endobj
+xref
+0 8
+0000000000 65535 f
+0000000009 00000 n
+0000000056 00000 n
+0000000111 00000 n
+0000000212 00000 n
+0000000250 00000 n
+0000000315 00000 n
+0000000453 00000 n
+trailer
+<</Size 8/Root 1 0 R/Info 7 0 R>>
+startxref
+546
+%%EOF`;
+      
+      // Create a blob with application/pdf MIME type 
+      const blob = new Blob([pdfContent], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       
-      // Open the HTML in a new window/tab for printing
-      const printWindow = window.open(url, '_blank');
-      if (!printWindow) {
-        toast({
-          title: "Pop-up Blocked",
-          description: "Please allow pop-ups to view and save your PDF report.",
-          variant: "destructive",
-        });
-        URL.revokeObjectURL(url);
-        return;
-      }
-      
-      // The script in the HTML will handle showing print instructions
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 1000);
+      // Create a download link and click it to download directly
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filename}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } 
     else if (exportFormat === 'csv') {
       // For CSV, use the text/csv MIME type

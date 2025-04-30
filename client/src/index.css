@@ -7,20 +7,66 @@
 @tailwind utilities;
 
 /* Authentication page sliding animations */
-.auth-left-panel {
+.auth-panel {
+  transition: transform 0.3s ease-in-out;
+  position: relative;
   transform: translateX(0);
 }
 
-.auth-right-panel {
-  transform: translateX(0);
-}
-
-.slide-out-left {
+/* SignIn -> SignUp animation (slide out to left) */
+.signin-container .slide-out {
   transform: translateX(-100%);
 }
 
-.slide-out-right {
+/* SignUp -> SignIn animation (slide out to right) */
+.signup-container .slide-out {
   transform: translateX(100%);
+}
+
+/* Container animations for page transitions */
+.auth-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.signin-container {
+  z-index: 2;
+  animation: none;
+}
+
+.signin-container.slide-in-from-right {
+  animation: slideInFromRight 0.3s forwards;
+}
+
+.signup-container {
+  z-index: 1;
+  animation: none;
+}
+
+.signup-container.slide-in-from-left {
+  animation: slideInFromLeft 0.3s forwards;
+}
+
+@keyframes slideInFromLeft {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(0);
+  }
 }
 
 @layer base {

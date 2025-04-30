@@ -43,128 +43,141 @@ const SignIn: React.FC = () => {
     }
   };
 
-  // Track from where the user is coming (for animations)
+  // Track animation states
   const [isNavigating, setIsNavigating] = useState(false);
+  
+  // Check if we're coming from SignUp (to add slide-in animation)
+  const [comingFromSignUp, setComingFromSignUp] = useState(false);
+  
+  useEffect(() => {
+    // Check if we're coming from the SignUp page via URL params
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('from') === 'signup') {
+      setComingFromSignUp(true);
+    }
+  }, []);
   
   const handleNavigateToSignUp = () => {
     setIsNavigating(true);
     setTimeout(() => {
-      setLocation('/signup');
+      setLocation('/signup?from=signin');
     }, 300); // Wait for animation to complete
   };
 
   return (
-    <div className="min-h-screen flex overflow-hidden">
-      <div className={`w-full md:w-1/2 flex flex-col p-8 justify-center items-center transition-all duration-500 ease-in-out auth-left-panel ${isNavigating ? 'slide-out-left' : ''}`}>
-        <div className="flex items-center mb-8">
-          <Logo textColor="text-black" />
-        </div>
-        <div className="max-w-md w-full">
-          <h2 className="text-3xl font-bold mb-2 text-center">Welcome back</h2>
-          <p className="text-gray-600 mb-8 text-center">Sign in to continue</p>
-          
-          <form className="w-full" onSubmit={handleEmailLogin}>
-            <div className="mb-4">
-              <div className="flex items-center p-2 border border-gray-300 rounded-md bg-[#FFF8D6]">
-                <i className="material-icons text-gray-500 mr-2">email</i>
-                <Input 
-                  type="email" 
-                  placeholder="Email" 
-                  className="flex-1 outline-none bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-transparent" 
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+    <div className={`min-h-screen overflow-hidden auth-container signin-container ${comingFromSignUp ? 'slide-in-from-right' : ''}`}>
+      <div className="flex min-h-screen">
+        <div className={`w-full md:w-1/2 flex flex-col p-8 justify-center items-center auth-panel ${isNavigating ? 'slide-out' : ''}`}>
+          <div className="flex items-center mb-8">
+            <Logo textColor="text-black" />
+          </div>
+          <div className="max-w-md w-full">
+            <h2 className="text-3xl font-bold mb-2 text-center">Welcome back</h2>
+            <p className="text-gray-600 mb-8 text-center">Sign in to continue</p>
+            
+            <form className="w-full" onSubmit={handleEmailLogin}>
+              <div className="mb-4">
+                <div className="flex items-center p-2 border border-gray-300 rounded-md bg-[#FFF8D6]">
+                  <i className="material-icons text-gray-500 mr-2">email</i>
+                  <Input 
+                    type="email" 
+                    placeholder="Email" 
+                    className="flex-1 outline-none bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-transparent" 
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
-            
-            <div className="mb-2">
-              <div className="flex items-center p-2 border border-gray-300 rounded-md bg-[#FFF8D6]">
-                <i className="material-icons text-gray-500 mr-2">lock</i>
-                <Input 
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Password" 
-                  className="flex-1 outline-none bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-transparent" 
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <i 
-                  className="material-icons text-gray-500 cursor-pointer"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? "visibility_off" : "visibility"}
-                </i>
+              
+              <div className="mb-2">
+                <div className="flex items-center p-2 border border-gray-300 rounded-md bg-[#FFF8D6]">
+                  <i className="material-icons text-gray-500 mr-2">lock</i>
+                  <Input 
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Password" 
+                    className="flex-1 outline-none bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-transparent" 
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <i 
+                    className="material-icons text-gray-500 cursor-pointer"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? "visibility_off" : "visibility"}
+                  </i>
+                </div>
               </div>
-            </div>
-            
-            <div className="flex items-center mb-6">
-              <div className="flex items-center">
-                <input 
-                  type="checkbox" 
-                  id="remember" 
-                  className="mr-2"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
-                <label htmlFor="remember" className="text-sm">Remember me</label>
+              
+              <div className="flex items-center mb-6">
+                <div className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    id="remember" 
+                    className="mr-2"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
+                  <label htmlFor="remember" className="text-sm">Remember me</label>
+                </div>
+                <a href="#" className="ml-auto text-sm text-secondary">Forgot Password</a>
               </div>
-              <a href="#" className="ml-auto text-sm text-secondary">Forgot Password</a>
-            </div>
-            
-            <Button 
-              type="submit" 
-              className="w-full py-2 bg-accent text-darkText rounded-md font-medium mb-2 hover:bg-yellow-500 transition"
-            >
-              Sign In
-            </Button>
-            
-            <div className="text-center my-2">or</div>
-            
-            <Button 
-              type="button" 
-              className="w-full py-2 bg-accent flex items-center justify-center rounded-md font-medium hover:bg-yellow-500 transition text-darkText"
-              onClick={handleGoogleLogin}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032 s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2 C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
-              </svg>
-              Sign in with Google
-            </Button>
-          </form>
+              
+              <Button 
+                type="submit" 
+                className="w-full py-2 bg-accent text-darkText rounded-md font-medium mb-2 hover:bg-yellow-500 transition"
+              >
+                Sign In
+              </Button>
+              
+              <div className="text-center my-2">or</div>
+              
+              <Button 
+                type="button" 
+                className="w-full py-2 bg-accent flex items-center justify-center rounded-md font-medium hover:bg-yellow-500 transition text-darkText"
+                onClick={handleGoogleLogin}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032 s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2 C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
+                </svg>
+                Sign in with Google
+              </Button>
+            </form>
 
-          {/* Mobile sign up button (only visible on mobile) */}
-          <div className="mt-6 text-center md:hidden">
-            <p className="text-sm text-gray-600 mb-2">Don't have an account?</p>
-            <Button
-              variant="outline"
-              className="text-primary border-primary hover:bg-primary/10"
-              onClick={handleNavigateToSignUp}
-            >
-              Create Account
-            </Button>
+            {/* Mobile sign up button (only visible on mobile) */}
+            <div className="mt-6 text-center md:hidden">
+              <p className="text-sm text-gray-600 mb-2">Don't have an account?</p>
+              <Button
+                variant="outline"
+                className="text-primary border-primary hover:bg-primary/10"
+                onClick={handleNavigateToSignUp}
+              >
+                Create Account
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
-      
-      <div className={`hidden md:flex md:w-1/2 bg-accent items-center justify-center relative transition-all duration-500 ease-in-out auth-right-panel ${isNavigating ? 'slide-out-right' : ''}`}>
-        <div className="text-center z-10 p-8">
-          <h2 className="text-3xl font-bold mb-4 text-darkText">Let's get started</h2>
-          <p className="mb-6 text-darkText">Don't have an account? Create an account to start your journey with us.</p>
-          <Button 
-            className="px-8 py-2 bg-white text-darkText rounded-full font-medium hover:bg-gray-100 transition"
-            onClick={handleNavigateToSignUp}
-          >
-            SIGN UP
-          </Button>
+        
+        <div className={`hidden md:flex md:w-1/2 bg-accent items-center justify-center relative auth-panel ${isNavigating ? 'slide-out' : ''}`}>
+          <div className="text-center z-10 p-8">
+            <h2 className="text-3xl font-bold mb-4 text-darkText">Let's get started</h2>
+            <p className="mb-6 text-darkText">Don't have an account? Create an account to start your journey with us.</p>
+            <Button 
+              className="px-8 py-2 bg-white text-darkText rounded-full font-medium hover:bg-gray-100 transition"
+              onClick={handleNavigateToSignUp}
+            >
+              SIGN UP
+            </Button>
+          </div>
+          <div 
+            className="absolute inset-0 opacity-70 bg-cover bg-center" 
+            style={{ 
+              backgroundImage: `url(${signinImage})`,
+              backgroundColor: 'rgba(0, 0, 0, 0.3)'
+            }} 
+          />
         </div>
-        <div 
-          className="absolute inset-0 opacity-70 bg-cover bg-center transition-opacity duration-500" 
-          style={{ 
-            backgroundImage: `url(${signinImage})`,
-            backgroundColor: 'rgba(0, 0, 0, 0.3)'
-          }} 
-        />
       </div>
     </div>
   );
