@@ -239,19 +239,18 @@ export default function VideoAnalysis() {
                       In a real implementation with the Flask server running:
                       <img src={`${flaskServerUrl}/video_feed`} alt="Live Video Analysis" className="w-full h-auto" />
                     */}
-                    <div className="aspect-video bg-gray-200 overflow-hidden">
+                    <div className="aspect-video bg-gray-200 overflow-hidden relative">
                       {selectedSample && (
                         <video 
                           autoPlay 
                           loop 
                           muted 
                           className="w-full h-full object-cover"
-                          poster={selectedSample === 'palengke' ? "/palengke_poster.jpg" : "/school_poster.jpg"}
                         >
                           <source 
                             src={selectedSample === 'palengke' 
-                              ? "https://assets.codepen.io/9394943/market-view-compressed.mp4" 
-                              : "https://assets.codepen.io/9394943/school-hallway.mp4"} 
+                              ? "/attached_assets/palengke.mp4" 
+                              : "/attached_assets/school.mp4"} 
                             type="video/mp4" 
                           />
                           Your browser does not support video playback.
@@ -267,9 +266,34 @@ export default function VideoAnalysis() {
                         </div>
                       )}
                       
-                      {/* Detection overlay - this would show bounding boxes in a real implementation */}
-                      {selectedSample && (
+                      {/* Detection overlay with simulated bounding boxes */}
+                      {selectedSample && isAnalyzing && (
                         <div className="absolute top-0 left-0 w-full h-full">
+                          {/* Simulated bounding boxes */}
+                          {Array.from({ length: stats?.people_count || 5 }).map((_, index) => {
+                            // Generate random positions for demonstration
+                            const top = 10 + Math.random() * 60;
+                            const left = 10 + Math.random() * 80;
+                            const width = 30 + Math.random() * 20;
+                            const height = 60 + Math.random() * 30;
+                            
+                            return (
+                              <div 
+                                key={index}
+                                className="absolute border-2 border-green-500"
+                                style={{
+                                  top: `${top}%`,
+                                  left: `${left}%`,
+                                  width: `${width}px`,
+                                  height: `${height}px`,
+                                  borderRadius: '2px',
+                                  boxShadow: '0 0 0 1px rgba(0,0,0,0.3)'
+                                }}
+                              ></div>
+                            );
+                          })}
+                          
+                          {/* Stats overlay */}
                           <div className="absolute bottom-4 left-4 right-4 bg-black bg-opacity-50 text-white text-sm p-2 rounded">
                             <div className="flex justify-between mb-1">
                               <span>People detected: {stats?.people_count || 0}</span>

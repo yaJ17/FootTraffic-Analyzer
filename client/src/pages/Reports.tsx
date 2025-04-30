@@ -154,6 +154,48 @@ const Reports: React.FC = () => {
     return `foot-traffic-report-${dateStr}.${exportFormat}`;
   };
   
+  // Function to generate actual report data for export
+  const generateReportData = () => {
+    // Start with header row
+    let csvContent = "Location,Population,Avg. Foot Traffic,Total Foot Traffic,Avg. Dwell Time,Total Dwell Time\n";
+    
+    // Filter locations if needed
+    const filteredReports = selectedLocations.length > 0
+      ? barangayReports.filter(report => selectedLocations.includes(report.name))
+      : barangayReports;
+    
+    // Add data rows
+    filteredReports.forEach(report => {
+      csvContent += `${report.name},${report.population},${report.avgFootTraffic},${report.totalFootTraffic},"${report.avgDwellTime}","${report.totalDwellTime}"\n`;
+    });
+    
+    return csvContent;
+  };
+  
+  // Generate JSON data
+  const generateJsonData = () => {
+    const filteredReports = selectedLocations.length > 0
+      ? barangayReports.filter(report => selectedLocations.includes(report.name))
+      : barangayReports;
+    
+    const jsonData = {
+      metadata: {
+        exported_at: new Date().toISOString(),
+        date_range: dateRange.from && dateRange.to 
+          ? {
+              from: dateRange.from.toISOString(),
+              to: dateRange.to.toISOString()
+            }
+          : 'all dates',
+        time_range: timeRange,
+        locations: selectedLocations.length > 0 ? selectedLocations : 'all'
+      },
+      data: filteredReports
+    };
+    
+    return JSON.stringify(jsonData, null, 2);
+  };
+  
   // Handle export action
   const handleExport = () => {
     const dateRangeStr = dateRange.from && dateRange.to 
@@ -165,13 +207,93 @@ const Reports: React.FC = () => {
     const locationStr = selectedLocations.length > 0
       ? selectedLocations.join(', ')
       : 'all locations';
-      
-    // In a real implementation, this would call an API to generate the export file
-    // For this demo, we'll just show a toast notification
     
+    // Create file content based on export format
+    let fileContent = '';
+    let mimeType = '';
+    let fileExtension = '';
+    
+    switch(exportFormat) {
+      case 'csv':
+        fileContent = generateReportData();
+        mimeType = 'text/csv';
+        fileExtension = 'csv';
+        break;
+      case 'json':
+        fileContent = generateJsonData();
+        mimeType = 'application/json';
+        fileExtension = 'json';
+        break;
+      case 'xlsx':
+        // For demo, we're exporting CSV for Excel too
+        fileContent = generateReportData();
+        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        fileExtension = 'csv'; // Using CSV for simplicity
+        break;
+      case 'pdf':
+        // For demo, we're creating a simple HTML-like content
+        fileContent = `
+          <h1>Foot Traffic Report</h1>
+          <p>Date Range: ${dateRangeStr}</p>
+          <p>Time Range: ${timeRangeStr}</p>
+          <p>Locations: ${locationStr}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Location</th>
+                <th>Population</th>
+                <th>Avg. Foot Traffic</th>
+                <th>Total Foot Traffic</th>
+                <th>Avg. Dwell Time</th>
+                <th>Total Dwell Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${barangayReports.map(report => `
+                <tr>
+                  <td>${report.name}</td>
+                  <td>${report.population}</td>
+                  <td>${report.avgFootTraffic}</td>
+                  <td>${report.totalFootTraffic}</td>
+                  <td>${report.avgDwellTime}</td>
+                  <td>${report.totalDwellTime}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+        mimeType = 'text/plain'; // Using text for simplicity
+        fileExtension = 'txt'; // Using text for simplicity in demo
+        break;
+      default:
+        fileContent = generateReportData();
+        mimeType = 'text/csv';
+        fileExtension = 'csv';
+    }
+    
+    // Create file for download
+    const blob = new Blob([fileContent], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    
+    // Create download link
+    const downloadLink = document.createElement('a');
+    const filename = `foot-traffic-report-${format(new Date(), 'yyyy-MM-dd')}.${fileExtension}`;
+    
+    downloadLink.href = url;
+    downloadLink.download = filename;
+    
+    // Trigger download
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    
+    // Release the object URL
+    URL.revokeObjectURL(url);
+    
+    // Show success notification
     toast({
-      title: "Report Generated",
-      description: `Exported ${exportFormat.toUpperCase()} report for ${locationStr} ${dateRangeStr} ${timeRangeStr}`,
+      title: "Report Downloaded",
+      description: `Downloaded ${exportFormat.toUpperCase()} report for ${locationStr} ${dateRangeStr} ${timeRangeStr}`,
     });
   };
 
@@ -229,7 +351,16 @@ const Reports: React.FC = () => {
                         <Calendar
                           mode="range"
                           selected={dateRange}
-                          onSelect={(range) => setDateRange(range || { from: undefined, to: undefined })}
+                          onSelect={(range) => {
+                            if (range) {
+                              setDateRange({
+                                from: range.from,
+                                to: range.to || range.from
+                              });
+                            } else {
+                              setDateRange({ from: undefined, to: undefined });
+                            }
+                          }}
                           initialFocus
                         />
                       </PopoverContent>
@@ -322,110 +453,7 @@ const Reports: React.FC = () => {
           </Sheet>
         </div>
         
-        <div className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Last 7 Days</CardTitle>
-                <CardDescription>Quick export for recent data</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => {
-                    const date = new Date();
-                    const from = new Date(date);
-                    from.setDate(date.getDate() - 7);
-                    setDateRange({ from, to: date });
-                    setExportFormat("csv");
-                    handleExport();
-                  }}>
-                    <FileText className="h-4 w-4 mr-1" />
-                    CSV
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => {
-                    const date = new Date();
-                    const from = new Date(date);
-                    from.setDate(date.getDate() - 7);
-                    setDateRange({ from, to: date });
-                    setExportFormat("xlsx");
-                    handleExport();
-                  }}>
-                    <FileSpreadsheet className="h-4 w-4 mr-1" />
-                    Excel
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => {
-                    const date = new Date();
-                    const from = new Date(date);
-                    from.setDate(date.getDate() - 7);
-                    setDateRange({ from, to: date });
-                    setExportFormat("pdf");
-                    handleExport();
-                  }}>
-                    <File className="h-4 w-4 mr-1" />
-                    PDF
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">This Month</CardTitle>
-                <CardDescription>Current month summary</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => {
-                    const date = new Date();
-                    const from = new Date(date.getFullYear(), date.getMonth(), 1);
-                    setDateRange({ from, to: date });
-                    setExportFormat("csv");
-                    handleExport();
-                  }}>
-                    <FileText className="h-4 w-4 mr-1" />
-                    CSV
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => {
-                    const date = new Date();
-                    const from = new Date(date.getFullYear(), date.getMonth(), 1);
-                    setDateRange({ from, to: date });
-                    setExportFormat("xlsx");
-                    handleExport();
-                  }}>
-                    <FileSpreadsheet className="h-4 w-4 mr-1" />
-                    Excel
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => {
-                    const date = new Date();
-                    const from = new Date(date.getFullYear(), date.getMonth(), 1);
-                    setDateRange({ from, to: date });
-                    setExportFormat("pdf");
-                    handleExport();
-                  }}>
-                    <File className="h-4 w-4 mr-1" />
-                    PDF
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Custom Export</CardTitle>
-                <CardDescription>Advanced options</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button variant="default" className="w-full" onClick={() => {
-                  // This is caught by the Sheet trigger above
-                  document.querySelector('[role="dialog"] button')?.click();
-                }}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Configure Export
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        {/* Export functionality is directly accessible via the button above */}
       </div>
       
       {/* Main Reports Container */}
