@@ -7,25 +7,8 @@
 @tailwind utilities;
 
 /* Authentication page sliding animations */
-.auth-panel {
-  transition: transform 0.3s ease-in-out;
-  position: relative;
-  transform: translateX(0);
-}
-
-/* SignIn -> SignUp animation (slide out to left) */
-.signin-container .slide-out {
-  transform: translateX(-100%);
-}
-
-/* SignUp -> SignIn animation (slide out to right) */
-.signup-container .slide-out {
-  transform: translateX(100%);
-}
-
-/* Container animations for page transitions */
 .auth-container {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
@@ -33,25 +16,50 @@
   overflow: hidden;
 }
 
+/* For SignIn container */
 .signin-container {
-  z-index: 2;
   animation: none;
+  z-index: 10;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transform: translateX(0);
+  transition: transform 0.5s ease-in-out;
 }
 
+/* When SignIn is sliding out (going to SignUp) */
+.signin-container.slide-out {
+  transform: translateX(-100%);
+}
+
+/* When SignIn is coming in from right (from SignUp) */
 .signin-container.slide-in-from-right {
-  animation: slideInFromRight 0.3s forwards;
+  animation: fullSlideInFromRight 0.5s forwards;
 }
 
+/* For SignUp container */
 .signup-container {
-  z-index: 1;
   animation: none;
+  z-index: 10;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transform: translateX(0);
+  transition: transform 0.5s ease-in-out;
 }
 
+/* When SignUp is sliding out (going to SignIn) */
+.signup-container.slide-out {
+  transform: translateX(100%);
+}
+
+/* When SignUp is coming in from left (from SignIn) */
 .signup-container.slide-in-from-left {
-  animation: slideInFromLeft 0.3s forwards;
+  animation: fullSlideInFromLeft 0.5s forwards;
 }
 
-@keyframes slideInFromLeft {
+/* Full page slide animations */
+@keyframes fullSlideInFromLeft {
   0% {
     transform: translateX(-100%);
   }
@@ -60,7 +68,7 @@
   }
 }
 
-@keyframes slideInFromRight {
+@keyframes fullSlideInFromRight {
   0% {
     transform: translateX(100%);
   }

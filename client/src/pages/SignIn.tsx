@@ -61,13 +61,13 @@ const SignIn: React.FC = () => {
     setIsNavigating(true);
     setTimeout(() => {
       setLocation('/signup?from=signin');
-    }, 300); // Wait for animation to complete
+    }, 500); // Wait for animation to complete
   };
 
   return (
-    <div className={`min-h-screen overflow-hidden auth-container signin-container ${comingFromSignUp ? 'slide-in-from-right' : ''}`}>
+    <div className={`min-h-screen overflow-hidden auth-container signin-container ${comingFromSignUp ? 'slide-in-from-right' : ''} ${isNavigating ? 'slide-out' : ''}`}>
       <div className="flex min-h-screen">
-        <div className={`w-full md:w-1/2 flex flex-col p-8 justify-center items-center auth-panel ${isNavigating ? 'slide-out' : ''}`}>
+        <div className="w-full md:w-1/2 flex flex-col p-8 justify-center items-center">
           <div className="flex items-center mb-8">
             <Logo textColor="text-black" />
           </div>

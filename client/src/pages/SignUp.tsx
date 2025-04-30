@@ -92,13 +92,13 @@ const SignUp: React.FC = () => {
     setIsNavigating(true);
     setTimeout(() => {
       setLocation('/signin?from=signup');
-    }, 300); // Wait for animation to complete
+    }, 500); // Wait for animation to complete
   };
 
   return (
-    <div className={`min-h-screen overflow-hidden auth-container signup-container ${comingFromSignIn ? 'slide-in-from-left' : ''}`}>
+    <div className={`min-h-screen overflow-hidden auth-container signup-container ${comingFromSignIn ? 'slide-in-from-left' : ''} ${isNavigating ? 'slide-out' : ''}`}>
       <div className="flex min-h-screen">
-        <div className={`hidden md:flex md:w-1/2 bg-primary items-center justify-center relative auth-panel ${isNavigating ? 'slide-out' : ''}`}>
+        <div className="hidden md:flex md:w-1/2 bg-primary items-center justify-center relative">
           <div className="text-center z-10 p-8">
             <h2 className="text-3xl font-bold mb-4 text-lightText">Welcome back</h2>
             <p className="mb-6 text-lightText">Already have an account? To keep connected with us, please login your account.</p>
@@ -118,7 +118,7 @@ const SignUp: React.FC = () => {
           />
         </div>
         
-        <div className={`w-full md:w-1/2 flex flex-col p-8 justify-center items-center auth-panel ${isNavigating ? 'slide-out' : ''}`}>
+        <div className="w-full md:w-1/2 flex flex-col p-8 justify-center items-center">
           <div className="flex items-center mb-8">
             <Logo textColor="text-black" />
           </div>
