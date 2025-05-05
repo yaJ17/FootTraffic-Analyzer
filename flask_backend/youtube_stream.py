@@ -11,6 +11,7 @@ from datetime import datetime
 import logging
 import pytube
 from pytube import YouTube
+from ultralytics import YOLO
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -95,21 +96,25 @@ def get_video_stream(youtube_url):
 
 def process_frames():
     """
-    Process frames from the video stream with basic people detection
+    Process frames from the video stream with YOLO model for people detection
     """
     global video_stream, current_frame, stats, stream_active
     
-    logger.info("Starting frame processing")
+    logger.info("Starting frame processing with YOLO model")
     
     try:
+        # Load YOLO model
+        model = YOLO("flask_backend/yolo12l.pt")
+        logger.info(f"YOLO model loaded successfully")
+        
         # Set up variables for tracking
         frame_count = 0
-        people_per_frame = []
+        dwell_times = {}
+        people_in_region = set()
         start_time = time.time()
         
-        # For people counting simulation
-        people_count_trend = 0
-        trend_direction = 1
+        # Skip frames based on performance needs
+        frame_skip = 2  # Process every other frame for better performance
         
         while stream_active:
             if video_stream is None or not video_stream.isOpened():
@@ -124,7 +129,16 @@ def process_frames():
                     stream_active = False
                     break
                 
-                # Simple resize to make it easier to process
+                # Process every nth frame to improve performance
+                frame_count += 1
+                if frame_count % frame_skip != 0 and frame_count > 1:
+                    # Still update the frame buffer for display
+                    _, buffer = cv2.imencode('.jpg', frame)
+                    current_frame = buffer.tobytes()
+                    time.sleep(0.01)
+                    continue
+                
+                # Resize frame for better processing
                 frame = cv2.resize(frame, (640, 480))
                 
                 # Define counting region (center area of the frame)
@@ -138,41 +152,89 @@ def process_frames():
                 # Draw counting region rectangle
                 cv2.rectangle(frame, (region_x1, region_y1), (region_x2, region_y2), (0, 255, 0), 2)
                 
-                # Basic background subtraction could be used here for movement detection
-                # For now, we'll create a realistic simulation based on the stream
+                # Clear people set for this frame
+                people_in_region.clear()
                 
-                # Simulate detection by analyzing motion in the frame
-                # This creates dynamic but realistic-looking numbers based on frame differences
-                frame_count += 1
+                # Process frame with YOLO with tracking
+                results = model.track(
+                    source=frame,
+                    tracker="bytetrack.yaml",
+                    stream=True,
+                    iou=0.45,  # Slightly lower IOU threshold
+                    conf=0.35,
+                    imgsz=640,  # Reduce image size for processing
+                    verbose=False
+                )
                 
-                # Simulate pedestrian count that follows a pattern
-                if frame_count % 30 == 0:  # Change trend every 30 frames
-                    # Randomly decide if trend goes up or down
-                    if random.random() > 0.5:
-                        trend_direction = 1 if trend_direction == -1 else -1
+                # Get detection results
+                last_detection = next(results)
+                current_people_count = 0
                 
-                # Update people count trend (bounded)
-                people_count_trend += trend_direction * random.uniform(0, 0.5)
-                people_count_trend = max(5, min(30, people_count_trend))
-                
-                # Add some randomness around the trend
-                current_people_count = int(people_count_trend + random.uniform(-2, 2))
-                current_people_count = max(0, current_people_count)
-                
-                # Update statistics
-                people_per_frame.append(current_people_count)
-                
-                if frame_count % 10 == 0:  # Update stats every 10 frames
-                    if people_per_frame:
-                        stats["people_count"] = int(sum(people_per_frame) / len(people_per_frame))
+                if last_detection is not None:
+                    detections = last_detection.boxes
+                    # Get only people detections (class 0 is person)
+                    people_detections = [box for box in detections if int(box.cls[0]) == 0 and box.conf[0] > 0.35]
                     
-                    # Update dwell time with a realistic value
-                    # Typically, in busy areas it might be 30-120 seconds
-                    stats["avg_dwell_time"] = 60 + random.uniform(-20, 20)
+                    # Process detections and update stats
+                    for box in people_detections:
+                        x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
+                        confidence = box.conf[0]
+                        track_id = int(box.id[0]) if box.id is not None else None
+                        
+                        if track_id is None:
+                            continue
+                        
+                        # Calculate center point of the bounding box
+                        center_x = (x1 + x2) // 2
+                        center_y = (y1 + y2) // 2
+                        
+                        # Draw bounding box for each person
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                        
+                        # Draw ID and confidence
+                        cv2.putText(frame, f"ID:{track_id}", (x1, y1 - 10), 
+                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                        
+                        # Check if person is in counting region
+                        if region_x1 < center_x < region_x2 and region_y1 < center_y < region_y2:
+                            # Person is in region, track for dwell time
+                            current_time = time.time()
+                            if track_id not in dwell_times:
+                                dwell_times[track_id] = current_time
+                            
+                            people_in_region.add(track_id)
+                            
+                            # Draw a circle at the center to indicate counting
+                            cv2.circle(frame, (center_x, center_y), 5, (0, 255, 0), -1)
+                    
+                    # Update people count
+                    current_people_count = len(people_in_region)
+                    
+                    # Calculate dwell times
+                    current_time = time.time()
+                    total_dwell_time = 0
+                    active_tracks = 0
+                    
+                    # Calculate average dwell time for active tracks
+                    for track_id in list(dwell_times.keys()):
+                        if track_id in people_in_region:
+                            # Active track - calculate current dwell time
+                            dwell_time = current_time - dwell_times[track_id]
+                            total_dwell_time += dwell_time
+                            active_tracks += 1
+                        else:
+                            # Person left the region, clean up after some time
+                            if current_time - dwell_times[track_id] > 5:  # Keep track for 5 seconds after leaving
+                                del dwell_times[track_id]
+                    
+                    # Update stats
+                    avg_dwell_time = 0
+                    if active_tracks > 0:
+                        avg_dwell_time = total_dwell_time / active_tracks
+                    
+                    stats["people_count"] = current_people_count
+                    stats["avg_dwell_time"] = avg_dwell_time
                     stats["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    
-                    # Reset for next batch
-                    people_per_frame = []
                 
                 # Add annotations to the frame
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

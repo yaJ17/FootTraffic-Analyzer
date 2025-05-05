@@ -7,16 +7,37 @@ pkill -f "python test_youtube.py" || true
 pkill -f "python run_simple.py" || true
 sleep 1
 
-# Start the YouTube streaming server
+# Create symlink for the YOLO model if it doesn't exist
+if [ ! -f "flask_backend/yolo12l.pt" ] && [ -f "attached_assets/model.pt" ]; then
+    echo "Creating symlink for YOLO model..."
+    ln -sf "$(pwd)/attached_assets/model.pt" "$(pwd)/flask_backend/yolo12l.pt"
+fi
+
+# Start the YouTube streaming server with proper error logging
 echo "Starting YouTube streaming server..."
-cd flask_backend && python test_youtube.py > ../youtube.log 2>&1 &
+cd flask_backend
+echo "Starting YouTube server at $(date)" > ../youtube_server.log
+python -u test_youtube.py >> ../youtube_server.log 2>&1 &
 youtube_pid=$!
 cd ..
 echo "YouTube server started with PID: $youtube_pid"
 
-# Wait for the server to initialize
-sleep 2
-echo "YouTube streaming server should be available at: http://localhost:5002"
+# Wait for the server to initialize and verify it's running
+sleep 5
+if ! ps -p $youtube_pid > /dev/null; then
+    echo "ERROR: YouTube server failed to start. Check youtube_server.log for details."
+    tail -n 20 youtube_server.log
+else
+    echo "YouTube streaming server should be available at: http://localhost:5002"
+    # Test if the server is responding
+    if curl -s -o /dev/null -w "%{http_code}" http://localhost:5002 | grep -q "200"; then
+        echo "Server is running and responding correctly."
+    else
+        echo "Warning: Server may be running but not responding correctly."
+        echo "Check youtube_server.log for details:"
+        tail -n 10 youtube_server.log
+    fi
+fi
 
 # Give simple instructions to the user
 echo ""
