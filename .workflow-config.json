@@ -5,6 +5,12 @@
       "command": "./flask_backend_workflow.sh",
       "runOnStart": true,
       "persistent": true
+    },
+    {
+      "name": "Start YouTube Server",
+      "command": "./start_youtube_server.sh",
+      "runOnStart": false,
+      "persistent": true
     }
   ]
 }

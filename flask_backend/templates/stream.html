@@ -84,6 +84,9 @@
 <body>
     <div class="container">
         <h1>Foot Traffic Video Analysis</h1>
+        {% if source_type == "YouTube" %}
+        <p>Analyzing YouTube video: <strong>{{ source }}</strong></p>
+        {% endif %}
         
         <div class="video-container">
             <img src="{{ url_for('video_feed') }}" class="video-stream" alt="Video Stream">
@@ -122,7 +125,8 @@
         </div>
         
         <p>
-            <a href="/upload" class="btn">Analyze Another Video</a>
+            <a href="/upload" class="btn">Analyze Local Video</a>
+            <a href="/youtube" class="btn" style="background-color: #FF0000;">Analyze YouTube Video</a>
             <a href="/" class="btn" style="background-color: #666;">Back to Home</a>
             <a href="/download_stats" class="btn" style="background-color: #0275d8;">Download Statistics</a>
         </p>
@@ -146,20 +150,23 @@
         updateDateTime();
         setInterval(updateDateTime, 1000);
         
-        // In a real implementation, these would be updated via WebSocket or Server-Sent Events
-        // For now, we'll simulate updates every 3 seconds
-        function simulateStatsUpdate() {
-            // This would be replaced with real data from the server
-            const peopleCount = Math.floor(Math.random() * 20) + 5;
-            const dwellTime = (Math.random() * 60 + 30).toFixed(1) + ' seconds';
-            
-            document.getElementById('people-count').textContent = peopleCount;
-            document.getElementById('dwell-time').textContent = dwellTime;
+        // Get real statistics from the API
+        function updateStats() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('location').textContent = data.location;
+                    document.getElementById('people-count').textContent = data.people_count;
+                    document.getElementById('dwell-time').textContent = data.avg_dwell_time.toFixed(1) + ' seconds';
+                })
+                .catch(error => {
+                    console.error('Error fetching stats:', error);
+                });
         }
         
-        // Update stats every 3 seconds
-        setTimeout(simulateStatsUpdate, 2000);
-        setInterval(simulateStatsUpdate, 3000);
+        // Update stats every 2 seconds
+        updateStats(); // Initial update
+        setInterval(updateStats, 2000);
     </script>
 </body>
 </html>
