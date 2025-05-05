@@ -1,4 +1,57 @@
 [workflow]
-name = "Start Flask Backend"
-command = "cd flask_backend && PYTHONPATH=$(pwd)/.. python run_simple.py"
-description = "Starts the Flask backend for video processing on port 5001"
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[task]]
+task = "workflow.run"
+args = "Start application"
+
+[[task]]
+task = "workflow.run"
+args = "Flask Backend"
+
+[workflow.metadata]
+agentRequireRestartOnSave = false
+
+[workflow]
+name = "Start application"
+author = "agent"
+
+[[task]]
+task = "packager.installForAll"
+
+[[task]]
+task = "shell.exec"
+args = "NODE_ENV=development tsx server/index.ts"
+waitForPort = 5000
+
+[workflow.metadata]
+agentRequireRestartOnSave = false
+
+[workflow]
+name = "Flask Backend"
+author = "agent"
+
+[[task]]
+task = "packager.installForAll"
+
+[[task]]
+task = "shell.exec"
+args = "cd flask_backend && PORT=5003 python simple_server.py"
+waitForPort = 5003
+
+[workflow.metadata]
+agentRequireRestartOnSave = false
+
+[workflow]
+name = "Dev Server"
+author = "user"
+mode = "sequential"
+
+[[task]]
+task = "shell.exec"
+args = "bash ./start_all.sh"
+
+[workflow.metadata]
+agentRequireRestartOnSave = false
