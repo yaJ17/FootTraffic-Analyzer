@@ -50,7 +50,7 @@ export default function VideoAnalysis() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
       
-      const response = await fetch(`${flaskServerUrl}/hello`, { 
+      const response = await fetch(`${flaskServerUrl}/api/stats`, { 
         method: 'GET',
         headers: { 'Accept': 'application/json' },
         signal: controller.signal
@@ -61,7 +61,9 @@ export default function VideoAnalysis() {
       console.log("Flask server response:", response.status);
       if (response.ok) {
         setIsFlaskRunning(true);
-        fetchStats();
+        const data = await response.json();
+        console.log("Initial stats:", data);
+        setStats(data);
       }
     } catch (err) {
       console.error('Flask server check failed:', err);
