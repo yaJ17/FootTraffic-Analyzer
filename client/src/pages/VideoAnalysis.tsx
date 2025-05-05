@@ -23,7 +23,7 @@ export default function VideoAnalysis() {
   const [isFlaskRunning, setIsFlaskRunning] = useState<boolean>(false);
   // Use the Replit domain with port 5003 for the Flask server
   const flaskServerUrl = window.location.hostname.includes('replit') 
-    ? `https://${window.location.hostname.replace('5000', '5003')}` 
+    ? `https://${window.location.hostname.replace('.replit.dev', '-5003.replit.dev')}` 
     : 'http://localhost:5003';
   const { toast } = useToast();
 
@@ -45,11 +45,12 @@ export default function VideoAnalysis() {
 
   const checkFlaskServer = async () => {
     try {
+      console.log("Checking Flask server at:", flaskServerUrl);
       // Use a controller to create an abort signal with timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
       
-      const response = await fetch(`${flaskServerUrl}/api/stats`, { 
+      const response = await fetch(`${flaskServerUrl}/hello`, { 
         method: 'GET',
         headers: { 'Accept': 'application/json' },
         signal: controller.signal
@@ -57,15 +58,15 @@ export default function VideoAnalysis() {
       
       clearTimeout(timeoutId);
       
+      console.log("Flask server response:", response.status);
       if (response.ok) {
         setIsFlaskRunning(true);
-        const data = await response.json();
-        console.log("Initial stats:", data);
+        fetchStats();
       }
     } catch (err) {
       console.error('Flask server check failed:', err);
       setIsFlaskRunning(false);
-      setError('The Flask video analysis server is not running. Please start it using the provided script.');
+      setError('The Flask video analysis server is not running. The application will use simulated data instead for demonstration purposes.');
     }
   };
 

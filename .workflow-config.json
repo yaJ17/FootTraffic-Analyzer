@@ -21,7 +21,7 @@
         },
         {
           "type": "shell.exec",
-          "command": "cd flask_backend && PORT=5003 python run.py",
+          "command": "bash ./start_flask_workflow.sh",
           "waitForPort": 5003
         }
       ]
@@ -37,6 +37,19 @@
         {
           "type": "workflow.run",
           "workflow": "Flask Backend"
+        }
+      ]
+    },
+    {
+      "name": "Web Application",
+      "tasks": [
+        {
+          "type": "packager.installForAll"
+        },
+        {
+          "type": "shell.exec", 
+          "command": "bash ./start_all.sh",
+          "waitForPort": 5000
         }
       ]
     }
