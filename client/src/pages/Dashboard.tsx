@@ -5,6 +5,7 @@ import WeeklySummaryChart from '@/components/dashboard/WeeklySummaryChart';
 import MapView from '@/components/dashboard/MapView';
 import FootTrafficChart from '@/components/dashboard/FootTrafficChart';
 import DwellTimeChart from '@/components/dashboard/DwellTimeChart';
+import YouTubeStreamPanel from '@/components/dashboard/YouTubeStreamPanel';
 import { useQuery } from '@tanstack/react-query';
 
 const Dashboard: React.FC = () => {
@@ -153,6 +154,9 @@ const Dashboard: React.FC = () => {
               timeLabels={dwellTimeData.timeLabels}
             />
           </div>
+          
+          {/* YouTube Streaming Analysis Section */}
+          <YouTubeStreamPanel />
         </div>
       </div>
     </div>

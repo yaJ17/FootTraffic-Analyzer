@@ -20,7 +20,8 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for API endpoints
+# Enable CORS with more specific settings
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 # Global variables for video streaming
 video_path = None
@@ -334,6 +335,42 @@ def video_feed():
 def get_stats():
     """API endpoint to get current statistics"""
     return jsonify(stats)
+    
+@app.route('/api/process_youtube', methods=['POST'])
+def api_process_youtube():
+    """API endpoint to process a YouTube URL and return status"""
+    global video_path, stream_active
+    
+    # Parse JSON request
+    data = request.get_json()
+    if not data or 'youtube_url' not in data:
+        return jsonify({"success": False, "error": "No YouTube URL provided"}), 400
+        
+    youtube_url = data['youtube_url']
+    
+    # Stop any existing processing
+    stream_active = False
+    time.sleep(1)  # Give time for threads to clean up
+    
+    success, location_name = get_youtube_stream(youtube_url)
+    
+    if success:
+        # Start a new thread to process frames
+        stream_active = True
+        processing_thread = threading.Thread(target=process_frames, daemon=True)
+        processing_thread.start()
+        
+        return jsonify({
+            "success": True,
+            "location": location_name,
+            "video_feed_url": "http://localhost:5002/video_feed",
+            "stats_url": "http://localhost:5002/api/stats"
+        })
+    else:
+        return jsonify({
+            "success": False,
+            "error": location_name
+        }), 500
 
 if __name__ == '__main__':
     # Clear any existing streams
