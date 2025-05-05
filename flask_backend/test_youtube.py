@@ -13,6 +13,7 @@ from flask_cors import CORS
 import threading
 import logging
 from pytube import YouTube
+from ultralytics import YOLO
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -79,7 +80,7 @@ def get_youtube_stream(youtube_url):
 
 def process_frames():
     """
-    Process frames from the video stream
+    Process frames from the video stream with actual YOLO model
     """
     global video_path, current_frame, stats, stream_active
     
@@ -87,9 +88,13 @@ def process_frames():
         logger.error("No video path set")
         return
     
-    logger.info("Starting frame processing")
+    logger.info("Starting frame processing with YOLO model")
     
     try:
+        # Load YOLO model
+        model = YOLO("flask_backend/yolo12l.pt")
+        logger.info(f"YOLO model loaded successfully")
+        
         # Open the video stream
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
@@ -98,10 +103,27 @@ def process_frames():
         
         logger.info("Video stream opened successfully")
         
-        # Set up variables for people counting
+        # Get video properties
+        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = int(cap.get(cv2.CAP_PROP_FPS))
+        
+        # Set up variables for people counting and tracking
         frame_count = 0
-        people_count_trend = 10  # Starting people count
-        trend_direction = 1
+        region_margin = 0.2
+        dwell_times = {}
+        people_in_region = set()
+        start_time = time.time()
+        
+        # Calculate counting region
+        region_x1 = int(frame_width * region_margin) 
+        region_x2 = int(frame_width * (1 - region_margin))
+        region_y1 = int(frame_height * region_margin)
+        region_y2 = int(frame_height * (1 - region_margin))
+        counting_region = (region_x1, region_y1, region_x2, region_y2)
+        
+        # Skip frames to improve performance based on video fps
+        frame_skip = max(1, fps // 15)  # Target ~15 fps for detection
         
         while stream_active:
             ret, frame = cap.read()
@@ -110,42 +132,111 @@ def process_frames():
                 logger.info("End of stream or error reading frame")
                 break
             
-            # Simple resize to make it easier to process
-            frame = cv2.resize(frame, (640, 480))
+            # Process every nth frame to improve performance
+            frame_count += 1
+            if frame_count % frame_skip != 0 and frame_count > 1:
+                # Still update the frame buffer for display
+                _, buffer = cv2.imencode('.jpg', frame)
+                current_frame = buffer.tobytes()
+                time.sleep(0.01)
+                continue
             
-            # Define counting region (center area of the frame)
+            # Resize frame for better processing
+            frame = cv2.resize(frame, (640, 480))
             height, width = frame.shape[:2]
-            region_margin = 0.2
+            
+            # Update region coordinates after resize
             region_x1 = int(width * region_margin)
             region_x2 = int(width * (1 - region_margin))
             region_y1 = int(height * region_margin)
             region_y2 = int(height * (1 - region_margin))
+            counting_region = (region_x1, region_y1, region_x2, region_y2)
+            
+            # Clear people set for this frame
+            people_in_region.clear()
             
             # Draw counting region rectangle
             cv2.rectangle(frame, (region_x1, region_y1), (region_x2, region_y2), (0, 255, 0), 2)
             
-            # For demonstration, simulate pedestrian data
-            # In a production system, you would use computer vision here
-            frame_count += 1
+            # Process frame with YOLO with tracking
+            results = model.track(
+                source=frame,
+                tracker="bytetrack.yaml",
+                stream=True,
+                iou=0.45,  # Slightly lower IOU threshold
+                conf=0.35,
+                imgsz=640,  # Reduce image size for processing
+                verbose=False
+            )
             
-            # Simulate pedestrian count that follows a pattern
-            if frame_count % 30 == 0:  # Change trend every 30 frames
-                # Randomly decide if trend goes up or down
-                if np.random.random() > 0.5:
-                    trend_direction = 1 if trend_direction == -1 else -1
+            last_detection = next(results)
+            
+            current_people_count = 0
+            
+            if last_detection is not None:
+                detections = last_detection.boxes
+                # Get only people detections (class 0 is person)
+                people_detections = [box for box in detections if int(box.cls[0]) == 0 and box.conf[0] > 0.35]
+                
+                # Process detections and update stats
+                for box in people_detections:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
+                    confidence = box.conf[0]
+                    track_id = int(box.id[0]) if box.id is not None else None
                     
-            # Update people count trend (bounded)
-            people_count_trend += trend_direction * np.random.uniform(0, 0.5)
-            people_count_trend = max(5, min(30, people_count_trend))
-            
-            # Add some randomness around the trend
-            current_people_count = int(people_count_trend + np.random.uniform(-2, 2))
-            current_people_count = max(0, current_people_count)
-            
-            # Update statistics periodically
-            if frame_count % 10 == 0:
+                    if track_id is None:
+                        continue
+                    
+                    # Calculate center point
+                    center_x = (x1 + x2) // 2
+                    center_y = (y1 + y2) // 2
+                    
+                    # Draw bounding box
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                    
+                    # Draw ID and confidence
+                    cv2.putText(frame, f"ID:{track_id}", (x1, y1 - 10), 
+                              cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                    
+                    # Check if person is in counting region
+                    if region_x1 < center_x < region_x2 and region_y1 < center_y < region_y2:
+                        # Person is in region, track for dwell time
+                        current_time = time.time()
+                        if track_id not in dwell_times:
+                            dwell_times[track_id] = current_time
+                        
+                        people_in_region.add(track_id)
+                        
+                        # Draw a circle at the center to indicate counting
+                        cv2.circle(frame, (center_x, center_y), 5, (0, 255, 0), -1)
+                
+                # Update people count
+                current_people_count = len(people_in_region)
+                
+                # Calculate dwell times
+                current_time = time.time()
+                total_dwell_time = 0
+                active_tracks = 0
+                
+                # Calculate average dwell time for active tracks
+                for track_id in list(dwell_times.keys()):
+                    if track_id in people_in_region:
+                        # Active track - calculate current dwell time
+                        dwell_time = current_time - dwell_times[track_id]
+                        total_dwell_time += dwell_time
+                        active_tracks += 1
+                    else:
+                        # Person left the region, clean up after some time
+                        if current_time - dwell_times[track_id] > 5:  # Keep track for 5 seconds after leaving
+                            del dwell_times[track_id]
+                
+                # Update stats
+                avg_dwell_time = 0
+                if active_tracks > 0:
+                    avg_dwell_time = total_dwell_time / active_tracks
+                
                 stats["people_count"] = current_people_count
-                stats["avg_dwell_time"] = 45 + np.random.uniform(-10, 10)  # Random dwell time between 35-55 seconds
+                stats["avg_dwell_time"] = avg_dwell_time
                 stats["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             # Add timestamp and stats to the frame
