@@ -21,8 +21,21 @@
         },
         {
           "type": "shell.exec",
-          "command": "bash ./start_flask_workflow.sh",
+          "command": "cd flask_backend && PORT=5003 python simple_server.py",
           "waitForPort": 5003
+        }
+      ]
+    },
+    {
+      "name": "Combined App",
+      "tasks": [
+        {
+          "type": "packager.installForAll"
+        },
+        {
+          "type": "shell.exec",
+          "command": "bash ./start_app_with_flask.sh",
+          "waitForPort": 5000
         }
       ]
     },
@@ -37,19 +50,6 @@
         {
           "type": "workflow.run",
           "workflow": "Flask Backend"
-        }
-      ]
-    },
-    {
-      "name": "Web Application",
-      "tasks": [
-        {
-          "type": "packager.installForAll"
-        },
-        {
-          "type": "shell.exec", 
-          "command": "bash ./start_all.sh",
-          "waitForPort": 5000
         }
       ]
     }

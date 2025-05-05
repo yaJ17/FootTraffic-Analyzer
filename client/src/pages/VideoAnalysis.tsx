@@ -21,10 +21,38 @@ export default function VideoAnalysis() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isFlaskRunning, setIsFlaskRunning] = useState<boolean>(false);
-  // Use the Replit domain with port 5003 for the Flask server
-  const flaskServerUrl = window.location.hostname.includes('replit') 
-    ? `https://${window.location.hostname.replace('.replit.dev', '-5003.replit.dev')}` 
-    : 'http://localhost:5003';
+  // Calculate Flask server URL based on environment
+  const getFlaskServerUrl = () => {
+    // For local development
+    if (window.location.hostname === 'localhost') {
+      return 'http://localhost:5003';
+    }
+    
+    // For Replit environment
+    if (window.location.hostname.includes('replit')) {
+      // Try different URL patterns for Replit
+      const replitBase = window.location.origin.replace(/:[0-9]+$/, '');
+      console.log("Base Replit URL:", replitBase);
+      
+      if (window.location.port === '5000') {
+        // If we're on port 5000, Flask should be on 5003
+        return replitBase.replace(':5000', ':5003');
+      }
+      
+      // For replit.dev domains
+      if (window.location.hostname.includes('.replit.dev')) {
+        return `https://${window.location.hostname.replace('.replit.dev', '-5003.replit.dev')}`;
+      }
+      
+      // For other Replit domains, use a parallel port
+      return `${replitBase}:5003`;
+    }
+    
+    // Default fallback
+    return 'http://localhost:5003';
+  };
+  
+  const flaskServerUrl = getFlaskServerUrl();
   const { toast } = useToast();
 
   // Check if Flask server is running on component mount

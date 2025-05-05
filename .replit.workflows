@@ -45,13 +45,16 @@ waitForPort = 5003
 agentRequireRestartOnSave = false
 
 [workflow]
-name = "Dev Server"
-author = "user"
-mode = "sequential"
+name = "Combined App"
+author = "agent"
+
+[[task]]
+task = "packager.installForAll"
 
 [[task]]
 task = "shell.exec"
-args = "bash ./start_all.sh"
+args = "bash ./start_app_with_flask.sh"
+waitForPort = 5000
 
 [workflow.metadata]
 agentRequireRestartOnSave = false
