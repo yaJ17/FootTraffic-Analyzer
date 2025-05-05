@@ -27,18 +27,25 @@ def start_flask_server():
     port = os.environ.get("PORT", "5003")
     print(f"Starting Flask server on port {port}")
     
-    # Import and run the simple_server directly
+    # Set the port environment variable
     os.environ["PORT"] = port
     
-    # Add directory to path to ensure imports work
-    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+    # Get the path to the simple_server.py script
+    server_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "simple_server.py")
     
-    try:
-        import simple_server
-        # The server will start automatically due to the if __name__ == '__main__' block
-    except Exception as e:
-        print(f"Error starting Flask server: {e}")
+    if not os.path.exists(server_script):
+        print(f"Error: {server_script} does not exist!")
         sys.exit(1)
+    
+    # Start the server as a subprocess
+    try:
+        subprocess.run([sys.executable, server_script], check=True)
+    except subprocess.SubprocessError as e:
+        print(f"Error running Flask server: {e}")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("Flask server stopped by user")
+        sys.exit(0)
 
 if __name__ == "__main__":
     setup_environment()
