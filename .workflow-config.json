@@ -1,25 +1,10 @@
 {
   "workflows": [
     {
-      "name": "Unified Application",
-      "command": "./start_unified.sh",
-      "runOnStart": true,
-      "persistent": true,
-      "description": "Starts all components: main app, Flask backend, and YouTube streaming"
-    },
-    {
       "name": "Flask backend",
       "command": "./flask_backend_workflow.sh",
-      "runOnStart": false,
-      "persistent": true,
-      "description": "Starts only the Flask backend for video processing"
-    },
-    {
-      "name": "Start YouTube Server",
-      "command": "./start_youtube_server.sh",
-      "runOnStart": false,
-      "persistent": true,
-      "description": "Starts only the YouTube streaming server"
+      "runOnStart": true,
+      "persistent": true
     }
   ]
 }

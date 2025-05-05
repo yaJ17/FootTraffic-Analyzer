@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, Response, jsonify, render_template_string
+from flask import Flask, render_template, request, send_file, Response, jsonify
 import os
 from werkzeug.utils import secure_filename
 from ultralytics import YOLO
@@ -10,7 +10,6 @@ import numpy as np
 from flask_cors import CORS
 import threading
 import logging
-from pytube import YouTube
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -91,45 +90,6 @@ class StatsExporter:
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-    
-def get_youtube_stream(youtube_url):
-    """
-    Get a video stream from a YouTube URL without downloading
-    """
-    global video_path
-    
-    try:
-        logger.info(f"Getting video stream from YouTube URL: {youtube_url}")
-        
-        # Extract video ID for better location naming
-        video_id = youtube_url.split("watch?v=")[-1].split("&")[0]
-        
-        # Use pytube to get the stream URL
-        yt = YouTube(youtube_url)
-        streams = yt.streams.filter(progressive=True, file_extension='mp4')
-        
-        if not streams:
-            logger.error("No suitable streams found for this YouTube video")
-            return False, "No suitable streams found for this YouTube video"
-        
-        # Get the lowest resolution for better performance
-        video_stream = streams.order_by('resolution').first()
-        if not video_stream:
-            logger.error("Could not get a stream for this YouTube video")
-            return False, "Could not get a stream for this YouTube video"
-        
-        # Set the video URL (OpenCV can stream directly from URLs)
-        video_path = video_stream.url
-        
-        # Update location name with YouTube info
-        location_name = f"YouTube: {yt.title[:30]}"
-        
-        logger.info(f"Successfully connected to YouTube stream: {location_name}")
-        return True, location_name
-    
-    except Exception as e:
-        logger.error(f"Error getting YouTube stream: {e}")
-        return False, f"Error: {str(e)}"
 
 @app.route('/')
 def hello():
@@ -391,71 +351,6 @@ def process_sample():
             return f"Sample video not found: {sample_video}"
     
     return "No sample video specified"
-    
-@app.route('/youtube', methods=['GET'])
-def youtube_form():
-    """Form to submit YouTube URL"""
-    form_html = """
-    <html>
-    <head>
-        <title>YouTube Stream - Foot Traffic Analysis</title>
-        <style>
-            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-            h1 { color: #333; }
-            .form-container { border: 2px dashed #ccc; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 20px; }
-            .btn { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
-            .btn:hover { background: #45a049; }
-            #urlInput { width: 80%; padding: 10px; margin: 10px 0; }
-            .notice { margin-top: 10px; color: #666; font-style: italic; }
-        </style>
-    </head>
-    <body>
-        <h1>YouTube Stream for Foot Traffic Analysis</h1>
-        
-        <div class="form-container">
-            <p>Enter a YouTube URL to analyze foot traffic:</p>
-            <form action="/process_youtube" method="POST">
-                <input type="text" id="urlInput" name="youtube_url" value="https://www.youtube.com/watch?v=Ku62ggXQPHE" placeholder="https://www.youtube.com/watch?v=...">
-                <p>
-                    <button class="btn" type="submit">Start Analysis</button>
-                </p>
-                <p class="notice">
-                    <small>Note: For best results, use videos with clear pedestrian traffic. The default URL is a pedestrian area in NYC.</small>
-                </p>
-            </form>
-        </div>
-        
-        <div>
-            <p><a href="/">Back to Home</a></p>
-        </div>
-    </body>
-    </html>
-    """
-    return render_template_string(form_html)
-
-@app.route('/process_youtube', methods=['POST'])
-def process_youtube():
-    """Process a YouTube video URL"""
-    global video_path, processing_complete, current_stats
-    
-    youtube_url = request.form.get('youtube_url')
-    
-    if not youtube_url:
-        return "No YouTube URL provided", 400
-    
-    success, location_name = get_youtube_stream(youtube_url)
-    
-    if success:
-        # Update stats location
-        current_stats["location"] = location_name
-        
-        # Mark as not complete to start processing
-        processing_complete = False
-        
-        # Redirect to streaming page
-        return render_template('stream.html', source_type="YouTube", source=youtube_url)
-    else:
-        return f"Error processing YouTube URL: {location_name}", 500
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
