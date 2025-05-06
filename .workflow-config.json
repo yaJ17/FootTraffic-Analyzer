@@ -1,57 +1,10 @@
 {
   "workflows": [
     {
-      "name": "Start application",
-      "tasks": [
-        {
-          "type": "packager.installForAll"
-        },
-        {
-          "type": "shell.exec",
-          "command": "NODE_ENV=development tsx server/index.ts",
-          "waitForPort": 5000
-        }
-      ]
-    },
-    {
-      "name": "Flask Backend",
-      "tasks": [
-        {
-          "type": "packager.installForAll"
-        },
-        {
-          "type": "shell.exec",
-          "command": "cd flask_backend && PORT=5003 python simple_server.py",
-          "waitForPort": 5003
-        }
-      ]
-    },
-    {
-      "name": "Combined App",
-      "tasks": [
-        {
-          "type": "packager.installForAll"
-        },
-        {
-          "type": "shell.exec",
-          "command": "bash ./start_app_with_flask.sh",
-          "waitForPort": 5000
-        }
-      ]
-    },
-    {
-      "name": "Project",
-      "mode": "parallel",
-      "tasks": [
-        {
-          "type": "workflow.run",
-          "workflow": "Start application"
-        },
-        {
-          "type": "workflow.run",
-          "workflow": "Flask Backend"
-        }
-      ]
+      "name": "Flask backend",
+      "command": "./flask_backend_workflow.sh",
+      "runOnStart": true,
+      "persistent": true
     }
   ]
 }

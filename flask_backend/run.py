@@ -1,52 +1,56 @@
-import os
+import subprocess
 import sys
 import time
-import subprocess
-import threading
+import os
 
-def setup_environment():
-    """Create necessary directories if they don't exist"""
-    os.makedirs("uploads", exist_ok=True)
-    os.makedirs("templates", exist_ok=True)
-    
-    # Copy sample videos if they don't exist
-    sample_videos = ["palengke.mp4", "school.mp4"]
-    for video in sample_videos:
-        source_path = f"../attached_assets/{video}"
-        dest_path = f"uploads/{video}"
-        if os.path.exists(source_path) and not os.path.exists(dest_path):
-            print(f"Copying {source_path} to {dest_path}")
-            try:
-                with open(source_path, 'rb') as src, open(dest_path, 'wb') as dst:
-                    dst.write(src.read())
-            except Exception as e:
-                print(f"Error copying video: {e}")
-
-def start_flask_server():
-    """Start the Flask server for video processing"""
-    port = os.environ.get("PORT", "5003")
-    print(f"Starting Flask server on port {port}")
-    
-    # Set the port environment variable
-    os.environ["PORT"] = port
-    
-    # Get the path to the simple_server.py script
-    server_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "simple_server.py")
-    
-    if not os.path.exists(server_script):
-        print(f"Error: {server_script} does not exist!")
-        sys.exit(1)
-    
-    # Start the server as a subprocess
+def start_mongodb():
+    """
+    Start MongoDB server if it's not already running
+    """
     try:
-        subprocess.run([sys.executable, server_script], check=True)
-    except subprocess.SubprocessError as e:
-        print(f"Error running Flask server: {e}")
-        sys.exit(1)
-    except KeyboardInterrupt:
-        print("Flask server stopped by user")
-        sys.exit(0)
+        # Check if MongoDB is already running
+        mongo_check = subprocess.run(
+            ["pgrep", "-x", "mongod"], 
+            capture_output=True, 
+            text=True
+        )
+        
+        if mongo_check.returncode != 0:
+            print("Starting MongoDB server...")
+            # Start MongoDB in the background
+            subprocess.Popen(
+                ["mongod", "--dbpath", "./data/db"], 
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT
+            )
+            print("Waiting for MongoDB to start...")
+            time.sleep(3)  # Wait for MongoDB to start
+        else:
+            print("MongoDB is already running")
+    except Exception as e:
+        print(f"Error starting MongoDB: {e}")
+        print("Warning: MongoDB may not be available. Will continue anyway.")
+
+def create_mongodb_dirs():
+    """
+    Create directories for MongoDB if they don't exist
+    """
+    os.makedirs("./data/db", exist_ok=True)
+
+def start_flask():
+    """
+    Start the Flask application
+    """
+    print("Starting Flask backend on port 5001...")
+    from app import app
+    app.run(host='0.0.0.0', port=5001, debug=True)
 
 if __name__ == "__main__":
-    setup_environment()
-    start_flask_server()
+    # Create required directories
+    create_mongodb_dirs()
+    
+    # Start MongoDB server
+    start_mongodb()
+    
+    # Start Flask app
+    start_flask()
