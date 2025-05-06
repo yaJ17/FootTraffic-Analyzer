@@ -21,6 +21,7 @@ export default function VideoAnalysis() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isFlaskRunning, setIsFlaskRunning] = useState<boolean>(false);
+  const [streamStatus, setStreamStatus] = useState<{isReady: boolean, error: string | null}>({ isReady: false, error: null });
   // Use the Replit domain with port 5003 for the Flask server
   const flaskServerUrl = window.location.hostname.includes('replit') 
     ? `https://${window.location.hostname.replace('5000', '5001')}` 
@@ -115,6 +116,38 @@ export default function VideoAnalysis() {
     }
   };
 
+  const checkStreamStatus = async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
+      const response = await fetch(`${flaskServerUrl}/api/stream-status`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error('Failed to check stream status');
+      }
+      
+      const data = await response.json();
+      setStreamStatus({
+        isReady: data.isReady,
+        error: data.error
+      });
+      
+      return data.isReady;
+    } catch (err) {
+      console.error('Error checking stream status:', err);
+      setStreamStatus({
+        isReady: false,
+        error: 'Failed to check stream status'
+      });
+      return false;
+    }
+  };
+
   const handleSampleSelect = (value: string) => {
     // Stop current analysis if running
     if (isAnalyzing) {
@@ -132,41 +165,8 @@ export default function VideoAnalysis() {
 
     setIsAnalyzing(true);
     setError(null);
+    setStreamStatus({ isReady: false, error: null });
 
-    if (!isFlaskRunning) {
-      // Generate mock data when server is not available
-      const mockData = {
-        people_count: Math.floor(Math.random() * 50) + 10,
-        avg_dwell_time: Math.floor(Math.random() * 200) + 30,
-        location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
-        timestamp: new Date().toLocaleString()
-      };
-      setStats(mockData);
-      
-      // Set up interval to update mock data
-      const intervalId = setInterval(() => {
-        const updatedMockData = {
-          people_count: Math.floor(Math.random() * 50) + 10,
-          avg_dwell_time: Math.floor(Math.random() * 200) + 30,
-          location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
-          timestamp: new Date().toLocaleString()
-        };
-        setStats(updatedMockData);
-      }, 3000);
-      
-      // Clear interval when component unmounts
-      setTimeout(() => {
-        clearInterval(intervalId);
-      }, 60000); // Stop after 1 minute to avoid memory leaks
-      
-      toast({
-        title: "Simulation Mode",
-        description: `Using simulated data for ${selectedSample} video analysis`,
-      });
-      
-      return;
-    }
-    
     try {
       const formData = new FormData();
       formData.append('sample_video', `${selectedSample}.mp4`);
@@ -184,33 +184,51 @@ export default function VideoAnalysis() {
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error('Failed to start video analysis');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to start video analysis');
       }
       
-      // Start fetching stats
-      fetchStats();
+      // Wait for stream to be ready
+      let retries = 0;
+      const maxRetries = 10;
+      while (retries < maxRetries) {
+        const isReady = await checkStreamStatus();
+        if (isReady) {
+          // Start fetching stats
+          fetchStats();
+          toast({
+            title: "Analysis Started",
+            description: `Now analyzing ${selectedSample} video`,
+          });
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        retries++;
+      }
       
-      toast({
-        title: "Analysis Started",
-        description: `Now analyzing ${selectedSample} video`,
-      });
+      throw new Error('Video stream failed to initialize');
+      
     } catch (err) {
       console.error('Error starting analysis:', err);
+      setError(err.message || 'Failed to start video analysis');
+      setIsAnalyzing(false);
       
-      // Generate mock data on error
-      const mockData = {
-        people_count: Math.floor(Math.random() * 50) + 10,
-        avg_dwell_time: Math.floor(Math.random() * 200) + 30,
-        location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
-        timestamp: new Date().toLocaleString()
-      };
-      setStats(mockData);
-      
-      toast({
-        title: "Fallback Mode",
-        description: `Using simulated data for ${selectedSample} video due to server error`,
-        variant: "destructive"
-      });
+      if (!isFlaskRunning) {
+        // Generate mock data for demo purposes
+        const mockData = {
+          people_count: Math.floor(Math.random() * 50) + 10,
+          avg_dwell_time: Math.floor(Math.random() * 200) + 30,
+          location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
+          timestamp: new Date().toLocaleString()
+        };
+        setStats(mockData);
+        
+        toast({
+          title: "Fallback Mode",
+          description: `Using simulated data for ${selectedSample} video due to server error`,
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -273,17 +291,32 @@ export default function VideoAnalysis() {
                 </CardHeader>
                 <CardContent className="flex justify-center flex-1">
                   <div className="relative w-full max-w-xl border overflow-hidden rounded-md">
-                    {isFlaskRunning ? (
+                    {isFlaskRunning && streamStatus.isReady ? (
                       <img 
                         src={`${flaskServerUrl}/video_feed`} 
-                        alt="Live Video Analysis" 
+                        alt="Live Video Analysis"
                         className="w-full h-auto"
+                        onError={() => {
+                          setStreamStatus(prev => ({
+                            ...prev,
+                            error: 'Failed to load video stream'
+                          }));
+                        }}
                       />
                     ) : (
                       <div className="bg-gray-100 p-8 text-center h-64 flex flex-col items-center justify-center">
                         <FiVideo className="text-5xl text-gray-400 mb-4" />
-                        <p className="text-gray-500 mb-2">Video stream unavailable</p>
-                        <p className="text-sm text-gray-400">Using simulation mode with randomized data</p>
+                        {streamStatus.error ? (
+                          <>
+                            <p className="text-red-500 mb-2">Error: {streamStatus.error}</p>
+                            <p className="text-sm text-gray-400">Using simulation mode with randomized data</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-gray-500 mb-2">Initializing video stream...</p>
+                            <p className="text-sm text-gray-400">Please wait</p>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

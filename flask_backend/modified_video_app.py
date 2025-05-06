@@ -34,7 +34,45 @@ current_stats = {
     "location": "Divisoria",
     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 }
+video_initialization_error = None
+model = None
 
+def initialize_yolo():
+    global model, video_initialization_error
+    try:
+        model = YOLO("yolo12l.pt")
+        logger.info("YOLO model loaded successfully")
+        return True
+    except Exception as e:
+        error_msg = f"Error loading YOLO model: {str(e)}"
+        logger.error(error_msg)
+        video_initialization_error = error_msg
+        return False
+
+def initialize_video(video_file):
+    global video_path, video_initialization_error
+    try:
+        cap = cv2.VideoCapture(video_file)
+        if not cap.isOpened():
+            raise Exception(f"Could not open video file: {video_file}")
+        
+        # Get video properties
+        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = int(cap.get(cv2.CAP_PROP_FPS))
+        
+        cap.release()
+        video_path = video_file
+        video_initialization_error = None
+        logger.info(f"Video initialized: {video_file}, {frame_width}x{frame_height} @ {fps}fps")
+        return True
+    except Exception as e:
+        error_msg = f"Error initializing video: {str(e)}"
+        logger.error(error_msg)
+        video_initialization_error = error_msg
+        return False
+
+# Stats exporter class remains unchanged
 class StatsExporter:
     def __init__(self, location="Divisoria", filename="tracking_statistics.json"):
         self.location = location
@@ -342,9 +380,19 @@ def upload_file():
     
     return render_template('upload.html')
 
+@app.route('/api/stream-status', methods=['GET'])
+def get_stream_status():
+    """API endpoint to get video stream initialization status"""
+    global video_initialization_error
+    return jsonify({
+        "isReady": video_path is not None and video_initialization_error is None,
+        "error": video_initialization_error,
+        "videoPath": video_path
+    })
+
 @app.route('/process_sample', methods=['POST'])
 def process_sample():
-    global video_path, processing_complete, current_stats
+    global video_path, processing_complete, current_stats, video_initialization_error
     
     sample_video = request.form.get('sample_video')
     if sample_video:
@@ -357,12 +405,19 @@ def process_sample():
             processing_complete = False
             video_path = None  # Clear current video path
             
-            # Wait for any existing video processing to finish
-            time.sleep(0.5)
+            # Initialize model if not already done
+            if model is None and not initialize_yolo():
+                return jsonify({
+                    "success": False,
+                    "error": video_initialization_error
+                }), 500
             
-            # Set new video path and create new stats exporter
-            video_path = file_path
-            stats_exporter = StatsExporter(location=location)
+            # Initialize video
+            if not initialize_video(file_path):
+                return jsonify({
+                    "success": False,
+                    "error": video_initialization_error
+                }), 500
             
             # Update current stats
             current_stats.update({
@@ -372,7 +427,11 @@ def process_sample():
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
             
-            return render_template('stream.html')
+            return jsonify({
+                "success": True,
+                "message": f"Video processing started: {sample_video}",
+                "location": location
+            })
         else:
             return jsonify({"success": False, "error": f"Sample video not found: {sample_video}"}), 404
     
