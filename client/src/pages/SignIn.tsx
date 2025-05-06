@@ -161,8 +161,8 @@ const SignIn: React.FC = () => {
         
         <div className={`hidden md:flex md:w-1/2 bg-accent items-center justify-center relative auth-panel ${isNavigating ? 'slide-out' : ''}`}>
           <div className="text-center z-10 p-8">
-            <h2 className="text-3xl font-bold mb-4 text-darkText">Let's get started</h2>
-            <p className="mb-6 text-darkText">Don't have an account? Create an account to start your journey with us.</p>
+            <h2 className="text-3xl font-bold mb-4 text-white drop-shadow-sm">Let's get started</h2>
+            <p className="mb-6 text-white drop-shadow-sm">Don't have an account? Create an account to start your journey with us.</p>
             <Button 
               className="px-8 py-2 bg-white text-darkText rounded-full font-medium hover:bg-gray-100 transition"
               onClick={handleNavigateToSignUp}

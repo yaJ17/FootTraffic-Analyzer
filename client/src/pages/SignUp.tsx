@@ -118,13 +118,13 @@ const SignUp: React.FC = () => {
           />
         </div>
         
-        <div className="w-full md:w-1/2 flex flex-col p-8 justify-center items-center">
+        <div className="w-full md:w-1/2 flex flex-col p-8 justify-center items-center bg-gradient-to-r from-blue-500 to-purple-600">
           <div className="flex items-center mb-8">
-            <Logo textColor="text-black" />
+            <Logo textColor="text-white" />
           </div>
           <div className="max-w-md w-full">
-            <h2 className="text-3xl font-bold mb-2 text-center">Let's get started</h2>
-            <p className="text-gray-600 mb-8 text-center">Enter your details to create an account</p>
+            <h2 className="text-3xl font-bold mb-2 text-center text-white drop-shadow-sm">Let's get started</h2>
+            <p className="text-white mb-8 text-center drop-shadow-sm">Enter your details to create an account</p>
             
             <form className="w-full" onSubmit={handleEmailSignUp}>
               <div className="mb-4">
@@ -188,7 +188,7 @@ const SignUp: React.FC = () => {
                 Sign Up
               </Button>
               
-              <div className="text-center my-2">or</div>
+              <div className="text-center my-2 text-white">or</div>
               
               <Button 
                 type="button" 
@@ -204,10 +204,10 @@ const SignUp: React.FC = () => {
             
             {/* Mobile sign in button (only visible on mobile) */}
             <div className="mt-6 text-center md:hidden">
-              <p className="text-sm text-gray-600 mb-2">Already have an account?</p>
+              <p className="text-sm text-white drop-shadow-sm mb-2">Already have an account?</p>
               <Button
                 variant="outline"
-                className="text-primary border-primary hover:bg-primary/10"
+                className="text-white border-white hover:bg-white/10"
                 onClick={handleNavigateToSignIn}
               >
                 Sign In
