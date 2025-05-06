@@ -34,42 +34,21 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
-        .btn {
-            display: inline-block;
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 15px;
-            margin: 10px 0;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 16px;
-        }
-        .btn:hover {
-            background-color: #45a049;
-        }
         .stats-panel {
             margin-top: 20px;
             padding: 15px;
-            background-color: #f9f9f9;
-            border: 1px solid #ddd;
+            background: #f8f9fa;
             border-radius: 4px;
-        }
-        .stats-panel h2 {
-            margin-top: 0;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 10px;
         }
         .stats-row {
             display: flex;
+            justify-content: space-between;
             flex-wrap: wrap;
-            margin-bottom: 10px;
+            gap: 10px;
         }
         .stats-item {
             flex: 1;
             min-width: 200px;
-            margin: 5px;
             padding: 10px;
             background-color: #fff;
             border: 1px solid #eee;
@@ -79,6 +58,29 @@
             display: block;
             margin-bottom: 5px;
         }
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            margin: 5px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .error-message {
+            color: red;
+            text-align: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #ffcdd2;
+            border-radius: 4px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -86,7 +88,8 @@
         <h1>Foot Traffic Video Analysis</h1>
         
         <div class="video-container">
-            <img src="{{ url_for('video_feed') }}" class="video-stream" alt="Video Stream">
+            <div id="error-message" class="error-message"></div>
+            <img id="video-stream" src="{{ url_for('video_feed') }}" class="video-stream" alt="Video Stream" onerror="handleVideoError()">
         </div>
         
         <div class="stats-panel">
@@ -94,29 +97,30 @@
             <div class="stats-row">
                 <div class="stats-item">
                     <strong>Location:</strong>
-                    <span id="location">Divisoria</span>
+                    <span id="location">Loading...</span>
                 </div>
                 <div class="stats-item">
                     <strong>People Count:</strong>
-                    <span id="people-count">Processing...</span>
+                    <span id="people-count">Loading...</span>
                 </div>
                 <div class="stats-item">
                     <strong>Average Dwell Time:</strong>
-                    <span id="dwell-time">Processing...</span>
+                    <span id="dwell-time">Loading...</span>
                 </div>
             </div>
+            
             <div class="stats-row">
                 <div class="stats-item">
                     <strong>Date:</strong>
-                    <span id="date"></span>
+                    <span id="date">Loading...</span>
                 </div>
                 <div class="stats-item">
                     <strong>Time:</strong>
-                    <span id="time"></span>
+                    <span id="time">Loading...</span>
                 </div>
                 <div class="stats-item">
                     <strong>Day:</strong>
-                    <span id="day"></span>
+                    <span id="day">Loading...</span>
                 </div>
             </div>
         </div>
@@ -129,37 +133,53 @@
     </div>
 
     <script>
-        // Update time and date
-        function updateDateTime() {
-            const now = new Date();
-            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            const dateStr = now.toLocaleDateString('en-US', options);
-            const timeStr = now.toLocaleTimeString('en-US');
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        function handleVideoError() {
+            const errorDiv = document.getElementById('error-message');
+            const videoImg = document.getElementById('video-stream');
             
-            const dateParts = dateStr.split(',');
-            document.getElementById('day').textContent = dateParts[0];
-            document.getElementById('date').textContent = dateParts.slice(1).join(',').trim();
-            document.getElementById('time').textContent = timeStr;
+            if (retryCount < maxRetries) {
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = 'Video stream interrupted. Attempting to reconnect...';
+                retryCount++;
+                
+                // Try to reconnect after a delay
+                setTimeout(() => {
+                    videoImg.src = "{{ url_for('video_feed') }}?" + new Date().getTime();
+                }, 2000);
+            } else {
+                errorDiv.textContent = 'Unable to connect to video stream. Please refresh the page or try again later.';
+            }
         }
         
-        // Update the date and time every second
-        updateDateTime();
-        setInterval(updateDateTime, 1000);
-        
-        // In a real implementation, these would be updated via WebSocket or Server-Sent Events
-        // For now, we'll simulate updates every 3 seconds
-        function simulateStatsUpdate() {
-            // This would be replaced with real data from the server
-            const peopleCount = Math.floor(Math.random() * 20) + 5;
-            const dwellTime = (Math.random() * 60 + 30).toFixed(1) + ' seconds';
-            
-            document.getElementById('people-count').textContent = peopleCount;
-            document.getElementById('dwell-time').textContent = dwellTime;
+        function updateStats() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('location').textContent = data.location;
+                    document.getElementById('people-count').textContent = data.people_count;
+                    document.getElementById('dwell-time').textContent = 
+                        data.avg_dwell_time ? data.avg_dwell_time.toFixed(1) + ' seconds' : '0 seconds';
+                    
+                    const timestamp = new Date(data.timestamp);
+                    document.getElementById('date').textContent = timestamp.toLocaleDateString();
+                    document.getElementById('time').textContent = timestamp.toLocaleTimeString();
+                    document.getElementById('day').textContent = timestamp.toLocaleDateString('en-US', { weekday: 'long' });
+                })
+                .catch(error => console.error('Error updating stats:', error));
         }
         
-        // Update stats every 3 seconds
-        setTimeout(simulateStatsUpdate, 2000);
-        setInterval(simulateStatsUpdate, 3000);
+        // Update stats immediately and then every second
+        updateStats();
+        setInterval(updateStats, 1000);
+        
+        // Reset retry count when the video loads successfully
+        document.getElementById('video-stream').onload = function() {
+            retryCount = 0;
+            document.getElementById('error-message').style.display = 'none';
+        };
     </script>
 </body>
 </html>

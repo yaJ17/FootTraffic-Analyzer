@@ -23,8 +23,8 @@ export default function VideoAnalysis() {
   const [isFlaskRunning, setIsFlaskRunning] = useState<boolean>(false);
   // Use the Replit domain with port 5003 for the Flask server
   const flaskServerUrl = window.location.hostname.includes('replit') 
-    ? `https://${window.location.hostname.replace('5000', '5003')}` 
-    : 'http://localhost:5003';
+    ? `https://${window.location.hostname.replace('5000', '5001')}` 
+    : 'http://localhost:5001';
   const { toast } = useToast();
 
   // Check if Flask server is running on component mount
@@ -116,6 +116,11 @@ export default function VideoAnalysis() {
   };
 
   const handleSampleSelect = (value: string) => {
+    // Stop current analysis if running
+    if (isAnalyzing) {
+      setIsAnalyzing(false);
+      setStats(null);
+    }
     setSelectedSample(value);
   };
 

@@ -309,8 +309,14 @@ def generate_frames():
 @app.route('/video_feed')
 def video_feed():
     """Video streaming route"""
-    return Response(generate_frames(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+    if not video_path:
+        return Response("No video selected", status=404)
+    try:
+        return Response(generate_frames(),
+                        mimetype='multipart/x-mixed-replace; boundary=frame')
+    except Exception as e:
+        logger.error(f"Error in video feed: {e}")
+        return Response("Error in video feed", status=500)
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
@@ -338,19 +344,39 @@ def upload_file():
 
 @app.route('/process_sample', methods=['POST'])
 def process_sample():
-    global video_path, processing_complete
+    global video_path, processing_complete, current_stats
     
     sample_video = request.form.get('sample_video')
     if sample_video:
-        # Set the video path to one of the sample videos
-        video_path = os.path.join(app.config['UPLOAD_FOLDER'], sample_video)
-        if os.path.isfile(video_path):
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], sample_video)
+        if os.path.isfile(file_path):
+            # Update location based on video
+            location = "School Entrance" if "school" in sample_video.lower() else "Palengke Market"
+            
+            # Ensure clean state
             processing_complete = False
+            video_path = None  # Clear current video path
+            
+            # Wait for any existing video processing to finish
+            time.sleep(0.5)
+            
+            # Set new video path and create new stats exporter
+            video_path = file_path
+            stats_exporter = StatsExporter(location=location)
+            
+            # Update current stats
+            current_stats.update({
+                "location": location,
+                "people_count": 0,
+                "avg_dwell_time": 0,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
+            
             return render_template('stream.html')
         else:
-            return f"Sample video not found: {sample_video}"
+            return jsonify({"success": False, "error": f"Sample video not found: {sample_video}"}), 404
     
-    return "No sample video specified"
+    return jsonify({"success": False, "error": "No sample video specified"}), 400
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
