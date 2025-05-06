@@ -72,8 +72,8 @@ const SignIn: React.FC = () => {
             <Logo textColor="text-black" />
           </div>
           <div className="max-w-md w-full">
-            <h2 className="text-3xl font-bold mb-2 text-center">Welcome back</h2>
-            <p className="text-gray-600 mb-8 text-center">Sign in to continue</p>
+            <h2 className="text-3xl font-bold mb-2 text-center text-black drop-shadow-md">Welcome back</h2>
+            <p className="text-gray-600 mb-8 text-center drop-shadow-md">Sign in to continue</p>
             
             <form className="w-full" onSubmit={handleEmailLogin}>
               <div className="mb-4">
@@ -119,9 +119,9 @@ const SignIn: React.FC = () => {
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                   />
-                  <label htmlFor="remember" className="text-sm">Remember me</label>
+                  <label htmlFor="remember" className="text-sm drop-shadow-md">Remember me</label>
                 </div>
-                <a href="#" className="ml-auto text-sm text-secondary">Forgot Password</a>
+                <a href="#" className="ml-auto text-sm text-secondary drop-shadow-md">Forgot Password</a>
               </div>
               
               <Button 
@@ -131,7 +131,7 @@ const SignIn: React.FC = () => {
                 Sign In
               </Button>
               
-              <div className="text-center my-2">or</div>
+              <div className="text-center my-2 drop-shadow-md">or</div>
               
               <Button 
                 type="button" 
@@ -147,7 +147,7 @@ const SignIn: React.FC = () => {
 
             {/* Mobile sign up button (only visible on mobile) */}
             <div className="mt-6 text-center md:hidden">
-              <p className="text-sm text-gray-600 mb-2">Don't have an account?</p>
+              <p className="text-sm text-gray-600 mb-2 drop-shadow-md">Don't have an account?</p>
               <Button
                 variant="outline"
                 className="text-primary border-primary hover:bg-primary/10"
@@ -161,8 +161,8 @@ const SignIn: React.FC = () => {
         
         <div className={`hidden md:flex md:w-1/2 bg-accent items-center justify-center relative auth-panel ${isNavigating ? 'slide-out' : ''}`}>
           <div className="text-center z-10 p-8">
-            <h2 className="text-3xl font-bold mb-4 text-white drop-shadow-sm">Let's get started</h2>
-            <p className="mb-6 text-white drop-shadow-sm">Don't have an account? Create an account to start your journey with us.</p>
+            <h2 className="text-3xl font-bold mb-4 text-white drop-shadow-md">Let's get started</h2>
+            <p className="mb-6 text-white drop-shadow-md">Don't have an account? Create an account to start your journey with us.</p>
             <Button 
               className="px-8 py-2 bg-white text-darkText rounded-full font-medium hover:bg-gray-100 transition"
               onClick={handleNavigateToSignUp}

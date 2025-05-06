@@ -100,8 +100,8 @@ const SignUp: React.FC = () => {
       <div className="flex min-h-screen">
         <div className="hidden md:flex md:w-1/2 bg-primary items-center justify-center relative">
           <div className="text-center z-10 p-8">
-            <h2 className="text-3xl font-bold mb-4 text-lightText">Welcome back</h2>
-            <p className="mb-6 text-lightText">Already have an account? To keep connected with us, please login your account.</p>
+            <h2 className="text-3xl font-bold mb-4 text-white drop-shadow-md">Welcome back</h2>
+            <p className="mb-6 text-white drop-shadow-md">Already have an account? To keep connected with us, please login your account.</p>
             <Button 
               className="px-8 py-2 bg-white text-darkText rounded-full font-medium hover:bg-gray-100 transition"
               onClick={handleNavigateToSignIn}
@@ -123,8 +123,8 @@ const SignUp: React.FC = () => {
             <Logo textColor="text-white" />
           </div>
           <div className="max-w-md w-full">
-            <h2 className="text-3xl font-bold mb-2 text-center text-white drop-shadow-sm">Let's get started</h2>
-            <p className="text-white mb-8 text-center drop-shadow-sm">Enter your details to create an account</p>
+            <h2 className="text-3xl font-bold mb-2 text-center text-white drop-shadow-md">Let's get started</h2>
+            <p className="text-white mb-8 text-center drop-shadow-md">Enter your details to create an account</p>
             
             <form className="w-full" onSubmit={handleEmailSignUp}>
               <div className="mb-4">
@@ -204,7 +204,7 @@ const SignUp: React.FC = () => {
             
             {/* Mobile sign in button (only visible on mobile) */}
             <div className="mt-6 text-center md:hidden">
-              <p className="text-sm text-white drop-shadow-sm mb-2">Already have an account?</p>
+              <p className="text-sm text-white drop-shadow-md mb-2">Already have an account?</p>
               <Button
                 variant="outline"
                 className="text-white border-white hover:bg-white/10"
