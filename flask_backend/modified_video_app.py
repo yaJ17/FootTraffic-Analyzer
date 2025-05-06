@@ -278,108 +278,210 @@ def download_stats():
         return send_file(stats_file, as_attachment=True)
     else:
         return "No statistics file found"
-
 def generate_frames():
-    """Generate video frames with processing"""
-    global video_path, output_frame, current_stats
+    global video_path, output_frame, processing_complete, current_stats
     
     if not video_path:
         return
-        
+    
     try:
-        # Initialize video capture for current video
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            logger.error(f"Error opening video file: {video_path}")
-            return
-
-        # Initialize stats exporter
-        location = "School Entrance" if "school" in video_path.lower() else "Palengke Market"
-        stats_exporter = StatsExporter(location=location)
-        
-        # Variables for tracking
-        frame_count = 0
-        total_people = 0
-        dwell_times = []
-        last_export_time = time.time()
-        
-        while True:
-            # Check if video path has changed
-            current_video = video_path
-            if not current_video:
-                logger.info("Video stream stopped")
-                break
+        # Load YOLO model
+        model = YOLO("yolo12l.pt")
+        logger.info(f"YOLO model loaded successfully")
+    except Exception as e:
+        logger.error(f"Error loading YOLO model: {e}")
+        return
+    
+    while True:  # Outer loop for video repetition
+        try:
+            # Initialize video capture
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                logger.error(f"Error opening video file: {video_path}")
+                return
                 
-            success, frame = cap.read()
-            if not success:
-                # Loop back to beginning when video ends
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                continue
-                
-            frame_count += 1
+            # Get video properties
+            frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = int(cap.get(cv2.CAP_PROP_FPS))
             
-            try:
-                # Process frame with YOLO
-                results = model(frame, conf=0.3)
+            logger.info(f"Video opened: {video_path}, {frame_width}x{frame_height} @ {fps}fps")
+            
+            # Calculate frame skip based on performance needs
+            frame_skip = max(1, fps // 15)  # Target ~15 fps for detection
+            frame_count = 0
+            
+            # Initialize stats exporter and other variables
+            stats_exporter = StatsExporter()
+            region_margin = 0.2
+            region_x1 = int(frame_width * region_margin)
+            region_x2 = int(frame_width * (1 - region_margin))
+            region_y1 = int(frame_height * region_margin)
+            region_y2 = int(frame_height * (1 - region_margin))
+            counting_region = (region_x1, region_y1, region_x2, region_y2)
+            
+            dwell_times = {}
+            people_per_second = {}
+            people_in_region = set()
+            start_time = time.time()
+            last_detection = None
+            
+            while True:
+                success, frame = cap.read()
+                if not success:
+                    break
+                    
+                frame_count += 1
                 
-                # Draw boxes and get people count
-                people_in_frame = 0
-                for r in results:
-                    boxes = r.boxes
-                    for box in boxes:
-                        # Only count person class (usually class 0)
-                        if box.cls == 0:  # person class
-                            people_in_frame += 1
-                            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                            cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
-                
-                # Update statistics
-                total_people += people_in_frame
-                avg_people = total_people / frame_count if frame_count > 0 else 0
-                
-                # Calculate mock dwell time (simplified)
-                if people_in_frame > 0:
-                    dwell_times.append(random.uniform(30, 120))
-                avg_dwell_time = sum(dwell_times) / len(dwell_times) if dwell_times else 0
-                
-                # Export stats periodically
+                # Skip frames for performance, but still display them
+                if frame_count % frame_skip != 0:
+                    # Convert frame to JPEG and yield without detection
+                    ret, buffer = cv2.imencode('.jpg', frame)
+                    frame_bytes = buffer.tobytes()
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                    continue
+                    
                 current_time = time.time()
-                if current_time - last_export_time >= 3:  # Export every 3 seconds
-                    stats_exporter.export_stats(people_in_frame, avg_dwell_time)
-                    last_export_time = current_time
+                elapsed_seconds = int(current_time - start_time)
                 
-                # Add timestamp and stats to frame
-                cv2.putText(frame, f"People Count: {people_in_frame}", 
-                           (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-                cv2.putText(frame, f"Avg Dwell Time: {int(avg_dwell_time)}s", 
-                           (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-                cv2.putText(frame, f"Location: {location}", 
-                           (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                # Draw counting region
+                cv2.rectangle(frame, (region_x1, region_y1), (region_x2, region_y2), (0, 255, 0), 2)
+                cv2.putText(frame, "Counting Zone", (region_x1, region_y1 - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
                 
-                # Convert to jpeg
+                # Clear current frame's people in region
+                people_in_region.clear()
+                
+                try:
+                    # Process frame with YOLO with optimized parameters
+                    results = model.track(
+                        source=frame,
+                        tracker="bytetrack.yaml",
+                        stream=True,
+                        iou=0.45,  # Slightly lower IOU threshold
+                        conf=0.35,
+                        imgsz=640,  # Reduce image size for processing
+                        verbose=False
+                    )
+                    
+                    # Store last detection results
+                    last_detection = next(results)
+                    
+                    if last_detection is not None:
+                        detections = last_detection.boxes
+                        people_detections = [box for box in detections if int(box.cls[0]) == 0 and box.conf[0] > 0.35]
+                        
+                        # Process detections and update stats
+                        for box in people_detections:
+                            x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
+                            confidence = box.conf[0]
+                            track_id = int(box.id[0]) if box.id is not None else None
+                            
+                            if track_id is None:
+                                continue
+                            
+                            # Calculate center point
+                            center_x = (x1 + x2) // 2
+                            center_y = (y1 + y2) // 2
+                            
+                            # Check if person is in counting region
+                            if is_point_in_region((center_x, center_y), counting_region):
+                                people_in_region.add(track_id)
+                                box_color = (0, 255, 0)  # Green for people in region
+                                
+                                # Initialize or update dwell times
+                                if track_id not in dwell_times:
+                                    dwell_times[track_id] = {
+                                        "total_time": 0,
+                                        "sessions": [],
+                                        "current_session": {"start": current_time, "active": True}
+                                    }
+                                else:
+                                    track_data = dwell_times[track_id]
+                                    if not track_data["current_session"]["active"]:
+                                        if track_data["current_session"]["start"] is not None:
+                                            session_time = current_time - track_data["current_session"]["start"]
+                                            track_data["sessions"].append(session_time)
+                                            track_data["total_time"] += session_time
+                                        track_data["current_session"] = {"start": current_time, "active": True}
+                                    else:
+                                        track_data["current_session"]["active"] = True
+                            else:
+                                box_color = (255, 0, 0)  # Red for people outside region
+                            
+                            # Calculate current dwell time
+                            if track_id in dwell_times:
+                                track_data = dwell_times[track_id]
+                                total_time = track_data["total_time"]
+                                if track_data["current_session"]["active"]:
+                                    current_session_time = current_time - track_data["current_session"]["start"]
+                                    display_time = total_time + current_session_time
+                                else:
+                                    display_time = total_time
+                            else:
+                                display_time = 0
+                            
+                            # Draw bounding box and label
+                            cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 2)
+                            label = f"ID: {track_id} | {confidence:.2f}"
+                            if display_time > 0:
+                                label += f" | Dwell: {display_time:.1f}s"
+                            cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, box_color, 2)
+                        
+                        # Update stats display
+                        current_datetime = datetime.now()
+                        cv2.putText(frame, f"Location: {stats_exporter.location}", (10, 30),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                        cv2.putText(frame, f"Date: {current_datetime.strftime('%m/%d/%Y')}", (10, 60),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                        cv2.putText(frame, f"Day: {current_datetime.strftime('%A')}", (10, 90),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                        cv2.putText(frame, f"Time: {current_datetime.strftime('%H:%M:%S')}", (10, 120),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                        cv2.putText(frame, f"People Count: {len(people_in_region)}", (10, 150),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                        cv2.putText(frame, f"FPS: {fps/frame_skip:.1f}", (10, 180),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                        
+                        # Calculate average dwell time
+                        avg_dwell_time = 0
+                        if dwell_times:
+                            total_dwell_time = 0
+                            total_people = 0
+                            for track_data in dwell_times.values():
+                                time_sum = track_data["total_time"]
+                                if track_data["current_session"]["active"]:
+                                    time_sum += current_time - track_data["current_session"]["start"]
+                                total_dwell_time += time_sum
+                                total_people += 1
+                            avg_dwell_time = total_dwell_time / total_people if total_people > 0 else 0
+
+                        # Export stats if needed
+                        if stats_exporter.should_export(current_time):
+                            stats_exporter.export_stats(len(people_in_region), avg_dwell_time)
+                
+                except Exception as e:
+                    logger.error(f"Error processing frame: {e}")
+                    # If detection fails, just add text to the frame about the error
+                    cv2.putText(frame, f"Error processing: {str(e)[:30]}", (10, 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                
+                # Convert frame to JPEG format
                 ret, buffer = cv2.imencode('.jpg', frame)
                 frame_bytes = buffer.tobytes()
                 
-                # Check if video path has changed before yielding frame
-                if current_video != video_path:
-                    logger.info("Video changed, stopping current stream")
-                    break
-                    
+                # Yield the frame
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-                
-            except Exception as e:
-                logger.error(f"Error processing frame: {e}")
-                continue
-                
-            # Add a small delay to control frame rate
-            time.sleep(0.03)  # ~30fps
             
-    except Exception as e:
-        logger.error(f"Error in generate_frames: {e}")
-    finally:
-        if 'cap' in locals():
             cap.release()
+            processing_complete = True
+            
+        except Exception as e:
+            logger.error(f"Error in video processing: {e}")
+            # If we hit an exception, wait a bit and then continue to the next loop iteration
+            time.sleep(1)
 
 def start_flask_server():
     """Start the Flask server"""
