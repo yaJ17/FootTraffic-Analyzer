@@ -22,6 +22,9 @@ export default function VideoAnalysis() {
   const [error, setError] = useState<string | null>(null);
   const [isFlaskRunning, setIsFlaskRunning] = useState<boolean>(false);
   const [streamStatus, setStreamStatus] = useState<{isReady: boolean, error: string | null}>({ isReady: false, error: null });
+  const [streamKey, setStreamKey] = useState<number>(0);
+  const [videoTimestamp, setVideoTimestamp] = useState<number>(Date.now());
+  
   // Use the Replit domain with port 5003 for the Flask server
   const flaskServerUrl = window.location.hostname.includes('replit') 
     ? `https://${window.location.hostname.replace('5000', '5001')}` 
@@ -148,13 +151,26 @@ export default function VideoAnalysis() {
     }
   };
 
-  const handleSampleSelect = (value: string) => {
+  const handleSampleSelect = async (value: string) => {
     // Stop current analysis if running
     if (isAnalyzing) {
       setIsAnalyzing(false);
       setStats(null);
+      setStreamStatus({ isReady: false, error: null });
+      
+      try {
+        // Call the backend to stop current stream
+        await fetch(`${flaskServerUrl}/stop_stream`, {
+          method: 'POST'
+        });
+      } catch (err) {
+        console.error('Error stopping stream:', err);
+      }
     }
+    
     setSelectedSample(value);
+    setVideoTimestamp(Date.now()); // Update timestamp to force stream refresh
+    setStreamKey(prev => prev + 1);
   };
 
   const startAnalysis = async () => {    
@@ -166,6 +182,8 @@ export default function VideoAnalysis() {
     setIsAnalyzing(true);
     setError(null);
     setStreamStatus({ isReady: false, error: null });
+    setVideoTimestamp(Date.now()); // Update timestamp to force stream refresh
+    setStreamKey(prev => prev + 1);
 
     try {
       const formData = new FormData();
@@ -210,7 +228,13 @@ export default function VideoAnalysis() {
       
     } catch (err) {
       console.error('Error starting analysis:', err);
-      setError(err.message || 'Failed to start video analysis');
+
+      // Type guard for Error objects
+      const errorMessage = err instanceof Error
+        ? err.message
+        : 'Failed to start video analysis';
+
+      setError(errorMessage);
       setIsAnalyzing(false);
       
       if (!isFlaskRunning) {
@@ -293,7 +317,8 @@ export default function VideoAnalysis() {
                   <div className="relative w-full max-w-xl border overflow-hidden rounded-md">
                     {isFlaskRunning && streamStatus.isReady ? (
                       <img 
-                        src={`${flaskServerUrl}/video_feed`} 
+                        key={streamKey}
+                        src={`${flaskServerUrl}/video_feed?t=${videoTimestamp}`}
                         alt="Live Video Analysis"
                         className="w-full h-auto"
                         onError={() => {
