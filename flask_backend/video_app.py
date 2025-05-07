@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, Response
+from flask import Flask, render_template, request, send_file, Response, jsonify
 import os
 from werkzeug.utils import secure_filename
 from ultralytics import YOLO
@@ -7,6 +7,14 @@ import time
 import json
 from datetime import datetime
 import numpy as np
+import threading
+from pytube import YouTube
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO,
+                   format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -19,52 +27,57 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 video_path = None
 output_frame = None
 processing_complete = False
+video_initialization_error = None
+current_stats = {
+    "people_count": 0,
+    "avg_dwell_time": 0,
+    "location": "Not Set",
+    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+}
 
-class StatsExporter:
-    def __init__(self, location="Divisoria", filename="tracking_statistics.json"):
-        self.location = location
-        self.last_export_time = time.time()
-        self.export_interval = 10  # Export every 10 seconds
-        self.filename = filename
-        
-        # Initialize or load existing stats file
-        if not os.path.exists(self.filename):
-            self.all_stats = {"records": []}
-            self._save_stats()
-        else:
-            with open(self.filename, 'r') as f:
-                self.all_stats = json.load(f)
-                if "records" not in self.all_stats:
-                    self.all_stats["records"] = []
-    
-    def should_export(self, current_time):
-        return (current_time - self.last_export_time) >= self.export_interval
-    
-    def export_stats(self, people_count, avg_dwell_time):
-        current_datetime = datetime.now()
-        
-        new_stats = {
-            "location": self.location,
-            "date": current_datetime.strftime("%m/%d/%Y"),
-            "day": current_datetime.strftime("%A"),
-            "time": current_datetime.strftime("%H:%M:%S"),
-            "timestamp": current_datetime.strftime("%Y%m%d_%H%M%S"),
-            "people_count": people_count,
-            "average_dwell_time": round(avg_dwell_time, 2) if avg_dwell_time else 0
-        }
-        
-        self.all_stats["records"].append(new_stats)
-        self._save_stats()
-        self.last_export_time = time.time()
-        return self.filename
-    
-    def _save_stats(self):
-        os.makedirs(os.path.dirname(self.filename) if os.path.dirname(self.filename) else '.', exist_ok=True)
-        with open(self.filename, 'w') as f:
-            json.dump(self.all_stats, f, indent=4)
+def initialize_yolo():
+    """Initialize YOLO model"""
+    try:
+        model = YOLO("yolo12l.pt")
+        logger.info("YOLO model loaded successfully")
+        return True
+    except Exception as e:
+        error_msg = f"Error loading YOLO model: {str(e)}"
+        logger.error(error_msg)
+        return False
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+def reset_stream():
+    """Reset all stream-related variables"""
+    global video_path, output_frame, processing_complete, current_stats, video_initialization_error
+    video_path = None
+    output_frame = None
+    processing_complete = False
+    video_initialization_error = None
+    current_stats.update({
+        "people_count": 0,
+        "avg_dwell_time": 0,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
+
+@app.route('/stop_stream', methods=['POST'])
+def stop_stream():
+    """Stop the current video stream"""
+    reset_stream()
+    return jsonify({"success": True})
+
+@app.route('/api/stats')
+def get_stats():
+    """Return current video analysis stats"""
+    return jsonify(current_stats)
+
+@app.route('/api/stream-status')
+def get_stream_status():
+    """Return video stream initialization status"""
+    return jsonify({
+        "isReady": video_path is not None and video_initialization_error is None,
+        "error": video_initialization_error,
+        "videoPath": video_path
+    })
 
 @app.route('/')
 def hello():
@@ -289,6 +302,112 @@ def upload_file():
             return render_template('stream.html')
     
     return render_template('upload.html')
+
+def process_youtube_stream(url):
+    """Process a YouTube live stream URL to get the video stream"""
+    try:
+        yt = YouTube(url)
+        if not yt.streams.filter(adaptive=True, file_extension='mp4').first():
+            if not yt.streams.filter(progressive=True, file_extension='mp4').first():
+                raise Exception("No valid video stream found")
+            # Try progressive stream if adaptive is not available
+            stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
+        else:
+            # Get the highest quality adaptive stream
+            stream = yt.streams.filter(adaptive=True, file_extension='mp4').first()
+        
+        if not stream:
+            raise Exception("Could not find a suitable video stream")
+            
+        logger.info(f"Successfully found YouTube stream: {stream.title}")
+        return stream.url
+        
+    except Exception as e:
+        error_msg = str(e)
+        if "Video unavailable" in error_msg:
+            raise Exception("This video is unavailable. It might be private or removed.")
+        elif "Age restricted" in error_msg:
+            raise Exception("This video is age-restricted and cannot be accessed.")
+        elif "private video" in error_msg.lower():
+            raise Exception("This video is private and cannot be accessed.")
+        elif "live stream" in error_msg.lower():
+            raise Exception("Could not access live stream. Make sure the stream is active and public.")
+        else:
+            raise Exception(f"Failed to fetch YouTube video: {error_msg}")
+
+@app.route('/process_youtube', methods=['POST'])
+def process_youtube():
+    """Handle YouTube live stream processing requests"""
+    global video_path, processing_complete, current_stats
+    
+    try:
+        data = request.get_json()
+        if not data or 'url' not in data:
+            return jsonify({"success": False, "error": "No URL provided"}), 400
+        
+        youtube_url = data['url']
+        
+        # Validate YouTube URL format
+        if not ("youtube.com" in youtube_url or "youtu.be" in youtube_url):
+            return jsonify({
+                "success": False,
+                "error": "Invalid YouTube URL. Please provide a valid YouTube video URL."
+            }), 400
+        
+        # Reset stream before starting new one
+        reset_stream()
+        
+        try:
+            # Get the stream URL with timeout
+            stream_url = process_youtube_stream(youtube_url)
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            }), 400
+        
+        # Initialize model if not already done
+        if not initialize_yolo():
+            return jsonify({
+                "success": False,
+                "error": "Failed to initialize YOLO model"
+            }), 500
+        
+        # Verify stream is accessible
+        try:
+            cap = cv2.VideoCapture(stream_url)
+            if not cap.isOpened():
+                raise Exception("Could not access video stream")
+            ret, _ = cap.read()
+            if not ret:
+                raise Exception("Could not read from video stream")
+            cap.release()
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": f"Failed to access video stream: {str(e)}"
+            }), 400
+        
+        # Set the video path to the stream URL
+        video_path = stream_url
+        
+        # Update current stats
+        current_stats.update({
+            "location": "YouTube Live Stream",
+            "people_count": 0,
+            "avg_dwell_time": 0,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+        
+        return jsonify({
+            "success": True,
+            "message": "YouTube stream processing started"
+        })
+        
+    except Exception as e:
+        error_msg = f"Error processing YouTube stream: {str(e)}"
+        logger.error(error_msg)
+        return jsonify({"success": False, "error": error_msg}), 500
 
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):

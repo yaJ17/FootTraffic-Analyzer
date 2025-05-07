@@ -24,6 +24,8 @@ export default function VideoAnalysis() {
   const [streamStatus, setStreamStatus] = useState<{isReady: boolean, error: string | null}>({ isReady: false, error: null });
   const [streamKey, setStreamKey] = useState<number>(0);
   const [videoTimestamp, setVideoTimestamp] = useState<number>(Date.now());
+  const [youtubeUrl, setYoutubeUrl] = useState<string>('');
+  const [isYoutubeAnalyzing, setIsYoutubeAnalyzing] = useState<boolean>(false);
   
   // Use the Replit domain with port 5003 for the Flask server
   const flaskServerUrl = window.location.hostname.includes('replit') 
@@ -46,6 +48,16 @@ export default function VideoAnalysis() {
       return () => clearInterval(interval);
     }
   }, [isAnalyzing]);
+
+  useEffect(() => {
+    // Check stream status every 2 seconds while analyzing
+    if (isYoutubeAnalyzing) {
+      const interval = setInterval(() => {
+        fetchStats();
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [isYoutubeAnalyzing]);
 
   const checkFlaskServer = async () => {
     try {
@@ -256,14 +268,145 @@ export default function VideoAnalysis() {
     }
   };
 
+  const startYoutubeAnalysis = async () => {
+    if (!youtubeUrl) {
+      setError('Please enter a YouTube live stream URL');
+      return;
+    }
+
+    setIsYoutubeAnalyzing(true);
+    setError(null);
+    setStreamStatus({ isReady: false, error: null });
+    setVideoTimestamp(Date.now());
+    setStreamKey(prev => prev + 1);
+
+    try {
+      const response = await fetch(`${flaskServerUrl}/process_youtube`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: youtubeUrl }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to start YouTube stream analysis');
+      }
+
+      toast({
+        title: "Initializing Stream",
+        description: "Please wait while we connect to the YouTube stream...",
+      });
+
+      // Initial stream check
+      const initialStatus = await checkStreamStatus();
+      if (initialStatus.isReady) {
+        fetchStats();
+        toast({
+          title: "Analysis Started",
+          description: "Now analyzing YouTube stream",
+        });
+        return;
+      }
+
+      // Start continuous status checking
+      let retries = 0;
+      const maxRetries = 30; // Increased retry limit
+      const retryDelay = 2000;
+      const statusCheckInterval = setInterval(async () => {
+        try {
+          const status = await checkStreamStatus();
+          retries++;
+
+          if (status.isReady) {
+            clearInterval(statusCheckInterval);
+            fetchStats();
+            toast({
+              title: "Analysis Started",
+              description: "Now analyzing YouTube stream",
+            });
+            return;
+          }
+
+          if (status.error) {
+            clearInterval(statusCheckInterval);
+            throw new Error(status.error);
+          }
+
+        } catch (err) {
+          clearInterval(statusCheckInterval);
+          throw err;
+        }
+      }, retryDelay);
+
+    } catch (err) {
+      console.error('Error starting YouTube analysis:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to start YouTube stream analysis';
+      setError(errorMessage);
+      setIsYoutubeAnalyzing(false);
+      setStreamStatus(prev => ({
+        ...prev,
+        error: errorMessage
+      }));
+      
+      toast({
+        title: "Stream Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Add automatic stream recovery on error
+  const handleVideoError = () => {
+    console.log('Video stream error detected, attempting recovery...');
+    
+    // Update stream status
+    setStreamStatus(prev => ({
+      ...prev,
+      error: 'Stream connection interrupted'
+    }));
+
+    // Attempt to recover the stream
+    const recoverStream = async () => {
+      try {
+        const status = await checkStreamStatus();
+        if (status.isReady) {
+          // Reset error state and refresh stream
+          setStreamStatus({ isReady: true, error: null });
+          setVideoTimestamp(Date.now());
+          setStreamKey(prev => prev + 1);
+        } else {
+          // If recovery failed, show error
+          toast({
+            title: "Stream Error",
+            description: "Failed to recover stream connection. Retrying...",
+            variant: "destructive",
+          });
+          
+          // Try again after a delay
+          setTimeout(recoverStream, 5000);
+        }
+      } catch (err) {
+        console.error('Error recovering stream:', err);
+      }
+    };
+
+    // Start recovery process
+    recoverStream();
+  };
+
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
       <h1 className="text-3xl font-bold mb-6">Video Analysis</h1>
       
       <Tabs defaultValue="analyze" className="w-full">
         <TabsList className="mb-4">
-          <TabsTrigger value="analyze">Analyze Videos</TabsTrigger>
-          <TabsTrigger value="upload">Upload New Video</TabsTrigger>
+          <TabsTrigger value="analyze">Sample Videos</TabsTrigger>
+          <TabsTrigger value="youtube">YouTube Live</TabsTrigger>
+          <TabsTrigger value="upload">Upload Video</TabsTrigger>
         </TabsList>
         
         <TabsContent value="analyze" className="space-y-6">
@@ -405,6 +548,152 @@ export default function VideoAnalysis() {
           )}
         </TabsContent>
         
+        <TabsContent value="youtube" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FiVideo className="mr-2" />
+                YouTube Live Stream Analysis
+              </CardTitle>
+              <CardDescription>
+                Analyze foot traffic from a YouTube live stream
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <label htmlFor="youtube-url" className="block text-sm font-medium text-gray-700 mb-1">
+                  YouTube Live Stream URL
+                </label>
+                <input
+                  type="url"
+                  id="youtube-url"
+                  className="w-full p-2 border rounded-md"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-100 text-red-700 p-3 rounded-md mb-4">
+                  {error}
+                </div>
+              )}
+
+              <Button 
+                onClick={startYoutubeAnalysis} 
+                disabled={!youtubeUrl || isYoutubeAnalyzing}
+                className="w-full"
+              >
+                <FiBarChart2 className="mr-2" />
+                {isYoutubeAnalyzing ? 'Analyzing...' : 'Start Analysis'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {isYoutubeAnalyzing && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="flex flex-col">
+                <CardHeader>
+                  <CardTitle>Live Video Stream</CardTitle>
+                </CardHeader>
+                <CardContent className="flex justify-center flex-1">
+                  <div className="relative w-full max-w-xl border overflow-hidden rounded-md">
+                    {isFlaskRunning && streamStatus.isReady ? (
+                      <img 
+                        key={streamKey}
+                        src={`${flaskServerUrl}/video_feed?t=${videoTimestamp}`}
+                        alt="Live Video Analysis"
+                        className="w-full h-auto"
+                        onError={handleVideoError}
+                      />
+                    ) : (
+                      <div className="bg-gray-100 p-8 text-center h-64 flex flex-col items-center justify-center">
+                        <FiVideo className="text-5xl text-gray-400 mb-4" />
+                        {streamStatus.error ? (
+                          <>
+                            <p className="text-red-500 mb-2">Error: {streamStatus.error}</p>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => {
+                                setVideoTimestamp(Date.now());
+                                setStreamKey(prev => prev + 1);
+                                checkStreamStatus();
+                              }}
+                            >
+                              Retry Connection
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-gray-500 mb-2">Initializing video stream...</p>
+                            <p className="text-sm text-gray-400">Please wait</p>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="flex flex-col">
+                <CardHeader>
+                  <CardTitle>Analysis Results</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1">
+                  {stats ? (
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap items-center">
+                        <FiMapPin className="text-blue-500 mr-3 text-xl flex-shrink-0" />
+                        <div className="flex-grow min-w-0">
+                          <p className="text-sm text-gray-500">Location</p>
+                          <p className="font-medium text-lg truncate">YouTube Live Stream</p>
+                        </div>
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div className="flex flex-wrap items-center">
+                        <FiUsers className="text-green-500 mr-3 text-xl flex-shrink-0" />
+                        <div className="flex-grow min-w-0">
+                          <p className="text-sm text-gray-500">People Count</p>
+                          <p className="font-medium text-lg">{stats.people_count}</p>
+                        </div>
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div className="flex flex-wrap items-center">
+                        <FiClock className="text-orange-500 mr-3 text-xl flex-shrink-0" />
+                        <div className="flex-grow min-w-0">
+                          <p className="text-sm text-gray-500">Average Dwell Time</p>
+                          <p className="font-medium text-lg">{stats.avg_dwell_time} seconds</p>
+                        </div>
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div className="text-sm text-gray-500 mt-4">
+                        Last updated: {stats.timestamp}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      Waiting for analysis data...
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter>
+                  <Button variant="outline" className="w-full" onClick={fetchStats}>
+                    Refresh Stats
+                  </Button>
+                </CardFooter>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+
         <TabsContent value="upload">
           <Card>
             <CardHeader>
