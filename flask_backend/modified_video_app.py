@@ -50,7 +50,7 @@ model = None
 def initialize_yolo():
     global model, video_initialization_error
     try:
-        model = YOLO("yolo12l.pt")
+        model = YOLO("model.pt")
         logger.info("YOLO model loaded successfully")
         return True
     except Exception as e:
