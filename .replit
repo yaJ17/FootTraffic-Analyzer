@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["curl", "libGL", "libGLU", "wget", "lsof"]
+packages = ["curl", "libGL", "libGLU", "wget"]
 
 [deployment]
 deploymentTarget = "autoscale"
