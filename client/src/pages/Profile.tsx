@@ -17,8 +17,12 @@ const Profile: React.FC = () => {
     phone: '',
     address: '',
     email: '',
-    biography: ''
+    biography: '',
+    photoUrl: ''
   });
+  
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   
   const { data: profileData, isLoading } = useQuery({
     queryKey: ['/api/profile'],
@@ -58,7 +62,10 @@ const Profile: React.FC = () => {
     );
   }
 
-  const userProfile = profileData || {
+  const [updatedProfile, setUpdatedProfile] = useState<any>(null);
+  
+  // Use profile data from API or fallback to default
+  const userProfile = updatedProfile || profileData || {
     fullName: 'Juan Jackson',
     title: 'Admin',
     phone: '09123456798 / 0123-456-789',
@@ -80,14 +87,57 @@ const Profile: React.FC = () => {
       phone: userProfile.phone,
       address: userProfile.address,
       email: userProfile.email,
-      biography: userProfile.biography
+      biography: userProfile.biography,
+      photoUrl: userProfile.photoUrl
     });
+    setPreviewUrl(userProfile.photoUrl);
     setIsEditDialogOpen(true);
   };
   
+  // Handle profile photo changes
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedPhoto(file);
+      
+      // Create a URL for the file to use as a preview
+      const fileURL = URL.createObjectURL(file);
+      setPreviewUrl(fileURL);
+      
+      // Update the form data with the new URL
+      setEditFormData({
+        ...editFormData,
+        photoUrl: fileURL
+      });
+    }
+  };
+  
   const handleSaveProfile = () => {
-    // In a real app, this would send data to the server
-    // For demonstration, we'll show a success message and close the dialog
+    // In a real app, this would upload the photo and send data to the server
+    // For demonstration, we'll just update the local state
+    
+    // If a new photo was selected, we'd upload it and get a URL back from the server
+    // For now, we'll just use the preview URL directly
+    
+    // Create a new profile object with the updated data
+    const newProfile = {
+      ...userProfile,
+      fullName: editFormData.fullName,
+      title: editFormData.title,
+      phone: editFormData.phone,
+      address: editFormData.address,
+      email: editFormData.email,
+      biography: editFormData.biography
+    };
+    
+    // If we have a new photo preview, update the photo URL
+    if (previewUrl && previewUrl !== userProfile.photoUrl) {
+      newProfile.photoUrl = previewUrl;
+    }
+    
+    // Update the profile in our local state
+    setUpdatedProfile(newProfile);
+    
     setIsEditDialogOpen(false);
     setShowSuccessMessage(true);
     
@@ -95,6 +145,11 @@ const Profile: React.FC = () => {
     setTimeout(() => {
       setShowSuccessMessage(false);
     }, 3000);
+    
+    // Clean up any object URLs to avoid memory leaks
+    if (selectedPhoto) {
+      setSelectedPhoto(null);
+    }
   };
 
   return (
@@ -193,6 +248,36 @@ const Profile: React.FC = () => {
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
+            {/* Profile Photo */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="profilePhoto" className="text-right">
+                Profile Photo
+              </Label>
+              <div className="col-span-3 flex flex-col items-center space-y-4">
+                <div className="relative">
+                  <img 
+                    src={previewUrl || userProfile.photoUrl} 
+                    alt="Profile Preview" 
+                    className="w-24 h-24 rounded-full object-cover border-2 border-gray-200" 
+                  />
+                  <label 
+                    htmlFor="photoUpload" 
+                    className="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 cursor-pointer shadow-md hover:bg-secondary transition"
+                  >
+                    <span className="material-icons text-sm">photo_camera</span>
+                    <input 
+                      type="file" 
+                      id="photoUpload" 
+                      className="hidden" 
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                    />
+                  </label>
+                </div>
+                <p className="text-sm text-gray-500">Click the camera icon to change your photo</p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="fullName" className="text-right">
                 Full Name

@@ -116,6 +116,10 @@ const SignUp: React.FC = () => {
               backgroundColor: 'rgba(0, 0, 0, 0.3)'
             }} 
           />
+          {/* Additional black overlay */}
+          <div 
+            className="absolute inset-0 bg-black opacity-20"
+          />
         </div>
         
         <div className="w-full md:w-1/2 flex flex-col p-8 justify-center items-center bg-gradient-to-r from-blue-500 to-purple-600">

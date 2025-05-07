@@ -177,6 +177,10 @@ const SignIn: React.FC = () => {
               backgroundColor: 'rgba(0, 0, 0, 0.3)'
             }} 
           />
+          {/* Additional black overlay */}
+          <div 
+            className="absolute inset-0 bg-black opacity-20"
+          />
         </div>
       </div>
     </div>
