@@ -15,6 +15,11 @@ interface Stats {
   timestamp: string;
 }
 
+interface YouTubeVideo {
+  url: string;
+  title: string;
+}
+
 export default function VideoAnalysis() {
   const [selectedSample, setSelectedSample] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
@@ -26,6 +31,14 @@ export default function VideoAnalysis() {
   const [videoTimestamp, setVideoTimestamp] = useState<number>(Date.now());
   const [youtubeUrl, setYoutubeUrl] = useState<string>('');
   const [isYoutubeAnalyzing, setIsYoutubeAnalyzing] = useState<boolean>(false);
+  const [savedYoutubeVideos, setSavedYoutubeVideos] = useState<YouTubeVideo[]>(
+    [
+      { url: 'https://www.youtube.com/watch?v=p0Qhe4vhYLQ', title: 'Loading...' },
+      { url: 'https://www.youtube.com/watch?v=TRG2EQtlmzI', title: 'Loading...' },
+      { url: 'https://www.youtube.com/watch?v=y-Os52eW2rg', title: 'Loading...' }
+    ]
+  );
+  const [newYoutubeLink, setNewYoutubeLink] = useState<string>('');
   
   // Use the Replit domain with port 5003 for the Flask server
   const flaskServerUrl = window.location.hostname.includes('replit') 
@@ -398,6 +411,74 @@ export default function VideoAnalysis() {
     recoverStream();
   };
 
+  const fetchVideoTitle = async (url: string) => {
+    try {
+      const response = await fetch(`${flaskServerUrl}/process_youtube`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          url,
+          fetchTitleOnly: true 
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok && data.title) {
+        return data.title;
+      }
+      return 'Unable to load title';
+    } catch (err) {
+      console.error('Error fetching video title:', err);
+      return 'Unable to load title';
+    }
+  };
+
+  // Load video titles on component mount
+  useEffect(() => {
+    const loadTitles = async () => {
+      const updatedVideos = await Promise.all(
+        savedYoutubeVideos.map(async (video) => ({
+          ...video,
+          title: await fetchVideoTitle(video.url)
+        }))
+      );
+      setSavedYoutubeVideos(updatedVideos);
+    };
+    loadTitles();
+  }, []);
+
+  const handleAddYoutubeLink = async () => {
+    if (newYoutubeLink && !savedYoutubeVideos.some(v => v.url === newYoutubeLink)) {
+      const title = await fetchVideoTitle(newYoutubeLink);
+      setSavedYoutubeVideos([...savedYoutubeVideos, { url: newYoutubeLink, title }]);
+      setNewYoutubeLink('');
+    }
+  };
+
+  const handleYoutubeLinkSelect = async (value: string) => {
+    // Stop current analysis if running
+    if (isYoutubeAnalyzing) {
+      setIsYoutubeAnalyzing(false);
+      setStats(null);
+      setStreamStatus({ isReady: false, error: null });
+      
+      try {
+        // Call the backend to stop current stream
+        await fetch(`${flaskServerUrl}/stop_stream`, {
+          method: 'POST'
+        });
+      } catch (err) {
+        console.error('Error stopping stream:', err);
+      }
+    }
+    
+    setYoutubeUrl(value);
+    setVideoTimestamp(Date.now());
+    setStreamKey(prev => prev + 1);
+  };
+
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
       <h1 className="text-3xl font-bold mb-6">Video Analysis</h1>
@@ -572,6 +653,37 @@ export default function VideoAnalysis() {
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
                 />
+              </div>
+
+              <div className="mb-4">
+                <label htmlFor="saved-links" className="block text-sm font-medium text-gray-700 mb-1">
+                  Saved YouTube Links
+                </label>
+                <Select onValueChange={handleYoutubeLinkSelect} value={youtubeUrl}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a saved YouTube video" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {savedYoutubeVideos.map((video) => (
+                      <SelectItem key={video.url} value={video.url}>
+                        {video.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="mb-4 flex gap-2">
+                <input
+                  type="url"
+                  className="flex-1 p-2 border rounded-md"
+                  placeholder="Add new YouTube link"
+                  value={newYoutubeLink}
+                  onChange={(e) => setNewYoutubeLink(e.target.value)}
+                />
+                <Button onClick={handleAddYoutubeLink} variant="outline">
+                  Add
+                </Button>
               </div>
 
               {error && (

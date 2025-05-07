@@ -572,24 +572,25 @@ def start_flask_server():
     app.run(host='0.0.0.0', port=5001, debug=False)
 
 def get_youtube_video_url(youtube_url):
-    """Extract the video URL from a YouTube URL"""
+    """Extract the video URL and title from a YouTube URL"""
     try:
         # Configure yt-dlp options with more formats and better error handling
         ydl_opts = {
-            'format': 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',  # More format options
+            'format': 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
             'quiet': True,
             'no_warnings': True,
             'extract_flat': False,
             'no_playlist': True,
-            'socket_timeout': 30,  # Increased timeout
+            'socket_timeout': 30,
         }
         
-        logger.info(f"Attempting to extract YouTube video URL from: {youtube_url}")
+        logger.info(f"Attempting to extract YouTube video info from: {youtube_url}")
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
                 info = ydl.extract_info(youtube_url, download=False)
-                logger.info(f"Successfully extracted video info: {info.get('title', 'Unknown Title')}")
+                video_title = info.get('title', 'Unknown Title')
+                logger.info(f"Successfully extracted video info: {video_title}")
                 
                 # Get the best format URL with more detailed logging
                 if 'url' in info:
@@ -613,7 +614,7 @@ def get_youtube_video_url(youtube_url):
                             logger.info(f"Fallback format: {selected_format.get('format_id')} - {selected_format.get('ext')} - {selected_format.get('format_note', 'unknown quality')}")
                         else:
                             raise Exception("No suitable video format found")
-                
+
                 # Verify the URL is accessible
                 logger.info("Verifying video URL accessibility...")
                 cap = cv2.VideoCapture(video_url)
@@ -625,7 +626,7 @@ def get_youtube_video_url(youtube_url):
                 cap.release()
                 logger.info("Video URL verified successfully")
                 
-                return video_url
+                return video_url, video_title
                 
             except Exception as e:
                 error_msg = str(e)
@@ -675,12 +676,19 @@ def process_youtube():
                 "error": "Invalid YouTube URL format"
             }), 400
         
-        # Reset stream before starting new one
-        reset_stream()
-        
         try:
-            # Get the video stream URL
-            video_url = get_youtube_video_url(youtube_url)
+            # Get the video stream URL and title
+            video_url, video_title = get_youtube_video_url(youtube_url)
+            
+            # If just fetching title (no stream initialization needed)
+            if 'fetchTitleOnly' in data and data['fetchTitleOnly']:
+                return jsonify({
+                    "success": True,
+                    "title": video_title
+                })
+            
+            # Reset stream before starting new one
+            reset_stream()
             
             # Verify stream is accessible
             cap = cv2.VideoCapture(video_url)
@@ -703,7 +711,7 @@ def process_youtube():
             
             # Update current stats
             current_stats.update({
-                "location": "YouTube Stream",
+                "location": f"YouTube Stream: {video_title}",
                 "people_count": 0,
                 "avg_dwell_time": 0,
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -711,7 +719,8 @@ def process_youtube():
             
             return jsonify({
                 "success": True,
-                "message": "YouTube stream processing started"
+                "message": "YouTube stream processing started",
+                "title": video_title
             })
             
         except Exception as e:
