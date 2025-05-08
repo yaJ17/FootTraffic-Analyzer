@@ -32,6 +32,7 @@ export default function VideoAnalysis() {
   const [videoTimestamp, setVideoTimestamp] = useState<number>(Date.now());
   const [youtubeUrl, setYoutubeUrl] = useState<string>('');
   const [isYoutubeAnalyzing, setIsYoutubeAnalyzing] = useState<boolean>(false);
+  const [isFaceRecognitionActive, setIsFaceRecognitionActive] = useState<boolean>(false);
   const [savedYoutubeVideos, setSavedYoutubeVideos] = useState<YouTubeVideo[]>(
     [
       { url: 'https://www.youtube.com/watch?v=p0Qhe4vhYLQ', title: 'Loading...' },
@@ -444,6 +445,52 @@ export default function VideoAnalysis() {
     setStreamKey(prev => prev + 1);
   };
 
+  const toggleFaceRecognition = async () => {
+    try {
+      const response = await fetch(`${flaskServerUrl}/toggle_face_recognition`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ active: !isFaceRecognitionActive }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setIsFaceRecognitionActive(data.active);
+        toast({
+          title: data.message,
+          description: data.active ? "Face recognition is now active" : "Face recognition is now inactive",
+        });
+      } else {
+        throw new Error(data.error || 'Failed to toggle face recognition');
+      }
+    } catch (err) {
+      console.error('Error toggling face recognition:', err);
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to toggle face recognition",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Add cleanup for face recognition when component unmounts or tab changes
+  useEffect(() => {
+    return () => {
+      if (isFaceRecognitionActive) {
+        toggleFaceRecognition();
+      }
+    };
+  }, []);
+
+  // Add cleanup when switching tabs
+  useEffect(() => {
+    if (isFaceRecognitionActive) {
+      toggleFaceRecognition();
+    }
+  }, [selectedSample, youtubeUrl]);
+
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
       <h1 className="text-3xl font-bold mb-6">Video Analysis</h1>
@@ -488,11 +535,21 @@ export default function VideoAnalysis() {
               <Button 
                 onClick={startAnalysis} 
                 disabled={!selectedSample || isAnalyzing}
-                className="w-full"
+                className="w-full mb-2"
               >
                 <FiBarChart2 className="mr-2" />
                 {isAnalyzing ? 'Analyzing...' : 'Start Analysis'}
               </Button>
+
+              {isAnalyzing && (
+                <Button 
+                  onClick={toggleFaceRecognition}
+                  variant={isFaceRecognitionActive ? "destructive" : "outline"}
+                  className="w-full"
+                >
+                  {isFaceRecognitionActive ? 'Stop Face Detection' : 'Start Face Detection'}
+                </Button>
+              )}
             </CardContent>
           </Card>
           
@@ -673,11 +730,21 @@ export default function VideoAnalysis() {
               <Button 
                 onClick={startYoutubeAnalysis} 
                 disabled={!youtubeUrl || isYoutubeAnalyzing}
-                className="w-full"
+                className="w-full mb-2"
               >
                 <FiBarChart2 className="mr-2" />
                 {isYoutubeAnalyzing ? 'Analyzing...' : 'Start Analysis'}
               </Button>
+
+              {isYoutubeAnalyzing && (
+                <Button 
+                  onClick={toggleFaceRecognition}
+                  variant={isFaceRecognitionActive ? "destructive" : "outline"}
+                  className="w-full"
+                >
+                  {isFaceRecognitionActive ? 'Stop Face Detection' : 'Start Face Detection'}
+                </Button>
+              )}
             </CardContent>
           </Card>
 

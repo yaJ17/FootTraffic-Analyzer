@@ -12,8 +12,13 @@ import threading
 import logging
 import yt_dlp
 from urllib.parse import urlparse, parse_qs
+from video_face_recognition import VideoFaceRecognition
+
 location = None
 frame_count = None
+face_recognition_active = False
+face_recognition_system = None
+
 # Configure logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -27,7 +32,15 @@ CORS(app, resources={
         "expose_headers": ["Content-Type"],
         "supports_credentials": True
     }
-})  # Enable CORS with more specific configuration
+})
+
+# Initialize face recognition system
+try:
+    face_recognition_system = VideoFaceRecognition()
+    logger.info("Face recognition system initialized successfully")
+except Exception as e:
+    logger.error(f"Error initializing face recognition system: {e}")
+    face_recognition_system = None
 
 # Define upload folder and allowed extensions
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -368,7 +381,7 @@ def draw_stats_overlay(frame, people_count, avg_dwell_time, highest_dwell_time, 
 
 def generate_frames():
     """Generate video frames with person detection"""
-    global video_path, output_frame, processing_complete, current_stats, frame_count
+    global video_path, output_frame, processing_complete, current_stats, frame_count, face_recognition_active
     
     if not video_path:
         return
@@ -451,6 +464,7 @@ def generate_frames():
                     if frame_count % frame_skip == 0:
                         last_frame = frame.copy()
                         
+                        # Process frame with YOLO
                         results = model.track(
                             source=frame,
                             tracker="bytetrack.yaml",
@@ -470,6 +484,34 @@ def generate_frames():
                             
                             people_in_region.clear()
                             current_time = time.time()
+                            
+                            # Process face recognition if active
+                            if face_recognition_active and face_recognition_system:
+                                try:
+                                    faces = face_recognition_system.face_app.get(display_frame)
+                                    for face in faces:
+                                        bbox = face.bbox.astype(int)
+                                        embedding = face.embedding
+                                        
+                                        # Try to recognize the face
+                                        name, family, similarity = face_recognition_system.recognize_face(embedding)
+                                        
+                                        # Draw face bounding box
+                                        cv2.rectangle(display_frame, 
+                                                    (bbox[0], bbox[1]), 
+                                                    (bbox[2], bbox[3]), 
+                                                    (255, 0, 0), 2)  # Blue for faces
+                                        
+                                        # Add text for name and confidence
+                                        label = f"{name if name else 'Unknown'}"
+                                        if similarity > 0:
+                                            label += f" ({similarity:.2f})"
+                                        cv2.putText(display_frame, label, 
+                                                  (bbox[0], bbox[1] - 10),
+                                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                                                  (255, 0, 0), 2)
+                                except Exception as e:
+                                    logger.error(f"Error in face recognition: {e}")
                             
                             for box in people_detections:
                                 x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
@@ -731,6 +773,26 @@ def process_youtube():
         error_msg = f"Error processing YouTube stream: {str(e)}"
         logger.error(error_msg)
         return jsonify({"success": False, "error": error_msg}), 500
+
+@app.route('/toggle_face_recognition', methods=['POST'])
+def toggle_face_recognition():
+    """Toggle face recognition on/off"""
+    global face_recognition_active
+    try:
+        data = request.get_json()
+        if data and 'active' in data:
+            face_recognition_active = data['active']
+            return jsonify({
+                "success": True,
+                "message": "Face recognition " + ("activated" if face_recognition_active else "deactivated"),
+                "active": face_recognition_active
+            })
+    except Exception as e:
+        logger.error(f"Error toggling face recognition: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 if __name__ == '__main__':
     start_flask_server()
