@@ -2,34 +2,18 @@ from flask import Flask, jsonify, request, Response, render_template_string
 from flask_cors import CORS
 import os
 import json
-import time
-import threading
-import random
 from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
 
-# Stats storage (in-memory for simplicity)
+# Stats storage (in-memory)
 stats = {
     "people_count": 0,
     "avg_dwell_time": 0.0,
     "location": "Palengke Market",
     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 }
-
-# Mock data generator thread
-def update_mock_stats():
-    global stats
-    while True:
-        stats["people_count"] = random.randint(10, 100)
-        stats["avg_dwell_time"] = round(random.uniform(30, 300), 1)
-        stats["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        time.sleep(2)  # Update every 2 seconds
-
-# Start the background thread for mock data
-mock_thread = threading.Thread(target=update_mock_stats, daemon=True)
-mock_thread.start()
 
 @app.route('/hello')
 def hello():

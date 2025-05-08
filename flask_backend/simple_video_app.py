@@ -19,24 +19,13 @@ CORS(app)  # Enable CORS for API endpoints
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Sample data for stats (for demonstration purposes)
+# Initialize current stats with real values, not mock data
 current_stats = {
     "people_count": 0,
     "avg_dwell_time": 0,
     "location": "Divisoria",
     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 }
-
-# In a real implementation, these would be updated by video analysis
-def update_mock_stats():
-    global current_stats
-    current_stats = {
-        "people_count": random.randint(5, 20),
-        "avg_dwell_time": round(random.uniform(30, 120), 1),
-        "location": "Divisoria",
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
-    return current_stats
 
 @app.route('/')
 def hello():
@@ -116,7 +105,7 @@ def video_feed():
     return Response(generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/api/stats', methods=['GET'])
+@app.route('/api/stats')
 def get_stats():
     """API endpoint to get current statistics"""
     return jsonify(current_stats)

@@ -12,7 +12,8 @@ import threading
 import logging
 import yt_dlp
 from urllib.parse import urlparse, parse_qs
-
+location = None
+frame_count = None
 # Configure logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -41,6 +42,7 @@ stream_lock = threading.Lock()  # Add lock for thread safety
 current_stats = {
     "people_count": 0,
     "avg_dwell_time": 0,
+    "highest_dwell_time": 0,
     "location": "Divisoria",
     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 }
@@ -87,7 +89,7 @@ class StatsExporter:
     def __init__(self, location="Divisoria", filename="tracking_statistics.json"):
         self.location = location
         self.last_export_time = time.time()
-        self.export_interval = 10  # Export every 10 seconds
+        self.export_interval = 3 
         self.filename = filename
         
         # Initialize or load existing stats file
@@ -125,6 +127,7 @@ class StatsExporter:
         current_stats = {
             "people_count": people_count,
             "avg_dwell_time": round(avg_dwell_time, 2) if avg_dwell_time else 0,
+            "highest_dwell_time": current_stats["highest_dwell_time"],
             "location": self.location,
             "timestamp": current_datetime.strftime("%Y-%m-%d %H:%M:%S")
         }
@@ -160,6 +163,7 @@ def reset_stream():
         current_stats.update({
             "people_count": 0,
             "avg_dwell_time": 0,
+            "highest_dwell_time": 0,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
 
@@ -272,6 +276,7 @@ def process_sample():
                 "location": location,
                 "people_count": 0,
                 "avg_dwell_time": 0,
+                "highest_dwell_time": 0,
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
             
@@ -299,240 +304,35 @@ def download_stats():
         return send_file(stats_file, as_attachment=True)
     else:
         return "No statistics file found"
-def generate_frames():
-    """Generate video frames with person detection"""
-    global video_path, output_frame, processing_complete, current_stats
-    
-    if not video_path:
-        return
-    
-    try:
-        # Load YOLO model
-        model = YOLO("yolo12l.pt")
-        logger.info(f"YOLO model loaded successfully")
-    except Exception as e:
-        logger.error(f"Error loading YOLO model: {e}")
-        return
-    
-    last_frame = None  # Store last successful frame for smoother display
-    reconnect_attempts = 0  # Counter for reconnection attempts
-    consecutive_failures = 0  # Counter for consecutive frame reading failures
-    max_reconnect_attempts = 5  # Max number of reconnection attempts
-    max_consecutive_failures = 3  # Max number of consecutive frame reading failures
-    
-    while True:  # Outer loop for video repetition
-        try:
-            # Initialize video capture with more detailed logging
-            logger.info(f"Attempting to open video: {video_path}")
-            cap = cv2.VideoCapture(video_path)
-            if not cap.isOpened():
-                logger.error(f"Error opening video file: {video_path}")
-                # For YouTube URLs, try to refresh the stream URL
-                if "youtube" in str(video_path).lower():
-                    try:
-                        logger.info("Attempting to refresh YouTube stream URL...")
-                        new_url = get_youtube_video_url(video_path)
-                        if new_url != video_path:
-                            video_path = new_url
-                            logger.info("Successfully refreshed YouTube URL")
-                            reconnect_attempts += 1
-                            consecutive_failures = 0  # Reset consecutive failures on successful reconnect
-                            if reconnect_attempts <= max_reconnect_attempts:
-                                time.sleep(2)  # Wait before retrying
-                                continue
-                        else:
-                            raise Exception("Could not refresh stream URL")
-                    except Exception as e:
-                        logger.error(f"Failed to refresh YouTube URL: {e}")
-                return
-            
-            reconnect_attempts = 0  # Reset reconnection counter on successful connection
-            consecutive_failures = 0  # Reset consecutive failures counter on successful connection
-            
-            # Get video properties with error handling
-            try:
-                frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                fps = int(cap.get(cv2.CAP_PROP_FPS))
-                logger.info(f"Video opened: {video_path}, {frame_width}x{frame_height} @ {fps}fps")
-            except Exception as e:
-                logger.error(f"Error getting video properties: {e}")
-                cap.release()
-                return
-            
-            # Calculate frame skip based on performance needs
-            frame_skip = max(1, fps // 15)  # Target ~15 fps for detection
-            frame_count = 0
-            
-            # Initialize stats exporter and other variables
-            stats_exporter = StatsExporter()
-            region_margin = 0.2
-            region_x1 = int(frame_width * region_margin)
-            region_x2 = int(frame_width * (1 - region_margin))
-            region_y1 = int(frame_height * region_margin)
-            region_y2 = int(frame_height * (1 - region_margin))
-            counting_region = (region_x1, region_y1, region_x2, region_y2)
-            
-            dwell_times = {}
-            people_per_second = {}
-            people_in_region = set()
-            start_time = time.time()
-            last_detection = None
-            
-            while True:
-                success, frame = cap.read()
-                if not success:
-                    consecutive_failures += 1
-                    logger.warning(f"Frame read failed. Consecutive failures: {consecutive_failures}")
-                    
-                    # Check if we've hit max consecutive failures
-                    if consecutive_failures >= max_consecutive_failures:
-                        # For YouTube streams, try to reconnect
-                        if "youtube" in str(video_path).lower():
-                            logger.info("YouTube stream failed, attempting to reconnect...")
-                            cap.release()
-                            time.sleep(2)  # Wait before reconnecting
-                            break  # Break inner loop to reconnect in outer loop
-                        elif last_frame is not None:
-                            # Use last frame if available to prevent blinking
-                            frame = last_frame.copy()
-                            consecutive_failures = 0  # Reset counter when using last frame
-                        else:
-                            break
-                    elif last_frame is not None:
-                        # Use last frame for temporary failures
-                        frame = last_frame.copy()
-                        continue
-                    else:
-                        break
-                else:
-                    consecutive_failures = 0  # Reset counter on successful frame read
-                
-                try:
-                    # Process frame with YOLO
-                    if frame_count % frame_skip == 0:
-                        # Process frame with YOLO with optimized parameters
-                        results = model.track(
-                            source=frame,
-                            tracker="bytetrack.yaml",
-                            stream=True,
-                            iou=0.45,
-                            conf=0.35,
-                            imgsz=640,
-                            verbose=False
-                        )
-                        
-                        # Store last detection results
-                        last_detection = next(results)
-                        
-                        # Draw detection results on a copy of the frame
-                        display_frame = frame.copy()
-                        
-                        if last_detection is not None:
-                            detections = last_detection.boxes
-                            people_detections = [box for box in detections if int(box.cls[0]) == 0 and box.conf[0] > 0.35]
-                            
-                            # Clear current frame's people in region
-                            people_in_region.clear()
-                            
-                            # Process detections and update stats
-                            for box in people_detections:
-                                x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
-                                confidence = box.conf[0]
-                                track_id = int(box.id[0]) if box.id is not None else None
-                                
-                                if track_id is None:
-                                    continue
-                                
-                                # Calculate center point
-                                center_x = (x1 + x2) // 2
-                                center_y = (y1 + y2) // 2
-                                
-                                # Check if person is in counting region
-                                if is_point_in_region((center_x, center_y), counting_region):
-                                    people_in_region.add(track_id)
-                                    box_color = (0, 255, 0)  # Green for people in region
-                                    
-                                    # Initialize or update dwell times
-                                    if track_id not in dwell_times:
-                                        dwell_times[track_id] = {
-                                            "total_time": 0,
-                                            "sessions": [],
-                                            "current_session": {"start": time.time(), "active": True}
-                                        }
-                                    else:
-                                        track_data = dwell_times[track_id]
-                                        if not track_data["current_session"]["active"]:
-                                            track_data["current_session"] = {"start": time.time(), "active": True}
-                                else:
-                                    box_color = (255, 0, 0)  # Red for people outside region
-                                
-                                # Draw detection box and label
-                                cv2.rectangle(display_frame, (x1, y1), (x2, y2), box_color, 2)
-                                cv2.putText(display_frame, f"ID: {track_id} | {confidence:.2f}", 
-                                          (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, box_color, 2)
-                            
-
-                            # Update stats
-                            current_time = time.time()
-                            avg_dwell_time = calculate_average_dwell_time(dwell_times, current_time)
-                            
-                            # Draw stats on frame
-                            draw_stats_overlay(display_frame, len(people_in_region), avg_dwell_time, fps/frame_skip)
-                            
-                            # Export stats if needed
-                            if stats_exporter.should_export(current_time):
-                                stats_exporter.export_stats(len(people_in_region), avg_dwell_time)
-                        
-                        # Store the annotated frame
-                        last_frame = display_frame
-                    else:
-                        # Use last annotated frame if available to prevent blinking
-                        display_frame = last_frame if last_frame is not None else frame
-                    
-                    # Convert frame to JPEG format
-                    ret, buffer = cv2.imencode('.jpg', display_frame)
-                    if not ret:
-                        continue
-                    
-                    frame_bytes = buffer.tobytes()
-                    yield (b'--frame\r\n'
-                           b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-                    
-                except Exception as e:
-                    logger.error(f"Error processing frame: {e}")
-                    if last_frame is not None:
-                        # Use last successful frame if there's an error
-                        ret, buffer = cv2.imencode('.jpg', last_frame)
-                        if ret:
-                            frame_bytes = buffer.tobytes()
-                            yield (b'--frame\r\n'
-                                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-            
-            cap.release()
-            
-        except Exception as e:
-            logger.error(f"Error in video processing: {e}")
-            time.sleep(1)  # Wait before retrying
 
 def calculate_average_dwell_time(dwell_times, current_time):
     """Calculate average dwell time from all tracked people"""
     if not dwell_times:
-        return 0
+        return 0, 0
         
     total_dwell_time = 0
-    total_people = 0
+    total_sessions = 0
+    highest_dwell_time = 0
     
     for track_data in dwell_times.values():
-        time_sum = track_data["total_time"]
+        # Only consider sessions for people currently in the region
         if track_data["current_session"]["active"]:
-            time_sum += current_time - track_data["current_session"]["start"]
-        total_dwell_time += time_sum
-        total_people += 1
+            current_session_duration = current_time - track_data["current_session"]["start"]
+            total_dwell_time += current_session_duration
+            total_sessions += 1
+            highest_dwell_time = max(highest_dwell_time, current_session_duration)
+        
+        # Add completed sessions
+        for session in track_data["sessions"]:
+            total_dwell_time += session["duration"]
+            total_sessions += 1
+            highest_dwell_time = max(highest_dwell_time, session["duration"])
     
-    return total_dwell_time / total_people if total_people > 0 else 0
+    # Calculate average, ensuring we don't divide by zero
+    avg_dwell_time = total_dwell_time / total_sessions if total_sessions > 0 else 0
+    return avg_dwell_time, highest_dwell_time
 
-def draw_stats_overlay(frame, people_count, avg_dwell_time, current_fps):
+def draw_stats_overlay(frame, people_count, avg_dwell_time, highest_dwell_time, current_fps):
     """Draw statistics overlay on the frame"""
     current_datetime = datetime.now()
     
@@ -551,7 +351,7 @@ def draw_stats_overlay(frame, people_count, avg_dwell_time, current_fps):
     
     # Draw stats with semi-transparent background
     stats_overlay = frame.copy()
-    stats_height = 200
+    stats_height = 230  # Increased height to accommodate new stat
     cv2.rectangle(stats_overlay, (5, 5), (300, stats_height), (0, 0, 0), -1)
     cv2.addWeighted(stats_overlay, 0.3, frame, 0.7, 0, frame)
     
@@ -560,11 +360,200 @@ def draw_stats_overlay(frame, people_count, avg_dwell_time, current_fps):
     font = cv2.FONT_HERSHEY_SIMPLEX
     cv2.putText(frame, f"Time: {current_datetime.strftime('%H:%M:%S')}", (10, 30), font, 0.7, text_color, 2)
     cv2.putText(frame, f"Date: {current_datetime.strftime('%m/%d/%Y')}", (10, 60), font, 0.7, text_color, 2)
-    cv2.putText(frame, f"People Count: {people_count}", (10, 90), font, 0.7, text_color, 2)
+    cv2.putText(frame, f"People in Region: {people_count}", (10, 90), font, 0.7, text_color, 2)
     cv2.putText(frame, f"Avg Dwell Time: {avg_dwell_time:.1f}s", (10, 120), font, 0.7, text_color, 2)
-    cv2.putText(frame, f"FPS: {current_fps:.1f}", (10, 150), font, 0.7, text_color, 2)
+    cv2.putText(frame, f"Highest Dwell Time: {highest_dwell_time:.1f}s", (10, 150), font, 0.7, text_color, 2)
+    cv2.putText(frame, f"FPS: {current_fps:.1f}", (10, 180), font, 0.7, text_color, 2)
     cv2.putText(frame, "Counting Region", (region_x1, region_y1 - 10), font, 0.7, (0, 255, 0), 2)
+
+def generate_frames():
+    """Generate video frames with person detection"""
+    global video_path, output_frame, processing_complete, current_stats, frame_count
     
+    if not video_path:
+        return
+    
+    try:
+        # Initialize frame counter
+        frame_count = 0
+        
+        # Load YOLO model
+        model = YOLO("model.pt")
+        logger.info(f"YOLO model loaded successfully")
+    except Exception as e:
+        logger.error(f"Error loading YOLO model: {e}")
+        return
+    
+    last_frame = None
+    reconnect_attempts = 0
+    consecutive_failures = 0
+    max_reconnect_attempts = 5
+    max_consecutive_failures = 3
+    
+    while True:
+        try:
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                logger.error(f"Error opening video file: {video_path}")
+                return
+            
+            reconnect_attempts = 0
+            consecutive_failures = 0
+            
+            # Optimize frame processing
+            frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = int(cap.get(cv2.CAP_PROP_FPS))
+            logger.info(f"Video opened: {video_path}, {frame_width}x{frame_height} @ {fps}fps")
+            
+            # Calculate optimal frame skip based on input fps
+            target_fps = 20  # Target processing FPS
+            frame_skip = max(1, int(fps / target_fps))
+            
+            # Calculate optimal resize resolution while maintaining aspect ratio
+            max_dimension = 640  # Maximum dimension for processing
+            scale = min(max_dimension / frame_width, max_dimension / frame_height)
+            process_width = int(frame_width * scale)
+            process_height = int(frame_height * scale)
+            
+            stats_exporter = StatsExporter(location)
+            region_margin = 0.2
+            region_x1 = int(frame_width * region_margin)
+            region_x2 = int(frame_width * (1 - region_margin))
+            region_y1 = int(frame_height * region_margin)
+            region_y2 = int(frame_height * (1 - region_margin))
+            counting_region = (region_x1, region_y1, region_x2, region_y2)
+            
+            dwell_times = {}
+            people_in_region = set()
+            start_time = time.time()
+            
+            while True:
+                success, frame = cap.read()
+                if not success:
+                    consecutive_failures += 1
+                    logger.warning(f"Frame read failed. Consecutive failures: {consecutive_failures}")
+                    
+                    if consecutive_failures >= max_consecutive_failures:
+                        if "youtube" in str(video_path).lower():
+                            logger.info("YouTube stream failed, attempting to reconnect...")
+                            cap.release()
+                            time.sleep(2)
+                            break
+                        else:
+                            break
+                    continue
+                
+                consecutive_failures = 0
+                frame_count += 1
+                
+                try:
+                    if frame_count % frame_skip == 0:
+                        last_frame = frame.copy()
+                        
+                        results = model.track(
+                            source=frame,
+                            tracker="bytetrack.yaml",
+                            stream=True,
+                            iou=0.45,
+                            conf=0.35,
+                            imgsz=640,
+                            verbose=False
+                        )
+                        
+                        last_detection = next(results)
+                        display_frame = frame.copy()
+                        
+                        if last_detection is not None:
+                            detections = last_detection.boxes
+                            people_detections = [box for box in detections if int(box.cls[0]) == 0 and box.conf[0] > 0.35]
+                            
+                            people_in_region.clear()
+                            current_time = time.time()
+                            
+                            for box in people_detections:
+                                x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
+                                track_id = int(box.id[0]) if box.id is not None else None
+                                
+                                if track_id is None:
+                                    continue
+                                
+                                center_x = (x1 + x2) // 2
+                                center_y = (y1 + y2) // 2
+                                
+                                if is_point_in_region((center_x, center_y), counting_region):
+                                    people_in_region.add(track_id)
+                                    
+                                    if track_id not in dwell_times:
+                                        dwell_times[track_id] = {
+                                            "total_time": 0,
+                                            "sessions": [],
+                                            "current_session": {"start": current_time, "active": True}
+                                        }
+                                    elif not dwell_times[track_id]["current_session"]["active"]:
+                                        dwell_times[track_id]["current_session"] = {"start": current_time, "active": True}
+                                    
+                                    # Draw green box for people in region
+                                    cv2.rectangle(display_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                                else:
+                                    if track_id in dwell_times and dwell_times[track_id]["current_session"]["active"]:
+                                        session = dwell_times[track_id]["current_session"]
+                                        duration = current_time - session["start"]
+                                        dwell_times[track_id]["sessions"].append({
+                                            "start": session["start"],
+                                            "end": current_time,
+                                            "duration": duration
+                                        })
+                                        dwell_times[track_id]["current_session"]["active"] = False
+                                    
+                                    # Draw red box for people outside region
+                                    cv2.rectangle(display_frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                            
+                            # Calculate and update stats
+                            avg_dwell_time, highest_dwell_time = calculate_average_dwell_time(dwell_times, current_time) if people_in_region else (0, 0)
+                            
+                            # Update current_stats with real detection data
+                            current_stats.update({
+                                "people_count": len(people_in_region),
+                                "avg_dwell_time": round(avg_dwell_time, 2),
+                                "highest_dwell_time": round(highest_dwell_time, 2),
+                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            })
+                            
+                            # Draw stats overlay
+                            draw_stats_overlay(display_frame, len(people_in_region), avg_dwell_time, highest_dwell_time, fps/frame_skip)
+                            
+                            # Export stats if needed
+                            if stats_exporter.should_export(current_time):
+                                stats_exporter.export_stats(len(people_in_region), avg_dwell_time)
+                        
+                        last_frame = display_frame
+                    else:
+                        display_frame = last_frame if last_frame is not None else frame
+                    
+                    ret, buffer = cv2.imencode('.jpg', display_frame)
+                    if not ret:
+                        continue
+                    
+                    frame_bytes = buffer.tobytes()
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                    
+                except Exception as e:
+                    logger.error(f"Error processing frame: {e}")
+                    if last_frame is not None:
+                        ret, buffer = cv2.imencode('.jpg', last_frame)
+                        if ret:
+                            frame_bytes = buffer.tobytes()
+                            yield (b'--frame\r\n'
+                                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            
+            cap.release()
+            
+        except Exception as e:
+            logger.error(f"Error in video processing: {e}")
+            time.sleep(1)
+
 def start_flask_server():
     """Start the Flask server"""
     if not os.path.exists(UPLOAD_FOLDER):
@@ -714,6 +703,7 @@ def process_youtube():
                 "location": f"YouTube Stream: {video_title}",
                 "people_count": 0,
                 "avg_dwell_time": 0,
+                "highest_dwell_time": 0,
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
             

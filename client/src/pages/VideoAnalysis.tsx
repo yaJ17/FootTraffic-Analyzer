@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 interface Stats {
   people_count: number;
   avg_dwell_time: number;
+  highest_dwell_time: number;
   location: string;
   timestamp: string;
 }
@@ -100,21 +101,10 @@ export default function VideoAnalysis() {
 
   const fetchStats = async () => {
     if (!isFlaskRunning) {
-      // Generate mock data when server is not available
-      if (isAnalyzing) {
-        const mockData = {
-          people_count: Math.floor(Math.random() * 50) + 10,
-          avg_dwell_time: Math.floor(Math.random() * 200) + 30,
-          location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
-          timestamp: new Date().toLocaleString()
-        };
-        setStats(mockData);
-      }
-      return;
+      return; // Don't fetch stats if server is not running
     }
     
     try {
-      // Use a controller to create an abort signal with timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
       
@@ -131,16 +121,7 @@ export default function VideoAnalysis() {
       setStats(data);
     } catch (err) {
       console.error('Error fetching stats:', err);
-      // Generate mock data on error
-      if (isAnalyzing) {
-        const mockData = {
-          people_count: Math.floor(Math.random() * 50) + 10,
-          avg_dwell_time: Math.floor(Math.random() * 200) + 30,
-          location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
-          timestamp: new Date().toLocaleString()
-        };
-        setStats(mockData);
-      }
+      // Don't set mock data anymore, just leave stats as is
     }
   };
 
@@ -180,7 +161,6 @@ export default function VideoAnalysis() {
     // Stop current analysis if running
     if (isAnalyzing) {
       setIsAnalyzing(false);
-      setStats(null);
       setStreamStatus({ isReady: false, error: null });
       
       try {
@@ -194,6 +174,7 @@ export default function VideoAnalysis() {
     }
     
     setSelectedSample(value);
+    setStats(null);  // Reset stats when a new sample video is selected
     setVideoTimestamp(Date.now()); // Update timestamp to force stream refresh
     setStreamKey(prev => prev + 1);
   };
@@ -262,22 +243,6 @@ export default function VideoAnalysis() {
       setError(errorMessage);
       setIsAnalyzing(false);
       
-      if (!isFlaskRunning) {
-        // Generate mock data for demo purposes
-        const mockData = {
-          people_count: Math.floor(Math.random() * 50) + 10,
-          avg_dwell_time: Math.floor(Math.random() * 200) + 30,
-          location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
-          timestamp: new Date().toLocaleString()
-        };
-        setStats(mockData);
-        
-        toast({
-          title: "Fallback Mode",
-          description: `Using simulated data for ${selectedSample} video due to server error`,
-          variant: "destructive"
-        });
-      }
     }
   };
 
@@ -558,7 +523,6 @@ export default function VideoAnalysis() {
                         {streamStatus.error ? (
                           <>
                             <p className="text-red-500 mb-2">Error: {streamStatus.error}</p>
-                            <p className="text-sm text-gray-400">Using simulation mode with randomized data</p>
                           </>
                         ) : (
                           <>
@@ -582,8 +546,12 @@ export default function VideoAnalysis() {
                       <div className="flex flex-wrap items-center">
                         <FiMapPin className="text-blue-500 mr-3 text-xl flex-shrink-0" />
                         <div className="flex-grow min-w-0">
-                          <p className="text-sm text-gray-500">Location</p>
-                          <p className="font-medium text-lg truncate">{stats.location}</p>
+                          <p className="text-sm text-gray-500">Video Title</p>
+                          <p className="font-medium text-lg truncate">
+                            {youtubeUrl 
+                              ? savedYoutubeVideos.find(v => v.url === youtubeUrl)?.title || 'YouTube Stream'
+                              : selectedSample === 'school' ? 'School Entrance' : 'Palengke Market'}
+                          </p>
                         </div>
                       </div>
                       
@@ -604,6 +572,16 @@ export default function VideoAnalysis() {
                         <div className="flex-grow min-w-0">
                           <p className="text-sm text-gray-500">Average Dwell Time</p>
                           <p className="font-medium text-lg">{stats.avg_dwell_time} seconds</p>
+                        </div>
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div className="flex flex-wrap items-center">
+                        <FiClock className="text-purple-500 mr-3 text-xl flex-shrink-0" />
+                        <div className="flex-grow min-w-0">
+                          <p className="text-sm text-gray-500">Highest Dwell Time</p>
+                          <p className="font-medium text-lg">{stats.highest_dwell_time} seconds</p>
                         </div>
                       </div>
                       
@@ -781,6 +759,16 @@ export default function VideoAnalysis() {
                         <div className="flex-grow min-w-0">
                           <p className="text-sm text-gray-500">Average Dwell Time</p>
                           <p className="font-medium text-lg">{stats.avg_dwell_time} seconds</p>
+                        </div>
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div className="flex flex-wrap items-center">
+                        <FiClock className="text-purple-500 mr-3 text-xl flex-shrink-0" />
+                        <div className="flex-grow min-w-0">
+                          <p className="text-sm text-gray-500">Highest Dwell Time</p>
+                          <p className="font-medium text-lg">{stats.highest_dwell_time} seconds</p>
                         </div>
                       </div>
                       
