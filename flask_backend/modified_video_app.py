@@ -12,8 +12,13 @@ import threading
 import logging
 import yt_dlp
 from urllib.parse import urlparse, parse_qs
+from video_face_recognition import VideoFaceRecognition
+
 location = None
 frame_count = None
+face_recognition_active = False
+face_recognition_system = None
+
 # Configure logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -27,7 +32,15 @@ CORS(app, resources={
         "expose_headers": ["Content-Type"],
         "supports_credentials": True
     }
-})  # Enable CORS with more specific configuration
+})
+
+# Initialize face recognition system
+try:
+    face_recognition_system = VideoFaceRecognition()
+    logger.info("Face recognition system initialized successfully")
+except Exception as e:
+    logger.error(f"Error initializing face recognition system: {e}")
+    face_recognition_system = None
 
 # Define upload folder and allowed extensions
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -48,6 +61,7 @@ current_stats = {
 }
 video_initialization_error = None
 model = None
+current_video_title = None
 
 def initialize_yolo():
     global model, video_initialization_error
@@ -154,17 +168,19 @@ def is_point_in_region(point, region):
 
 def reset_stream():
     """Reset all stream-related variables"""
-    global video_path, output_frame, processing_complete, current_stats, video_initialization_error
+    global video_path, output_frame, processing_complete, current_stats, video_initialization_error, current_video_title
     with stream_lock:
         video_path = None
         output_frame = None
         processing_complete = False
         video_initialization_error = None
+        current_video_title = None
         current_stats.update({
             "people_count": 0,
             "avg_dwell_time": 0,
             "highest_dwell_time": 0,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "location": ""
         })
 
 @app.route('/stop_stream', methods=['POST'])
@@ -242,7 +258,7 @@ def get_stream_status():
 
 @app.route('/process_sample', methods=['POST'])
 def process_sample():
-    global video_path, processing_complete, current_stats, video_initialization_error
+    global video_path, processing_complete, current_stats, video_initialization_error, current_video_title
     
     sample_video = request.form.get('sample_video')
     if sample_video:
@@ -253,6 +269,7 @@ def process_sample():
             
             # Update location based on video
             location = "School Entrance" if "school" in sample_video.lower() else "Palengke Market"
+            current_video_title = location
             
             # Initialize model if not already done
             if model is None and not initialize_yolo():
@@ -280,6 +297,8 @@ def process_sample():
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
             
+            logger.info(f"Sample video processing: {sample_video}, location set to: {location}")
+            
             return jsonify({
                 "success": True,
                 "message": f"Video processing started: {sample_video}",
@@ -293,8 +312,16 @@ def process_sample():
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     """API endpoint to get current statistics"""
-    global current_stats
-    return jsonify(current_stats)
+    global current_stats, current_video_title
+    
+    # Ensure location is consistent with current video source
+    if video_path and "youtube" not in str(video_path).lower() and current_video_title:
+        current_stats["location"] = current_video_title
+        
+    return jsonify({
+        "success": True,
+        "stats": current_stats
+    })
 
 @app.route('/download_stats', methods=['GET'])
 def download_stats():
@@ -314,6 +341,9 @@ def calculate_average_dwell_time(dwell_times, current_time):
     total_sessions = 0
     highest_dwell_time = 0
     
+    # Track if we have any completed sessions
+    has_completed_sessions = False
+    
     for track_data in dwell_times.values():
         # Only consider sessions for people currently in the region
         if track_data["current_session"]["active"]:
@@ -327,9 +357,20 @@ def calculate_average_dwell_time(dwell_times, current_time):
             total_dwell_time += session["duration"]
             total_sessions += 1
             highest_dwell_time = max(highest_dwell_time, session["duration"])
+            has_completed_sessions = True
     
     # Calculate average, ensuring we don't divide by zero
-    avg_dwell_time = total_dwell_time / total_sessions if total_sessions > 0 else 0
+    if total_sessions > 0:
+        avg_dwell_time = total_dwell_time / total_sessions
+    else:
+        # If we had people before but none now, keep the highest dwell time but set avg to 0
+        avg_dwell_time = 0
+        
+    # If we have no current sessions but have historical data, preserve the highest value
+    if total_sessions == 0 and not has_completed_sessions:
+        # No data at all, both current and historical
+        highest_dwell_time = 0
+    
     return avg_dwell_time, highest_dwell_time
 
 def draw_stats_overlay(frame, people_count, avg_dwell_time, highest_dwell_time, current_fps):
@@ -368,7 +409,7 @@ def draw_stats_overlay(frame, people_count, avg_dwell_time, highest_dwell_time, 
 
 def generate_frames():
     """Generate video frames with person detection"""
-    global video_path, output_frame, processing_complete, current_stats, frame_count
+    global video_path, output_frame, processing_complete, current_stats, frame_count, face_recognition_active
     
     if not video_path:
         return
@@ -451,6 +492,7 @@ def generate_frames():
                     if frame_count % frame_skip == 0:
                         last_frame = frame.copy()
                         
+                        # Process frame with YOLO
                         results = model.track(
                             source=frame,
                             tracker="bytetrack.yaml",
@@ -470,6 +512,34 @@ def generate_frames():
                             
                             people_in_region.clear()
                             current_time = time.time()
+                            
+                            # Process face recognition if active
+                            if face_recognition_active and face_recognition_system:
+                                try:
+                                    faces = face_recognition_system.face_app.get(display_frame)
+                                    for face in faces:
+                                        bbox = face.bbox.astype(int)
+                                        embedding = face.embedding
+                                        
+                                        # Try to recognize the face
+                                        name, family, similarity = face_recognition_system.recognize_face(embedding)
+                                        
+                                        # Draw face bounding box
+                                        cv2.rectangle(display_frame, 
+                                                    (bbox[0], bbox[1]), 
+                                                    (bbox[2], bbox[3]), 
+                                                    (255, 0, 0), 2)  # Blue for faces
+                                        
+                                        # Add text for name and confidence
+                                        label = f"{name if name else 'Unknown'}"
+                                        if similarity > 0:
+                                            label += f" ({similarity:.2f})"
+                                        cv2.putText(display_frame, label, 
+                                                  (bbox[0], bbox[1] - 10),
+                                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                                                  (255, 0, 0), 2)
+                                except Exception as e:
+                                    logger.error(f"Error in face recognition: {e}")
                             
                             for box in people_detections:
                                 x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
@@ -510,7 +580,7 @@ def generate_frames():
                                     cv2.rectangle(display_frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
                             
                             # Calculate and update stats
-                            avg_dwell_time, highest_dwell_time = calculate_average_dwell_time(dwell_times, current_time) if people_in_region else (0, 0)
+                            avg_dwell_time, highest_dwell_time = calculate_average_dwell_time(dwell_times, current_time)
                             
                             # Update current_stats with real detection data
                             current_stats.update({
@@ -649,7 +719,7 @@ def extract_video_id(url):
 @app.route('/process_youtube', methods=['POST'])
 def process_youtube():
     """Handle YouTube video processing requests"""
-    global video_path, processing_complete, current_stats
+    global video_path, processing_complete, current_stats, current_video_title
     
     try:
         data = request.get_json()
@@ -679,6 +749,9 @@ def process_youtube():
             # Reset stream before starting new one
             reset_stream()
             
+            # Set the YouTube title
+            current_video_title = video_title
+            
             # Verify stream is accessible
             cap = cv2.VideoCapture(video_url)
             if not cap.isOpened():
@@ -707,6 +780,8 @@ def process_youtube():
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
             
+            logger.info(f"YouTube stream processing: URL={youtube_url}, title={video_title}")
+            
             return jsonify({
                 "success": True,
                 "message": "YouTube stream processing started",
@@ -731,6 +806,26 @@ def process_youtube():
         error_msg = f"Error processing YouTube stream: {str(e)}"
         logger.error(error_msg)
         return jsonify({"success": False, "error": error_msg}), 500
+
+@app.route('/toggle_face_recognition', methods=['POST'])
+def toggle_face_recognition():
+    """Toggle face recognition on/off"""
+    global face_recognition_active
+    try:
+        data = request.get_json()
+        if data and 'active' in data:
+            face_recognition_active = data['active']
+            return jsonify({
+                "success": True,
+                "message": "Face recognition " + ("activated" if face_recognition_active else "deactivated"),
+                "active": face_recognition_active
+            })
+    except Exception as e:
+        logger.error(f"Error toggling face recognition: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 if __name__ == '__main__':
     start_flask_server()

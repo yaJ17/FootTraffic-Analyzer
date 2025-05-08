@@ -32,6 +32,7 @@ export default function VideoAnalysis() {
   const [videoTimestamp, setVideoTimestamp] = useState<number>(Date.now());
   const [youtubeUrl, setYoutubeUrl] = useState<string>('');
   const [isYoutubeAnalyzing, setIsYoutubeAnalyzing] = useState<boolean>(false);
+  const [isFaceRecognitionActive, setIsFaceRecognitionActive] = useState<boolean>(false);
   const [savedYoutubeVideos, setSavedYoutubeVideos] = useState<YouTubeVideo[]>(
     [
       { url: 'https://www.youtube.com/watch?v=p0Qhe4vhYLQ', title: 'Loading...' },
@@ -117,8 +118,13 @@ export default function VideoAnalysis() {
       if (!response.ok) {
         throw new Error('Failed to fetch stats');
       }
+      
       const data = await response.json();
-      setStats(data);
+      if (data.success && data.stats) {
+        setStats(data.stats);
+      } else {
+        console.warn('Received invalid stats data format:', data);
+      }
     } catch (err) {
       console.error('Error fetching stats:', err);
       // Don't set mock data anymore, just leave stats as is
@@ -174,6 +180,8 @@ export default function VideoAnalysis() {
     }
     
     setSelectedSample(value);
+    // Reset youtubeUrl to ensure we know we're in sample video mode
+    setYoutubeUrl('');
     setStats(null);  // Reset stats when a new sample video is selected
     setVideoTimestamp(Date.now()); // Update timestamp to force stream refresh
     setStreamKey(prev => prev + 1);
@@ -212,6 +220,19 @@ export default function VideoAnalysis() {
         throw new Error(errorData.error || 'Failed to start video analysis');
       }
       
+      const data = await response.json();
+      
+      // Set stats location immediately based on response
+      setStats(prev => ({
+        ...prev || {
+          people_count: 0,
+          avg_dwell_time: 0,
+          highest_dwell_time: 0,
+          timestamp: new Date().toISOString()
+        },
+        location: data.location
+      }));
+      
       // Wait for stream to be ready
       let retries = 0;
       const maxRetries = 10;
@@ -242,7 +263,6 @@ export default function VideoAnalysis() {
 
       setError(errorMessage);
       setIsAnalyzing(false);
-      
     }
   };
 
@@ -440,9 +460,57 @@ export default function VideoAnalysis() {
     }
     
     setYoutubeUrl(value);
+    // Reset selectedSample to ensure we know we're in YouTube mode
+    setSelectedSample('');
     setVideoTimestamp(Date.now());
     setStreamKey(prev => prev + 1);
   };
+
+  const toggleFaceRecognition = async () => {
+    try {
+      const response = await fetch(`${flaskServerUrl}/toggle_face_recognition`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ active: !isFaceRecognitionActive }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setIsFaceRecognitionActive(data.active);
+        toast({
+          title: data.message,
+          description: data.active ? "Face recognition is now active" : "Face recognition is now inactive",
+        });
+      } else {
+        throw new Error(data.error || 'Failed to toggle face recognition');
+      }
+    } catch (err) {
+      console.error('Error toggling face recognition:', err);
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to toggle face recognition",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Add cleanup for face recognition when component unmounts or tab changes
+  useEffect(() => {
+    return () => {
+      if (isFaceRecognitionActive) {
+        toggleFaceRecognition();
+      }
+    };
+  }, []);
+
+  // Add cleanup when switching tabs
+  useEffect(() => {
+    if (isFaceRecognitionActive) {
+      toggleFaceRecognition();
+    }
+  }, [selectedSample, youtubeUrl]);
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
@@ -488,11 +556,21 @@ export default function VideoAnalysis() {
               <Button 
                 onClick={startAnalysis} 
                 disabled={!selectedSample || isAnalyzing}
-                className="w-full"
+                className="w-full mb-2"
               >
                 <FiBarChart2 className="mr-2" />
                 {isAnalyzing ? 'Analyzing...' : 'Start Analysis'}
               </Button>
+
+              {isAnalyzing && (
+                <Button 
+                  onClick={toggleFaceRecognition}
+                  variant={isFaceRecognitionActive ? "destructive" : "outline"}
+                  className="w-full"
+                >
+                  {isFaceRecognitionActive ? 'Stop Face Detection' : 'Start Face Detection'}
+                </Button>
+              )}
             </CardContent>
           </Card>
           
@@ -673,11 +751,21 @@ export default function VideoAnalysis() {
               <Button 
                 onClick={startYoutubeAnalysis} 
                 disabled={!youtubeUrl || isYoutubeAnalyzing}
-                className="w-full"
+                className="w-full mb-2"
               >
                 <FiBarChart2 className="mr-2" />
                 {isYoutubeAnalyzing ? 'Analyzing...' : 'Start Analysis'}
               </Button>
+
+              {isYoutubeAnalyzing && (
+                <Button 
+                  onClick={toggleFaceRecognition}
+                  variant={isFaceRecognitionActive ? "destructive" : "outline"}
+                  className="w-full"
+                >
+                  {isFaceRecognitionActive ? 'Stop Face Detection' : 'Start Face Detection'}
+                </Button>
+              )}
             </CardContent>
           </Card>
 
