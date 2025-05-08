@@ -399,14 +399,7 @@ def draw_stats_overlay(frame, people_count, avg_dwell_time, highest_dwell_time, 
     # Draw text
     text_color = (255, 255, 255)
     font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(frame, f"Time: {current_datetime.strftime('%H:%M:%S')}", (10, 30), font, 0.7, text_color, 2)
-    cv2.putText(frame, f"Date: {current_datetime.strftime('%m/%d/%Y')}", (10, 60), font, 0.7, text_color, 2)
-    cv2.putText(frame, f"People in Region: {people_count}", (10, 90), font, 0.7, text_color, 2)
-    cv2.putText(frame, f"Avg Dwell Time: {avg_dwell_time:.1f}s", (10, 120), font, 0.7, text_color, 2)
-    cv2.putText(frame, f"Highest Dwell Time: {highest_dwell_time:.1f}s", (10, 150), font, 0.7, text_color, 2)
     cv2.putText(frame, f"FPS: {current_fps:.1f}", (10, 180), font, 0.7, text_color, 2)
-    cv2.putText(frame, "Counting Region", (region_x1, region_y1 - 10), font, 0.7, (0, 255, 0), 2)
-
 def generate_frames():
     """Generate video frames with person detection"""
     global video_path, output_frame, processing_complete, current_stats, frame_count, face_recognition_active
