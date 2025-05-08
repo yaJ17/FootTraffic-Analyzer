@@ -341,6 +341,9 @@ def calculate_average_dwell_time(dwell_times, current_time):
     total_sessions = 0
     highest_dwell_time = 0
     
+    # Track if we have any completed sessions
+    has_completed_sessions = False
+    
     for track_data in dwell_times.values():
         # Only consider sessions for people currently in the region
         if track_data["current_session"]["active"]:
@@ -354,9 +357,20 @@ def calculate_average_dwell_time(dwell_times, current_time):
             total_dwell_time += session["duration"]
             total_sessions += 1
             highest_dwell_time = max(highest_dwell_time, session["duration"])
+            has_completed_sessions = True
     
     # Calculate average, ensuring we don't divide by zero
-    avg_dwell_time = total_dwell_time / total_sessions if total_sessions > 0 else 0
+    if total_sessions > 0:
+        avg_dwell_time = total_dwell_time / total_sessions
+    else:
+        # If we had people before but none now, keep the highest dwell time but set avg to 0
+        avg_dwell_time = 0
+        
+    # If we have no current sessions but have historical data, preserve the highest value
+    if total_sessions == 0 and not has_completed_sessions:
+        # No data at all, both current and historical
+        highest_dwell_time = 0
+    
     return avg_dwell_time, highest_dwell_time
 
 def draw_stats_overlay(frame, people_count, avg_dwell_time, highest_dwell_time, current_fps):
@@ -566,7 +580,7 @@ def generate_frames():
                                     cv2.rectangle(display_frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
                             
                             # Calculate and update stats
-                            avg_dwell_time, highest_dwell_time = calculate_average_dwell_time(dwell_times, current_time) if people_in_region else (0, 0)
+                            avg_dwell_time, highest_dwell_time = calculate_average_dwell_time(dwell_times, current_time)
                             
                             # Update current_stats with real detection data
                             current_stats.update({
