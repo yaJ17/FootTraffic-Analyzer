@@ -118,8 +118,13 @@ export default function VideoAnalysis() {
       if (!response.ok) {
         throw new Error('Failed to fetch stats');
       }
+      
       const data = await response.json();
-      setStats(data);
+      if (data.success && data.stats) {
+        setStats(data.stats);
+      } else {
+        console.warn('Received invalid stats data format:', data);
+      }
     } catch (err) {
       console.error('Error fetching stats:', err);
       // Don't set mock data anymore, just leave stats as is
@@ -175,6 +180,8 @@ export default function VideoAnalysis() {
     }
     
     setSelectedSample(value);
+    // Reset youtubeUrl to ensure we know we're in sample video mode
+    setYoutubeUrl('');
     setStats(null);  // Reset stats when a new sample video is selected
     setVideoTimestamp(Date.now()); // Update timestamp to force stream refresh
     setStreamKey(prev => prev + 1);
@@ -213,6 +220,19 @@ export default function VideoAnalysis() {
         throw new Error(errorData.error || 'Failed to start video analysis');
       }
       
+      const data = await response.json();
+      
+      // Set stats location immediately based on response
+      setStats(prev => ({
+        ...prev || {
+          people_count: 0,
+          avg_dwell_time: 0,
+          highest_dwell_time: 0,
+          timestamp: new Date().toISOString()
+        },
+        location: data.location
+      }));
+      
       // Wait for stream to be ready
       let retries = 0;
       const maxRetries = 10;
@@ -243,7 +263,6 @@ export default function VideoAnalysis() {
 
       setError(errorMessage);
       setIsAnalyzing(false);
-      
     }
   };
 
@@ -441,6 +460,8 @@ export default function VideoAnalysis() {
     }
     
     setYoutubeUrl(value);
+    // Reset selectedSample to ensure we know we're in YouTube mode
+    setSelectedSample('');
     setVideoTimestamp(Date.now());
     setStreamKey(prev => prev + 1);
   };

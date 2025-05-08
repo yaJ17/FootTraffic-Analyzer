@@ -61,6 +61,7 @@ current_stats = {
 }
 video_initialization_error = None
 model = None
+current_video_title = None
 
 def initialize_yolo():
     global model, video_initialization_error
@@ -167,17 +168,19 @@ def is_point_in_region(point, region):
 
 def reset_stream():
     """Reset all stream-related variables"""
-    global video_path, output_frame, processing_complete, current_stats, video_initialization_error
+    global video_path, output_frame, processing_complete, current_stats, video_initialization_error, current_video_title
     with stream_lock:
         video_path = None
         output_frame = None
         processing_complete = False
         video_initialization_error = None
+        current_video_title = None
         current_stats.update({
             "people_count": 0,
             "avg_dwell_time": 0,
             "highest_dwell_time": 0,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "location": ""
         })
 
 @app.route('/stop_stream', methods=['POST'])
@@ -255,7 +258,7 @@ def get_stream_status():
 
 @app.route('/process_sample', methods=['POST'])
 def process_sample():
-    global video_path, processing_complete, current_stats, video_initialization_error
+    global video_path, processing_complete, current_stats, video_initialization_error, current_video_title
     
     sample_video = request.form.get('sample_video')
     if sample_video:
@@ -266,6 +269,7 @@ def process_sample():
             
             # Update location based on video
             location = "School Entrance" if "school" in sample_video.lower() else "Palengke Market"
+            current_video_title = location
             
             # Initialize model if not already done
             if model is None and not initialize_yolo():
@@ -293,6 +297,8 @@ def process_sample():
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
             
+            logger.info(f"Sample video processing: {sample_video}, location set to: {location}")
+            
             return jsonify({
                 "success": True,
                 "message": f"Video processing started: {sample_video}",
@@ -306,8 +312,16 @@ def process_sample():
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     """API endpoint to get current statistics"""
-    global current_stats
-    return jsonify(current_stats)
+    global current_stats, current_video_title
+    
+    # Ensure location is consistent with current video source
+    if video_path and "youtube" not in str(video_path).lower() and current_video_title:
+        current_stats["location"] = current_video_title
+        
+    return jsonify({
+        "success": True,
+        "stats": current_stats
+    })
 
 @app.route('/download_stats', methods=['GET'])
 def download_stats():
@@ -691,7 +705,7 @@ def extract_video_id(url):
 @app.route('/process_youtube', methods=['POST'])
 def process_youtube():
     """Handle YouTube video processing requests"""
-    global video_path, processing_complete, current_stats
+    global video_path, processing_complete, current_stats, current_video_title
     
     try:
         data = request.get_json()
@@ -721,6 +735,9 @@ def process_youtube():
             # Reset stream before starting new one
             reset_stream()
             
+            # Set the YouTube title
+            current_video_title = video_title
+            
             # Verify stream is accessible
             cap = cv2.VideoCapture(video_url)
             if not cap.isOpened():
@@ -748,6 +765,8 @@ def process_youtube():
                 "highest_dwell_time": 0,
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
+            
+            logger.info(f"YouTube stream processing: URL={youtube_url}, title={video_title}")
             
             return jsonify({
                 "success": True,
