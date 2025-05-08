@@ -122,6 +122,10 @@ class StatsExporter:
     def export_stats(self, people_count, avg_dwell_time):
         current_datetime = datetime.now()
         
+        # Set avg_dwell_time to 0 if people_count is 0
+        if people_count == 0:
+            avg_dwell_time = 0
+            
         new_stats = {
             "location": self.location,
             "date": current_datetime.strftime("%m/%d/%Y"),
@@ -175,13 +179,14 @@ def reset_stream():
         processing_complete = False
         video_initialization_error = None
         current_video_title = None
-        current_stats.update({
+        current_stats = {
             "people_count": 0,
             "avg_dwell_time": 0,
             "highest_dwell_time": 0,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "location": ""
-        })
+        }
+        logger.info("Stream and stats reset successfully")
 
 @app.route('/stop_stream', methods=['POST'])
 def stop_stream():
@@ -291,10 +296,6 @@ def process_sample():
             # Update current stats
             current_stats.update({
                 "location": location,
-                "people_count": 0,
-                "avg_dwell_time": 0,
-                "highest_dwell_time": 0,
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
             
             logger.info(f"Sample video processing: {sample_video}, location set to: {location}")
@@ -399,13 +400,7 @@ def draw_stats_overlay(frame, people_count, avg_dwell_time, highest_dwell_time, 
     # Draw text
     text_color = (255, 255, 255)
     font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(frame, f"Time: {current_datetime.strftime('%H:%M:%S')}", (10, 30), font, 0.7, text_color, 2)
-    cv2.putText(frame, f"Date: {current_datetime.strftime('%m/%d/%Y')}", (10, 60), font, 0.7, text_color, 2)
-    cv2.putText(frame, f"People in Region: {people_count}", (10, 90), font, 0.7, text_color, 2)
-    cv2.putText(frame, f"Avg Dwell Time: {avg_dwell_time:.1f}s", (10, 120), font, 0.7, text_color, 2)
-    cv2.putText(frame, f"Highest Dwell Time: {highest_dwell_time:.1f}s", (10, 150), font, 0.7, text_color, 2)
-    cv2.putText(frame, f"FPS: {current_fps:.1f}", (10, 180), font, 0.7, text_color, 2)
-    cv2.putText(frame, "Counting Region", (region_x1, region_y1 - 10), font, 0.7, (0, 255, 0), 2)
+    cv2.putText(frame, f"FPS: {current_fps:.1f}", (10, 25), font, 0.7, text_color, 2)
 
 def generate_frames():
     """Generate video frames with person detection"""
@@ -583,9 +578,10 @@ def generate_frames():
                             avg_dwell_time, highest_dwell_time = calculate_average_dwell_time(dwell_times, current_time)
                             
                             # Update current_stats with real detection data
+                            people_count = len(people_in_region)
                             current_stats.update({
-                                "people_count": len(people_in_region),
-                                "avg_dwell_time": round(avg_dwell_time, 2),
+                                "people_count": people_count,
+                                "avg_dwell_time": 0 if people_count == 0 else round(avg_dwell_time, 2),
                                 "highest_dwell_time": round(highest_dwell_time, 2),
                                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             })
@@ -774,10 +770,6 @@ def process_youtube():
             # Update current stats
             current_stats.update({
                 "location": f"YouTube Stream: {video_title}",
-                "people_count": 0,
-                "avg_dwell_time": 0,
-                "highest_dwell_time": 0,
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
             
             logger.info(f"YouTube stream processing: URL={youtube_url}, title={video_title}")
@@ -815,6 +807,7 @@ def toggle_face_recognition():
         data = request.get_json()
         if data and 'active' in data:
             face_recognition_active = data['active']
+            logger.info(f"Face recognition {'activated' if face_recognition_active else 'deactivated'}")
             return jsonify({
                 "success": True,
                 "message": "Face recognition " + ("activated" if face_recognition_active else "deactivated"),

@@ -121,6 +121,10 @@ export default function VideoAnalysis() {
       
       const data = await response.json();
       if (data.success && data.stats) {
+        // Ensure avg_dwell_time is 0 when people_count is 0
+        if (data.stats.people_count === 0) {
+          data.stats.avg_dwell_time = 0;
+        }
         setStats(data.stats);
       } else {
         console.warn('Received invalid stats data format:', data);
@@ -182,9 +186,29 @@ export default function VideoAnalysis() {
     setSelectedSample(value);
     // Reset youtubeUrl to ensure we know we're in sample video mode
     setYoutubeUrl('');
-    setStats(null);  // Reset stats when a new sample video is selected
+    // Reset stats completely when changing video source
+    setStats(ensureStatsConsistency({
+      people_count: 0,
+      avg_dwell_time: 0,
+      highest_dwell_time: 0,
+      location: value === 'school' ? 'School Entrance' : 'Palengke Market',
+      timestamp: new Date().toISOString()
+    }));
     setVideoTimestamp(Date.now()); // Update timestamp to force stream refresh
     setStreamKey(prev => prev + 1);
+  };
+
+  // Add a utility function to ensure stats consistency
+  const ensureStatsConsistency = (stats: Stats): Stats => {
+    // Make a copy of the stats object
+    const updatedStats = { ...stats };
+    
+    // If people_count is 0, ensure avg_dwell_time is also 0
+    if (updatedStats.people_count === 0) {
+      updatedStats.avg_dwell_time = 0;
+    }
+    
+    return updatedStats;
   };
 
   const startAnalysis = async () => {    
@@ -196,6 +220,16 @@ export default function VideoAnalysis() {
     setIsAnalyzing(true);
     setError(null);
     setStreamStatus({ isReady: false, error: null });
+    
+    // Reset stats completely when starting new analysis
+    setStats(ensureStatsConsistency({
+      people_count: 0,
+      avg_dwell_time: 0,
+      highest_dwell_time: 0,
+      location: selectedSample === 'school' ? 'School Entrance' : 'Palengke Market',
+      timestamp: new Date().toISOString()
+    }));
+    
     setVideoTimestamp(Date.now()); // Update timestamp to force stream refresh
     setStreamKey(prev => prev + 1);
 
@@ -222,16 +256,20 @@ export default function VideoAnalysis() {
       
       const data = await response.json();
       
-      // Set stats location immediately based on response
-      setStats(prev => ({
-        ...prev || {
+      // Update location from response
+      setStats(prev => {
+        const baseStats = prev || {
           people_count: 0,
           avg_dwell_time: 0,
           highest_dwell_time: 0,
           timestamp: new Date().toISOString()
-        },
-        location: data.location
-      }));
+        };
+        
+        return ensureStatsConsistency({
+          ...baseStats,
+          location: data.location
+        });
+      });
       
       // Wait for stream to be ready
       let retries = 0;
@@ -275,6 +313,16 @@ export default function VideoAnalysis() {
     setIsYoutubeAnalyzing(true);
     setError(null);
     setStreamStatus({ isReady: false, error: null });
+    
+    // Reset stats completely when starting new analysis
+    setStats(ensureStatsConsistency({
+      people_count: 0,
+      avg_dwell_time: 0,
+      highest_dwell_time: 0,
+      location: savedYoutubeVideos.find(v => v.url === youtubeUrl)?.title || 'YouTube Stream',
+      timestamp: new Date().toISOString()
+    }));
+    
     setVideoTimestamp(Date.now());
     setStreamKey(prev => prev + 1);
 
@@ -446,7 +494,6 @@ export default function VideoAnalysis() {
     // Stop current analysis if running
     if (isYoutubeAnalyzing) {
       setIsYoutubeAnalyzing(false);
-      setStats(null);
       setStreamStatus({ isReady: false, error: null });
       
       try {
@@ -462,6 +509,14 @@ export default function VideoAnalysis() {
     setYoutubeUrl(value);
     // Reset selectedSample to ensure we know we're in YouTube mode
     setSelectedSample('');
+    // Reset stats completely when changing video source
+    setStats(ensureStatsConsistency({
+      people_count: 0,
+      avg_dwell_time: 0,
+      highest_dwell_time: 0,
+      location: savedYoutubeVideos.find(v => v.url === value)?.title || 'YouTube Stream',
+      timestamp: new Date().toISOString()
+    }));
     setVideoTimestamp(Date.now());
     setStreamKey(prev => prev + 1);
   };
