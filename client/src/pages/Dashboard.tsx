@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import KpiCard from '@/components/dashboard/KpiCard';
 import PeakHoursCard from '@/components/dashboard/PeakHoursCard';
 import WeeklySummaryChart from '@/components/dashboard/WeeklySummaryChart';
@@ -7,13 +7,80 @@ import FootTrafficChart from '@/components/dashboard/FootTrafficChart';
 import DwellTimeChart from '@/components/dashboard/DwellTimeChart';
 import { useQuery } from '@tanstack/react-query';
 
+// Define interface for stats from the API
+interface VideoStats {
+  people_count: number;
+  avg_dwell_time: number;
+  highest_dwell_time: number;
+  location: string;
+  timestamp: string;
+}
+
 const Dashboard: React.FC = () => {
-  const { data: dashboardData, isLoading } = useQuery({
+  const [flaskServerUrl, setFlaskServerUrl] = useState<string>('http://localhost:5001');
+  const [videoStats, setVideoStats] = useState<VideoStats | null>(null);
+
+  // Use React Query to fetch dashboard data
+  const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
     queryKey: ['/api/dashboard'],
     queryFn: () => fetch('/api/dashboard').then(res => res.json()),
   });
 
-  if (isLoading) {
+  // Determine Flask server URL based on hostname
+  useEffect(() => {
+    const baseUrl = window.location.hostname.includes('replit') 
+      ? `https://${window.location.hostname.replace('5000', '5001')}` 
+      : 'http://localhost:5001';
+    setFlaskServerUrl(baseUrl);
+  }, []);
+
+  // Fetch video stats from Flask backend
+  const fetchVideoStats = async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
+      const response = await fetch(`${flaskServerUrl}/api/stats`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch video analysis stats');
+      }
+      
+      const data = await response.json();
+      
+      // Ensure we have a valid stats object with required fields
+      if (data && typeof data === 'object' && data.stats) {
+        const validatedStats: VideoStats = {
+          people_count: data.stats.people_count || 0,
+          avg_dwell_time: data.stats.avg_dwell_time || 0,
+          highest_dwell_time: data.stats.highest_dwell_time || 0,
+          location: data.stats.location || 'Unknown Location',
+          timestamp: data.stats.timestamp || new Date().toISOString()
+        };
+        
+        setVideoStats(validatedStats);
+      }
+    } catch (err) {
+      console.error('Error fetching video analysis stats:', err);
+    }
+  };
+
+  // Fetch video stats on component mount and every 5 seconds
+  useEffect(() => {
+    fetchVideoStats();
+    
+    const interval = setInterval(() => {
+      fetchVideoStats();
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [flaskServerUrl]);
+
+  if (isDashboardLoading || !videoStats) {
     return (
       <div className="p-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -34,21 +101,29 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // Sample data for KPI card
-  const kpiData = dashboardData?.kpi || {
+  // Get a formatted camera name for display
+  const getCameraName = (location: string) => {
+    if (location.includes('School')) return 'School Entrance Camera';
+    if (location.includes('Palengke')) return 'Palengke Market Camera';
+    if (location.includes('YouTube')) return 'YouTube Stream Camera';
+    return location;
+  };
+
+  // Create KPI data from video stats
+  const footTrafficKpi = {
     title: 'Total Foot Traffic',
-    value: '1,064',
+    value: videoStats.people_count.toString(),
     icon: 'groups'
   };
 
-  // Sample data for peak hours
+  // Create peak hours data (using sample or calculate from historical data if available)
   const peakHoursData = dashboardData?.peakHours || {
     peakStart: { time: '9 AM', status: 'Peak already started' },
     peakMax: { time: '12 PM', status: 'Peak in 3 hours already started' },
     peakEnd: { time: '8 PM', status: '9 hours and 5 minutes' }
   };
 
-  // Sample data for weekly summary
+  // Create weekly summary data (using sample or calculate from historical data if available)
   const weeklySummaryData = dashboardData?.weeklySummary || {
     monday: 300,
     weekend: 229,
@@ -56,55 +131,48 @@ const Dashboard: React.FC = () => {
     total: 929
   };
 
-  // Sample data for map
-  const mapData = dashboardData?.map || {
+  // Create map data with current location information
+  const mapData = {
     center: { lat: 14.5995, lon: 120.9842 },
     zoom: 13,
-    zoneInfo: '649 ZONE 68',
+    zoneInfo: getCameraName(videoStats.location),
     markers: [
-      { id: '1', name: 'Manila Cathedral', lat: 14.5915, lon: 120.9722, color: '#dc2626', count: 342 },
-      { id: '2', name: 'Divisoria', lat: 14.6019, lon: 120.9719, color: '#0039a6', count: 578 },
-      { id: '3', name: 'Fort Santiago', lat: 14.5958, lon: 120.9669, color: '#eab308', count: 219 }
+      { 
+        id: '1', 
+        name: getCameraName(videoStats.location), 
+        lat: 14.5915, 
+        lon: 120.9722, 
+        color: '#dc2626', 
+        count: videoStats.people_count 
+      },
+      ...(dashboardData?.map?.markers?.slice(1) || [])
     ]
   };
 
-  // Sample data for foot traffic chart
-  const footTrafficData = dashboardData?.footTraffic || {
+  // Create foot traffic data that includes current location's data
+  const footTrafficData = {
     locations: [
       { 
-        name: 'Divisoria', 
-        color: '#0039a6',
-        values: [2, 1, 2.5, 2, 3, 3.5, 3]
-      },
-      { 
-        name: 'Manila Cathedral', 
+        name: getCameraName(videoStats.location), 
         color: '#dc2626',
-        values: [1, 3, 1.5, 2.5, 2, 2.5, 2]
+        values: [0, 0, 0, 0, 0, videoStats.people_count, 0]
       },
-      { 
-        name: 'Fort Santiago', 
-        color: '#eab308',
-        values: [0.5, 1, 0.7, 0.6, 0.8, 0.7, 0.6]
-      }
+      ...(dashboardData?.footTraffic?.locations?.slice(1) || [])
     ],
-    timeLabels: ['7 AM', '9 AM', '11 AM', '1 PM', '3 PM', '5 PM', '7 PM']
+    timeLabels: dashboardData?.footTraffic?.timeLabels || ['7 AM', '9 AM', '11 AM', '1 PM', '3 PM', '5 PM', '7 PM']
   };
 
-  // Sample data for dwell time chart
-  const dwellTimeData = dashboardData?.dwellTime || {
+  // Create dwell time data that includes current dwell time
+  const dwellTimeData = {
     locations: [
       { 
-        name: 'Divisoria', 
-        color: '#0039a6',
-        values: [5, 3, 4, 2, 3, 5]
+        name: getCameraName(videoStats.location), 
+        color: '#dc2626',
+        values: [0, 0, 0, 0, 0, videoStats.avg_dwell_time]
       },
-      { 
-        name: 'Manila Cathedral', 
-        color: '#60a5fa',
-        values: [3, 4, 3, 2, 3, 3]
-      }
+      ...(dashboardData?.dwellTime?.locations?.slice(1) || [])
     ],
-    timeLabels: ['7 AM', '9 AM', '11 AM', '1 PM', '3 PM', '5 PM']
+    timeLabels: dashboardData?.dwellTime?.timeLabels || ['7 AM', '9 AM', '11 AM', '1 PM', '3 PM', '5 PM']
   };
 
   return (
@@ -113,9 +181,9 @@ const Dashboard: React.FC = () => {
         {/* Left Column - KPI Card, Peak Hours, Weekly Summary */}
         <div className="col-span-1 flex flex-col gap-6">
           <KpiCard 
-            title={kpiData.title} 
-            value={kpiData.value} 
-            icon={kpiData.icon} 
+            title={footTrafficKpi.title} 
+            value={footTrafficKpi.value} 
+            icon={footTrafficKpi.icon} 
           />
           
           <PeakHoursCard 

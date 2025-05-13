@@ -23,17 +23,60 @@ UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# Stats Exporter Class
+class StatsExporter:
+    """Handle stats collection and export"""
+    def __init__(self, export_interval=10):
+        self.last_export_time = 0
+        self.export_interval = export_interval  # seconds between exports
+        self.location = "Unknown Location"
+        
+    def should_export(self, current_time):
+        """Check if stats should be exported based on time interval"""
+        return current_time - self.last_export_time >= self.export_interval
+        
+    def export_stats(self, people_count, avg_dwell_time):
+        """Export stats to current_stats global variable"""
+        global current_stats
+        
+        self.last_export_time = time.time()
+        
+        # Update global stats
+        current_stats["stats"].update({
+            "people_count": people_count,
+            "avg_dwell_time": round(avg_dwell_time, 1),
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+        
+    def set_location(self, location):
+        """Set the current location name"""
+        self.location = location
+        current_stats["stats"]["location"] = location
+
+# Function to check allowed file extensions
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 # Global variables for video streaming
 video_path = None
 output_frame = None
 processing_complete = False
 video_initialization_error = None
 current_stats = {
-    "people_count": 0,
-    "avg_dwell_time": 0,
-    "location": "Not Set",
-    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    "success": True,
+    "stats": {
+        "people_count": 0,
+        "avg_dwell_time": 0,
+        "highest_dwell_time": 0,
+        "location": "No location set",
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "recognized_faces": []
+    }
 }
+
+# Face recognition integration
+face_recognition_active = False
+face_recognition_system = None
 
 def initialize_yolo():
     """Initialize YOLO model"""
@@ -54,9 +97,15 @@ def reset_stream():
     processing_complete = False
     video_initialization_error = None
     current_stats.update({
-        "people_count": 0,
-        "avg_dwell_time": 0,
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "success": True,
+        "stats": {
+            "people_count": 0,
+            "avg_dwell_time": 0,
+            "highest_dwell_time": 0,
+            "location": "No location set",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "recognized_faces": []
+        }
     })
 
 @app.route('/stop_stream', methods=['POST'])
@@ -68,6 +117,15 @@ def stop_stream():
 @app.route('/api/stats')
 def get_stats():
     """Return current video analysis stats"""
+    if current_stats.get("stats") and face_recognition_active and face_recognition_system:
+        # Add recognized faces to stats
+        try:
+            faces = face_recognition_system.get_recognized_faces()
+            current_stats["stats"]["recognized_faces"] = faces
+        except Exception as e:
+            print(f"Error getting recognized faces: {e}")
+            current_stats["stats"]["recognized_faces"] = []
+    
     return jsonify(current_stats)
 
 @app.route('/api/stream-status')
@@ -90,7 +148,7 @@ def is_point_in_region(point, region):
     return rx1 < x < rx2 and ry1 < y < ry2
 
 def generate_frames():
-    global video_path, output_frame, processing_complete
+    global video_path, output_frame, processing_complete, current_stats
     
     if not video_path:
         return
@@ -115,6 +173,10 @@ def generate_frames():
         
         # Initialize stats exporter and other variables
         stats_exporter = StatsExporter()
+        # Set the location from current stats
+        if current_stats["stats"]["location"]:
+            stats_exporter.location = current_stats["stats"]["location"]
+        
         region_margin = 0.2
         region_x1 = int(frame_width * region_margin)
         region_x2 = int(frame_width * (1 - region_margin))
@@ -247,16 +309,31 @@ def generate_frames():
                 
                 # Calculate average dwell time
                 avg_dwell_time = 0
+                highest_dwell_time = 0
                 if dwell_times:
                     total_dwell_time = 0
                     total_people = 0
-                    for track_data in dwell_times.values():
+                    for track_id, track_data in dwell_times.items():
                         time_sum = track_data["total_time"]
                         if track_data["current_session"]["active"]:
-                            time_sum += current_time - track_data["current_session"]["start"]
+                            current_session_time = current_time - track_data["current_session"]["start"]
+                            time_sum += current_session_time
                         total_dwell_time += time_sum
                         total_people += 1
+                        
+                        # Track highest dwell time
+                        if time_sum > highest_dwell_time:
+                            highest_dwell_time = time_sum
+                            
                     avg_dwell_time = total_dwell_time / total_people if total_people > 0 else 0
+                
+                # Update current stats with real-time data
+                current_stats["stats"].update({
+                    "people_count": len(people_in_region),
+                    "avg_dwell_time": round(avg_dwell_time, 1),
+                    "highest_dwell_time": round(highest_dwell_time, 1),
+                    "timestamp": current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+                })
 
                 # Export stats if needed
                 if stats_exporter.should_export(current_time):
@@ -347,6 +424,20 @@ def process_youtube():
         
         youtube_url = data['url']
         
+        # Check if this is a request for title only
+        if data.get('fetchTitleOnly', False):
+            try:
+                yt = YouTube(youtube_url)
+                return jsonify({
+                    "success": True,
+                    "title": yt.title
+                })
+            except Exception as e:
+                return jsonify({
+                    "success": False,
+                    "error": f"Failed to fetch video title: {str(e)}"
+                }), 400
+        
         # Validate YouTube URL format
         if not ("youtube.com" in youtube_url or "youtu.be" in youtube_url):
             return jsonify({
@@ -360,6 +451,8 @@ def process_youtube():
         try:
             # Get the stream URL with timeout
             stream_url = process_youtube_stream(youtube_url)
+            yt = YouTube(youtube_url)
+            video_title = yt.title
         except Exception as e:
             return jsonify({
                 "success": False,
@@ -391,13 +484,9 @@ def process_youtube():
         # Set the video path to the stream URL
         video_path = stream_url
         
-        # Update current stats
-        current_stats.update({
-            "location": "YouTube Live Stream",
-            "people_count": 0,
-            "avg_dwell_time": 0,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        })
+        # Set location using StatsExporter
+        stats_exporter = StatsExporter()
+        stats_exporter.set_location(f"YouTube: {video_title}")
         
         return jsonify({
             "success": True,
@@ -407,6 +496,81 @@ def process_youtube():
     except Exception as e:
         error_msg = f"Error processing YouTube stream: {str(e)}"
         logger.error(error_msg)
+        return jsonify({"success": False, "error": error_msg}), 500
+
+@app.route('/toggle_face_recognition', methods=['POST'])
+def toggle_face_recognition():
+    """Toggle face recognition on/off"""
+    global face_recognition_active, face_recognition_system
+    
+    try:
+        data = request.get_json()
+        active = data.get('active', False)
+        
+        if active and not face_recognition_active:
+            # Initialize face recognition system if not already
+            if not face_recognition_system:
+                from video_face_recognition import VideoFaceRecognition
+                face_recognition_system = VideoFaceRecognition()
+            
+            face_recognition_active = True
+            return jsonify({
+                "message": "Face recognition activated",
+                "active": True
+            })
+        elif not active and face_recognition_active:
+            face_recognition_active = False
+            return jsonify({
+                "message": "Face recognition deactivated",
+                "active": False
+            })
+        
+        # Return current state if no change
+        return jsonify({
+            "message": f"Face recognition is {'active' if face_recognition_active else 'inactive'}",
+            "active": face_recognition_active
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "error": f"Failed to toggle face recognition: {str(e)}",
+            "active": face_recognition_active
+        }), 500
+
+@app.route('/process_sample', methods=['POST'])
+def process_sample():
+    """Process sample video file"""
+    global video_path, current_stats
+    
+    # Reset current stream
+    reset_stream()
+    
+    try:
+        if 'sample_video' not in request.form:
+            return jsonify({"success": False, "error": "No sample video specified"}), 400
+
+        sample_video = request.form['sample_video']
+        sample_path = f"samples/{sample_video}"
+        
+        if not os.path.exists(sample_path):
+            return jsonify({"success": False, "error": f"Sample video {sample_video} not found"}), 404
+        
+        video_path = sample_path
+        
+        # Update location based on sample name
+        location = "School Entrance" if "school" in sample_video else "Palengke Market"
+        
+        # Create a StatsExporter to update location
+        stats_exporter = StatsExporter()
+        stats_exporter.set_location(location)
+        
+        return jsonify({
+            "success": True, 
+            "message": f"Processing sample video: {sample_video}",
+            "location": location
+        })
+    except Exception as e:
+        error_msg = f"Error processing sample video: {str(e)}"
         return jsonify({"success": False, "error": error_msg}), 500
 
 if __name__ == '__main__':

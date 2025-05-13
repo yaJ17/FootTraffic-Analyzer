@@ -23,6 +23,9 @@ class VideoFaceRecognition:
             
         # Load face embeddings
         self.load_face_embeddings()
+        
+        # Track recognized faces
+        self.recognized_faces = set()
 
     def load_face_embeddings(self):
         """Load all saved face embeddings"""
@@ -72,6 +75,10 @@ class VideoFaceRecognition:
                 
         return best_match, matched_family, highest_similarity
 
+    def get_recognized_faces(self):
+        """Return a list of recognized faces"""
+        return list(self.recognized_faces)
+
     def process_video(self, video_path, show_display=False):
         """Process video for face detection and recognition"""
         cap = cv2.VideoCapture(video_path)
@@ -90,7 +97,7 @@ class VideoFaceRecognition:
         out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
         frame_count = 0
-        recognized_faces = set()  # Track unique faces found
+        self.recognized_faces = set()  # Reset recognized faces
 
         try:
             while cap.isOpened():
@@ -137,8 +144,8 @@ class VideoFaceRecognition:
                             cv2.circle(frame, tuple(point), 1, (0, 0, 255), -1)
 
                     # Track recognized faces
-                    if name and name not in recognized_faces:
-                        recognized_faces.add(name)
+                    if name and name not in self.recognized_faces:
+                        self.recognized_faces.add(name)
                         print(f"Found {name} from family {family}")
 
                 # Show progress
@@ -170,13 +177,13 @@ class VideoFaceRecognition:
             # Print summary
             print("\nProcessing complete!")
             print(f"Total frames processed: {frame_count}")
-            print(f"Unique faces recognized: {len(recognized_faces)}")
-            if recognized_faces:
+            print(f"Unique faces recognized: {len(self.recognized_faces)}")
+            if self.recognized_faces:
                 print("Recognized individuals:")
-                for name in recognized_faces:
+                for name in self.recognized_faces:
                     print(f"- {name}")
             print(f"\nOutput saved to: {output_path}")
-            return recognized_faces
+            return self.recognized_faces
 
 def main():
     # Initialize face recognition system
