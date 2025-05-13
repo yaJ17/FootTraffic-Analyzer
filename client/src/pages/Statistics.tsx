@@ -21,6 +21,16 @@ interface VideoStats {
   timestamp: string;
 }
 
+// Define a set of colors to use for the different locations
+const locationColors: {[key: string]: string} = {
+  'School Entrance Camera': '#4338ca', // indigo
+  'Palengke Market Camera': '#0891b2', // cyan
+  'YouTube Stream Camera': '#7c3aed', // violet
+  'Divisoria': '#0039a6',  // blue
+  'Manila Cathedral': '#f97316', // orange
+  'Fort Santiago': '#84cc16'  // lime
+};
+
 const Statistics: React.FC = () => {
   // Move all useState hooks to the very top of the component
   const [selectedLocation, setSelectedLocation] = useState(defaultLocation);
@@ -87,13 +97,28 @@ const Statistics: React.FC = () => {
     
     return () => clearInterval(interval);
   }, [flaskServerUrl]);
-
   // Get a formatted camera name for display
-  const getCameraName = (location: string) => {
+  const getCameraName = (location: string): string => {
     if (location?.includes('School')) return 'School Entrance';
     if (location?.includes('Palengke')) return 'Palengke Market';
     if (location?.includes('YouTube')) return 'YouTube Stream';
     return location || 'Unknown Location';
+  };
+
+  // Get color for a location based on our consistent color scheme
+  const getLocationColor = (locationName: string): string => {
+    // Check if the location is one of our predefined locations
+    if (locationColors[locationName + ' Camera']) {
+      return locationColors[locationName + ' Camera'];
+    }
+    
+    // Check if it's one of our other predefined locations without 'Camera'
+    if (locationColors[locationName]) {
+      return locationColors[locationName];
+    }
+    
+    // Default fallback color
+    return '#777777';
   };
 
   if (isStatisticsLoading || !videoStats) {
@@ -111,7 +136,6 @@ const Statistics: React.FC = () => {
       </div>
     );
   }
-
   // Function to generate dynamic heatmap based on current foot traffic
   const generateDynamicHeatmap = () => {
     const baseHeatmap = statisticsData?.heatmap || {
@@ -136,7 +160,7 @@ const Statistics: React.FC = () => {
       const hourIndex = Math.floor(hour / 2); // Each column represents 2 hours
       if (hourIndex >= 0 && hourIndex < baseHeatmap.z[0].length) {
         // Create a deep copy of the heatmap
-        const newZ = baseHeatmap.z.map(row => [...row]);
+        const newZ = baseHeatmap.z.map((row: number[]) => [...row]);
         
         // Update current time cell with actual foot traffic (normalized)
         const normalizedValue = Math.min(1, videoStats.people_count / 100);
@@ -166,14 +190,12 @@ const Statistics: React.FC = () => {
         { id: 5, name: 'San Nicolas Church', count: 58 }
       ])
     ].sort((a, b) => (b.count || 0) - (a.count || 0))
-  };
-
-  // Update average foot traffic to include real-time data
+  };  // Update average foot traffic to include real-time data
   const avgFootTrafficData = {
     gates: [
       {
         name: getCameraName(videoStats.location),
-        color: '#0039a6',
+        color: getLocationColor(getCameraName(videoStats.location)),
         values: [
           Math.max(10, videoStats.people_count - 10),
           Math.max(5, videoStats.people_count - 5),
@@ -194,36 +216,34 @@ const Statistics: React.FC = () => {
       ])
     ],
     timeLabels: statisticsData?.avgFootTraffic?.timeLabels || ['7 AM', '8 AM', '9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM']
-  };
-
-  // Update month foot traffic to include the current location
+  };  // Update month foot traffic to include the current location
   const monthFootTrafficData = {
     buildings: [
       { 
         id: 'current', 
         name: getCameraName(videoStats.location), 
-        value: videoStats.people_count * 30 // Projected monthly value
+        value: videoStats.people_count * 30, // Projected monthly value
+        color: getLocationColor(getCameraName(videoStats.location))
       },
       ...(statisticsData?.monthFootTraffic?.buildings?.slice(0, 10) || [
-        { id: 'b1', name: 'Building 1', value: 152 },
-        { id: 'b2', name: 'Building 2', value: 76 },
-        { id: 'b3', name: 'Building 3', value: 15 },
-        { id: 'b4', name: 'Building 4', value: 197 },
-        { id: 'b5', name: 'Building 5', value: 89 },
-        { id: 'b6', name: 'Building 6', value: 93 },
-        { id: 'b7', name: 'Building 7', value: 130 },
-        { id: 'b8', name: 'Building 8', value: 91 },
-        { id: 'b9', name: 'Building 9', value: 68 },
-        { id: 'b10', name: 'Building 10', value: 162 }
+        { id: 'b1', name: 'Building 1', value: 152, color: '#94a3b8' },
+        { id: 'b2', name: 'Building 2', value: 76, color: '#64748b' },
+        { id: 'b3', name: 'Building 3', value: 15, color: '#475569' },
+        { id: 'b4', name: 'Building 4', value: 197, color: '#334155' },
+        { id: 'b5', name: 'Building 5', value: 89, color: '#1e293b' },
+        { id: 'b6', name: 'Building 6', value: 93, color: '#0f172a' },
+        { id: 'b7', name: 'Building 7', value: 130, color: '#6b7280' },
+        { id: 'b8', name: 'Building 8', value: 91, color: '#4b5563' },
+        { id: 'b9', name: 'Building 9', value: 68, color: '#374151' },
+        { id: 'b10', name: 'Building 10', value: 162, color: '#1f2937' }
       ])
     ]
   };
-  
-  // Get all locations based on data
+    // Get all locations based on data
   const locations = [
     'All Locations', 
     getCameraName(videoStats.location),
-    ...(statisticsData?.busiestPlaces?.places?.map(place => place.name) || ['Divisoria', 'Manila Cathedral', 'Fort Santiago'])
+    ...(statisticsData?.busiestPlaces?.places?.map((place: { name: string }) => place.name) || ['Divisoria', 'Manila Cathedral', 'Fort Santiago'])
   ].filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
   
   const metrics = ['Count', 'Dwell'];
@@ -375,18 +395,22 @@ const Statistics: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="bg-blue-800 text-white py-3 px-4">
             <h3 className="font-bold text-center text-base">BUSIEST PLACES TODAY</h3>
-          </div>
-          <div className="divide-y">
-            {busiestPlacesData.places.map((place: { id: number; name: string; count?: number }, index: number) => (
-              <div key={place.id} className="py-3 px-4 flex items-center">
-                <span className="mr-2 font-medium">{index + 1}.</span> 
-                <span className="flex-1">{place.name}</span>
-                <span className="text-gray-500 flex items-center">
-                  <span className="material-icons text-sm mr-1">people</span>
-                  {place.count || Math.floor(Math.random() * 100) + 50}
-                </span>
-              </div>
-            ))}
+          </div>          <div className="divide-y">
+            {busiestPlacesData.places.map((place: { id: number; name: string; count?: number }, index: number) => {
+              // Get color for the location based on our consistent color scheme
+              const locationColor = getLocationColor(place.name);
+              
+              return (
+                <div key={place.id} className="py-3 px-4 flex items-center">
+                  <span className="mr-2 font-medium">{index + 1}.</span> 
+                  <span className="flex-1">{place.name}</span>
+                  <span className="text-gray-500 flex items-center">
+                    <span className="material-icons text-sm mr-1" style={{ color: locationColor }}>people</span>
+                    {place.count || Math.floor(Math.random() * 100) + 50}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
         

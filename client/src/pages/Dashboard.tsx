@@ -109,6 +109,19 @@ const Dashboard: React.FC = () => {
     return location;
   };
 
+  // Define a set of colors to use for the different locations
+  const locationColors: {[key: string]: string} = {
+    'School Entrance Camera': '#4338ca', // indigo
+    'Palengke Market Camera': '#0891b2', // cyan
+    'YouTube Stream Camera': '#7c3aed', // violet
+    'Divisoria': '#0039a6',  // blue
+    'Manila Cathedral': '#f97316', // orange
+    'Fort Santiago': '#84cc16'  // lime
+  };
+
+  // Get a color for the current camera, default to red if not found
+  const currentLocationColor = locationColors[getCameraName(videoStats.location)] || '#dc2626';
+
   // Create KPI data from video stats
   const footTrafficKpi = {
     title: 'Total Foot Traffic',
@@ -130,7 +143,6 @@ const Dashboard: React.FC = () => {
     weekday: 400,
     total: 929
   };
-
   // Create map data with current location information
   const mapData = {
     center: { lat: 14.5995, lon: 120.9842 },
@@ -142,7 +154,7 @@ const Dashboard: React.FC = () => {
         name: getCameraName(videoStats.location), 
         lat: 14.5915, 
         lon: 120.9722, 
-        color: '#dc2626', 
+        color: currentLocationColor, 
         count: videoStats.people_count 
       },
       ...(dashboardData?.map?.markers?.slice(1) || [])
@@ -154,20 +166,19 @@ const Dashboard: React.FC = () => {
     locations: [
       { 
         name: getCameraName(videoStats.location), 
-        color: '#dc2626',
+        color: currentLocationColor,
         values: [0, 0, 0, 0, 0, videoStats.people_count, 0]
       },
       ...(dashboardData?.footTraffic?.locations?.slice(1) || [])
     ],
     timeLabels: dashboardData?.footTraffic?.timeLabels || ['7 AM', '9 AM', '11 AM', '1 PM', '3 PM', '5 PM', '7 PM']
   };
-
   // Create dwell time data that includes current dwell time
   const dwellTimeData = {
     locations: [
       { 
         name: getCameraName(videoStats.location), 
-        color: '#dc2626',
+        color: currentLocationColor,
         values: [0, 0, 0, 0, 0, videoStats.avg_dwell_time]
       },
       ...(dashboardData?.dwellTime?.locations?.slice(1) || [])

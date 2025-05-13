@@ -93,8 +93,7 @@ export const getDashboardData = (): FootTrafficData => {
         }
       ],
       timeLabels: ['7 AM', '9 AM', '11 AM', '1 PM', '3 PM', '5 PM', '7 PM']
-    },
-    dwellTime: {
+    },    dwellTime: {
       locations: [
         { 
           name: 'Divisoria', 
@@ -103,7 +102,7 @@ export const getDashboardData = (): FootTrafficData => {
         },
         { 
           name: 'Manila Cathedral', 
-          color: '#60a5fa',
+          color: '#f97316',
           values: [3, 4, 3, 2, 3, 3]
         }
       ],

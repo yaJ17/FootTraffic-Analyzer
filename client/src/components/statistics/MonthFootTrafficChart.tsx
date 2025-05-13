@@ -5,6 +5,7 @@ interface BuildingData {
   id: string;
   name: string;
   value: number;
+  color?: string;
 }
 
 interface MonthFootTrafficChartProps {
@@ -19,7 +20,7 @@ const MonthFootTrafficChart: React.FC<MonthFootTrafficChartProps> = ({ buildings
       y: buildings.map(b => b.value),
       type: 'bar',
       marker: {
-        color: '#0039a6'
+        color: buildings.map(b => b.color || '#0039a6') // Use specified color or default blue
       }
     }
   ];
@@ -27,7 +28,7 @@ const MonthFootTrafficChart: React.FC<MonthFootTrafficChartProps> = ({ buildings
   const layout = {
     autosize: true,
     title: {
-      text: 'Foot Traffic in the Last Month',
+      text: '',  // Remove title as it's already in the parent component
       font: { size: 16, family: 'Inter, sans-serif', weight: 'bold' }
     },
     xaxis: {
