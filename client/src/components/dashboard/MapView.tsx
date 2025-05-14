@@ -333,6 +333,10 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) =>
               .slice(0, 6)
               .map(marker => (
                 <div key={marker.id} className="flex items-center p-2 bg-gray-50 rounded">
+                  <div 
+                    className="w-3 h-3 rounded-full mr-2" 
+                    style={{ backgroundColor: marker.color, opacity: 0.9 }}
+                  ></div>
                   <span className="text-sm font-medium">{marker.name}</span>
                   <span className="ml-auto text-sm font-bold">{marker.count}</span>
                 </div>

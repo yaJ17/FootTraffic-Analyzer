@@ -105,13 +105,19 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({ locations, timeLabe
               onClick={() => handleLegendClick(loc.name)}
               className={`inline-flex items-center rounded-full px-3 py-1 text-sm transition-all duration-200 ${
                 selectedLocations.has(loc.name)
-                  ? 'bg-gray-50 opacity-100'
+                  ? 'bg-gray-50 border border-gray-200 shadow-sm'
                   : 'bg-gray-100 opacity-50'
               }`}
             >
-              <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: loc.color }}></div>
+              <div 
+                className="w-3 h-3 rounded-full mr-2" 
+                style={{ 
+                  backgroundColor: loc.color,
+                  boxShadow: selectedLocations.has(loc.name) ? '0 0 0 1px rgba(0,0,0,0.1)' : 'none'
+                }}
+              ></div>
               <span className="font-medium">{loc.name}</span>
-              <span className="ml-1 text-gray-500">Current: {loc.current}</span>
+              <span className="ml-1 text-gray-500">{loc.current}</span>
             </button>
           ))}
         </div>

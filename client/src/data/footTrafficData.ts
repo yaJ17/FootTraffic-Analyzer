@@ -90,14 +90,30 @@ const FOOT_TRAFFIC_TIME_LABELS = generateDynamicTimeLabels(12, 2);
 // Create time labels for 10 hours of history with 2-hour intervals
 const DWELL_TIME_LABELS = generateDynamicTimeLabels(10, 2);
 
-// Define a set of colors to use for the different locations
+// Define a set of colors to use for the different locations - updated with a comprehensive color palette
 const LOCATION_COLORS: { [key: string]: string } = {
-  'School Entrance Camera': '#e6194b', // red
-  'Palengke Market Camera': '#3cb44b', // green
-  'YouTube Stream Camera': '#4363d8', // blue
-  'Divisoria': '#f58231', // orange
-  'Manila Cathedral': '#911eb4', // purple
-  'Fort Santiago': '#ffe119'  // yellow
+  // Camera locations
+  'School Entrance Camera': '#6366F1', // Indigo
+  'Palengke Market Camera': '#D946EF', // Fuchsia
+  'YouTube Stream Camera': '#14B8A6', // Teal
+  
+  // Manila districts and landmarks
+  'Makati CBD': '#3B82F6',           // Blue
+  'Bonifacio Global City': '#10B981', // Emerald
+  'SM Mall of Asia': '#F59E0B',       // Amber
+  'Quezon City Circle': '#8B5CF6',    // Violet
+  'Divisoria Market': '#EF4444',      // Red
+  'Divisoria': '#EF4444',             // Red (same as Divisoria Market)
+  'Intramuros': '#EC4899',            // Pink
+  'Rizal Park': '#06B6D4',            // Cyan
+  'University Belt': '#F97316',       // Orange
+  'Binondo': '#84CC16',               // Lime
+  'Manila Cathedral': '#9333EA',      // Purple
+  'Fort Santiago': '#FACC15',         // Yellow
+  'Ayala Center': '#A855F7',          // Purple
+  'Greenhills Shopping Center': '#2563EB', // Royal Blue
+  'Manila Bay': '#DC2626',            // Bright Red
+  'Sample Location': '#0284C7'        // Sky Blue
 };
 
 
