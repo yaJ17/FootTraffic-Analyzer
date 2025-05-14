@@ -24,11 +24,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onAddTask, onDeleteT
   const tasksByDate: Record<string, Task[]> = {};
   
   tasks.forEach(task => {
-    const dateKey = new Date(task.start).toISOString().split('T')[0];
-    if (!tasksByDate[dateKey]) {
-      tasksByDate[dateKey] = [];
+    try {
+      const taskDate = new Date(task.start);
+      
+      // Check if the date is valid before using it
+      if (!isNaN(taskDate.getTime())) {
+        const dateKey = taskDate.toISOString().split('T')[0];
+        if (!tasksByDate[dateKey]) {
+          tasksByDate[dateKey] = [];
+        }
+        tasksByDate[dateKey].push(task);
+      } else {
+        console.error(`Invalid date in task: ${task.title}, date: ${task.start}`);
+      }
+    } catch (err) {
+      console.error(`Error processing task date: ${task.title}, error: ${err}`);
     }
-    tasksByDate[dateKey].push(task);
   });
 
   // Generate days for the calendar grid
@@ -145,8 +156,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onAddTask, onDeleteT
       
       <div className="grid grid-cols-7 gap-1 border">
         {days.map((day, idx) => {
-          const dateStr = day.date.toISOString().split('T')[0];
-          const tasksForDay = tasksByDate[dateStr] || [];
+          let dateStr;
+          try {
+            // Safe date string extraction
+            dateStr = day.date.toISOString().split('T')[0];
+          } catch (err) {
+            console.error('Invalid date in calendar view:', err);
+            dateStr = '';
+          }
+          
+          const tasksForDay = dateStr ? (tasksByDate[dateStr] || []) : [];
           
           return (
             <div 
@@ -163,7 +182,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onAddTask, onDeleteT
                 >
                   <div className="flex-1">
                     <span className="font-bold">
-                      {new Date(task.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      {(() => {
+                        try {
+                          const taskDate = new Date(task.start);
+                          return taskDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                        } catch (err) {
+                          console.error(`Error formatting time for task: ${task.title}`);
+                          return '--:--';
+                        }
+                      })()}
                     </span> {task.title}
                   </div>
                   {onDeleteTask && (

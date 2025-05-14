@@ -6,6 +6,7 @@ import MapView from '@/components/dashboard/MapView';
 import FootTrafficChart from '@/components/dashboard/FootTrafficChart';
 import DwellTimeChart from '@/components/dashboard/DwellTimeChart';
 import { useQuery } from '@tanstack/react-query';
+import { getDashboardData } from '@/data/footTrafficData';
 
 // Define interface for stats from the API
 interface VideoStats {
@@ -19,6 +20,7 @@ interface VideoStats {
 const Dashboard: React.FC = () => {
   const [flaskServerUrl, setFlaskServerUrl] = useState<string>('http://localhost:5001');
   const [videoStats, setVideoStats] = useState<VideoStats | null>(null);
+  const [dashboardStaticData] = useState(getDashboardData());
 
   // Use React Query to fetch dashboard data
   const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
@@ -169,10 +171,11 @@ const Dashboard: React.FC = () => {
         color: currentLocationColor,
         values: [0, 0, 0, 0, 0, videoStats.people_count, 0]
       },
-      ...(dashboardData?.footTraffic?.locations?.slice(1) || [])
+      ...(dashboardData?.footTraffic?.locations || dashboardStaticData.footTraffic.locations)
     ],
-    timeLabels: dashboardData?.footTraffic?.timeLabels || ['7 AM', '9 AM', '11 AM', '1 PM', '3 PM', '5 PM', '7 PM']
+    timeLabels: dashboardData?.footTraffic?.timeLabels || dashboardStaticData.footTraffic.timeLabels
   };
+  
   // Create dwell time data that includes current dwell time
   const dwellTimeData = {
     locations: [
@@ -181,9 +184,9 @@ const Dashboard: React.FC = () => {
         color: currentLocationColor,
         values: [0, 0, 0, 0, 0, videoStats.avg_dwell_time]
       },
-      ...(dashboardData?.dwellTime?.locations?.slice(1) || [])
+      ...(dashboardData?.dwellTime?.locations || dashboardStaticData.dwellTime.locations)
     ],
-    timeLabels: dashboardData?.dwellTime?.timeLabels || ['7 AM', '9 AM', '11 AM', '1 PM', '3 PM', '5 PM']
+    timeLabels: dashboardData?.dwellTime?.timeLabels || dashboardStaticData.dwellTime.timeLabels
   };
 
   return (

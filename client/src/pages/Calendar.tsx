@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import CalendarView from '@/components/calendar/CalendarView';
 import TaskForm from '@/components/calendar/TaskForm';
 import { useQuery } from '@tanstack/react-query';
+import { getCalendarData } from '@/data/calendarData';
 
 interface Task {
   id: number;
@@ -18,14 +19,22 @@ const Calendar: React.FC = () => {
     queryFn: () => fetch('/api/calendar').then(res => res.json()),
   });
   
+  const [staticCalendarData] = useState(getCalendarData());
   const [tasks, setTasks] = useState<Task[]>([]);
   
   // When calendar data is loaded, set tasks
   React.useEffect(() => {
     if (calendarData?.tasks) {
       setTasks(calendarData.tasks);
+    } else if (staticCalendarData?.tasks) {
+      // Map the tasks to ensure they match the Task interface
+      const mappedTasks = staticCalendarData.tasks.map(task => ({
+        ...task,
+        type: task.type as 'event' | 'task' | 'reminder'
+      }));
+      setTasks(mappedTasks);
     }
-  }, [calendarData]);
+  }, [calendarData, staticCalendarData]);
 
   const handleAddTask = (task: any) => {
     const newTask: Task = {

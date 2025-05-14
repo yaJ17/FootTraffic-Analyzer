@@ -27,6 +27,18 @@ export interface StatisticsData {
   };
 }
 
+// Define a set of colors to use for the different locations
+export const locationColors: {[key: string]: string} = {
+  'School Entrance Camera': '#4338ca', // indigo
+  'Palengke Market Camera': '#0891b2', // cyan
+  'YouTube Stream Camera': '#7c3aed', // violet
+  'Divisoria': '#0039a6',  // blue
+  'Manila Cathedral': '#f97316', // orange
+  'Fort Santiago': '#84cc16',  // lime
+  'Main Gate': '#0039a6',
+  'East Gate': '#60a5fa'
+};
+
 export const getStatisticsData = (): StatisticsData => {
   return {
     heatmap: {

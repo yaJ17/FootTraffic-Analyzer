@@ -5,6 +5,7 @@ import AverageFootTrafficChart from '@/components/statistics/AverageFootTrafficC
 import MonthFootTrafficChart from '@/components/statistics/MonthFootTrafficChart';
 import { useQuery } from '@tanstack/react-query';
 import Plot from 'react-plotly.js';
+import { locationColors, getStatisticsData } from '@/data/locationData';
 
 // Define state values outside the component 
 // to avoid the "Rendered more hooks than during previous render" issue
@@ -21,16 +22,6 @@ interface VideoStats {
   timestamp: string;
 }
 
-// Define a set of colors to use for the different locations
-const locationColors: {[key: string]: string} = {
-  'School Entrance Camera': '#4338ca', // indigo
-  'Palengke Market Camera': '#0891b2', // cyan
-  'YouTube Stream Camera': '#7c3aed', // violet
-  'Divisoria': '#0039a6',  // blue
-  'Manila Cathedral': '#f97316', // orange
-  'Fort Santiago': '#84cc16'  // lime
-};
-
 const Statistics: React.FC = () => {
   // Move all useState hooks to the very top of the component
   const [selectedLocation, setSelectedLocation] = useState(defaultLocation);
@@ -38,6 +29,7 @@ const Statistics: React.FC = () => {
   const [timePeriod, setTimePeriod] = useState(defaultTimePeriod);
   const [videoStats, setVideoStats] = useState<VideoStats | null>(null);
   const [flaskServerUrl, setFlaskServerUrl] = useState<string>('http://localhost:5001');
+  const [staticStatisticsData] = useState(getStatisticsData());
   
   const { data: statisticsData, isLoading: isStatisticsLoading } = useQuery({
     queryKey: ['/api/statistics'],
@@ -138,18 +130,7 @@ const Statistics: React.FC = () => {
   }
   // Function to generate dynamic heatmap based on current foot traffic
   const generateDynamicHeatmap = () => {
-    const baseHeatmap = statisticsData?.heatmap || {
-      z: [
-        [0.1, 0.1, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.9],
-        [0.1, 0.1, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.9],
-        [0.4, 0.4, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.9, 0.9, 0.9],
-        [0.1, 0.1, 0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9, 0.9, 0.9],
-        [0.1, 0.1, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.9],
-        [0.1, 0.1, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.9]
-      ],
-      x: ['12am', '2am', '4am', '6am', '8am', '10am', '12pm', '2pm', '4pm', '6pm', '8pm', '10pm'],
-      y: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-    };
+    const baseHeatmap = statisticsData?.heatmap || staticStatisticsData.heatmap;
     
     // Get current day and time to highlight in heatmap
     const now = new Date();
@@ -183,14 +164,11 @@ const Statistics: React.FC = () => {
   const busiestPlacesData = {
     places: [
       { id: 1, name: getCameraName(videoStats.location), count: videoStats.people_count },
-      ...(statisticsData?.busiestPlaces?.places?.slice(0, 4) || [
-        { id: 2, name: 'Divisoria Market', count: 86 },
-        { id: 3, name: 'Manila High School', count: 72 },
-        { id: 4, name: 'Fort Santiago', count: 65 },
-        { id: 5, name: 'San Nicolas Church', count: 58 }
-      ])
+      ...(statisticsData?.busiestPlaces?.places?.slice(0, 4) || staticStatisticsData.busiestPlaces.places.slice(0, 4))
     ].sort((a, b) => (b.count || 0) - (a.count || 0))
-  };  // Update average foot traffic to include real-time data
+  };  
+  
+  // Update average foot traffic to include real-time data
   const avgFootTrafficData = {
     gates: [
       {
@@ -207,16 +185,12 @@ const Statistics: React.FC = () => {
           videoStats.people_count,
         ]
       },
-      ...(statisticsData?.avgFootTraffic?.gates?.slice(1) || [
-        {
-          name: 'East Gate',
-          color: '#60a5fa',
-          values: [12, 20, 15, 12, 14, 16, 18, 20]
-        }
-      ])
+      ...(statisticsData?.avgFootTraffic?.gates?.slice(1) || staticStatisticsData.avgFootTraffic.gates.slice(1))
     ],
-    timeLabels: statisticsData?.avgFootTraffic?.timeLabels || ['7 AM', '8 AM', '9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM']
-  };  // Update month foot traffic to include the current location
+    timeLabels: statisticsData?.avgFootTraffic?.timeLabels || staticStatisticsData.avgFootTraffic.timeLabels
+  };  
+  
+  // Update month foot traffic to include the current location
   const monthFootTrafficData = {
     buildings: [
       { 
@@ -225,18 +199,7 @@ const Statistics: React.FC = () => {
         value: videoStats.people_count * 30, // Projected monthly value
         color: getLocationColor(getCameraName(videoStats.location))
       },
-      ...(statisticsData?.monthFootTraffic?.buildings?.slice(0, 10) || [
-        { id: 'b1', name: 'Building 1', value: 152, color: '#94a3b8' },
-        { id: 'b2', name: 'Building 2', value: 76, color: '#64748b' },
-        { id: 'b3', name: 'Building 3', value: 15, color: '#475569' },
-        { id: 'b4', name: 'Building 4', value: 197, color: '#334155' },
-        { id: 'b5', name: 'Building 5', value: 89, color: '#1e293b' },
-        { id: 'b6', name: 'Building 6', value: 93, color: '#0f172a' },
-        { id: 'b7', name: 'Building 7', value: 130, color: '#6b7280' },
-        { id: 'b8', name: 'Building 8', value: 91, color: '#4b5563' },
-        { id: 'b9', name: 'Building 9', value: 68, color: '#374151' },
-        { id: 'b10', name: 'Building 10', value: 162, color: '#1f2937' }
-      ])
+      ...(statisticsData?.monthFootTraffic?.buildings?.slice(0, 10) || staticStatisticsData.monthFootTraffic.buildings.slice(0, 10))
     ]
   };
     // Get all locations based on data
