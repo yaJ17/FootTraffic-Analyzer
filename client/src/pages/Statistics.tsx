@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import HeatmapChart from '@/components/statistics/HeatmapChart';
 import BusiestPlaces from '@/components/statistics/BusiestPlaces';
 import AverageFootTrafficChart from '@/components/statistics/AverageFootTrafficChart';
@@ -6,6 +6,7 @@ import MonthFootTrafficChart from '@/components/statistics/MonthFootTrafficChart
 import { useQuery } from '@tanstack/react-query';
 import Plot from 'react-plotly.js';
 import { locationColors, getStatisticsData } from '@/data/locationData';
+import { useFootTraffic } from '@/context/FootTrafficContext';
 
 // Define state values outside the component 
 // to avoid the "Rendered more hooks than during previous render" issue
@@ -27,68 +28,16 @@ const Statistics: React.FC = () => {
   const [selectedLocation, setSelectedLocation] = useState(defaultLocation);
   const [selectedMetric, setSelectedMetric] = useState(defaultMetric);
   const [timePeriod, setTimePeriod] = useState(defaultTimePeriod);
-  const [videoStats, setVideoStats] = useState<VideoStats | null>(null);
-  const [flaskServerUrl, setFlaskServerUrl] = useState<string>('http://localhost:5001');
   const [staticStatisticsData] = useState(getStatisticsData());
+  
+  // Get shared data from FootTrafficContext
+  const { videoStats, mapData, timeSeriesData } = useFootTraffic();
   
   const { data: statisticsData, isLoading: isStatisticsLoading } = useQuery({
     queryKey: ['/api/statistics'],
     queryFn: () => fetch('/api/statistics').then(res => res.json()),
   });
 
-  // Determine Flask server URL based on hostname
-  useEffect(() => {
-    const baseUrl = window.location.hostname.includes('replit') 
-      ? `https://${window.location.hostname.replace('5000', '5001')}` 
-      : 'http://localhost:5001';
-    setFlaskServerUrl(baseUrl);
-  }, []);
-
-  // Fetch video stats from Flask backend
-  const fetchVideoStats = async () => {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
-      const response = await fetch(`${flaskServerUrl}/api/stats`, {
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch video analysis stats');
-      }
-      
-      const data = await response.json();
-      
-      // Ensure we have a valid stats object with required fields
-      if (data && typeof data === 'object' && data.stats) {
-        const validatedStats: VideoStats = {
-          people_count: data.stats.people_count || 0,
-          avg_dwell_time: data.stats.avg_dwell_time || 0,
-          highest_dwell_time: data.stats.highest_dwell_time || 0,
-          location: data.stats.location || 'Unknown Location',
-          timestamp: data.stats.timestamp || new Date().toISOString()
-        };
-        
-        setVideoStats(validatedStats);
-      }
-    } catch (err) {
-      console.error('Error fetching video analysis stats:', err);
-    }
-  };
-
-  // Fetch video stats on component mount and every 5 seconds
-  useEffect(() => {
-    fetchVideoStats();
-    
-    const interval = setInterval(() => {
-      fetchVideoStats();
-    }, 5000);
-    
-    return () => clearInterval(interval);
-  }, [flaskServerUrl]);
   // Get a formatted camera name for display
   const getCameraName = (location: string): string => {
     if (location?.includes('School')) return 'School Entrance';
@@ -113,7 +62,7 @@ const Statistics: React.FC = () => {
     return '#777777';
   };
 
-  if (isStatisticsLoading || !videoStats) {
+  if (isStatisticsLoading || !videoStats || !mapData || !timeSeriesData) {
     return (
       <div className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -160,15 +109,22 @@ const Statistics: React.FC = () => {
   // Sample data for heatmap with dynamically updated values
   const heatmapData = generateDynamicHeatmap();
 
-  // Update busiest places to include current location
+  // Update busiest places to include current location and data from mapData
   const busiestPlacesData = {
     places: [
       { id: 1, name: getCameraName(videoStats.location), count: videoStats.people_count },
-      ...(statisticsData?.busiestPlaces?.places?.slice(0, 4) || staticStatisticsData.busiestPlaces.places.slice(0, 4))
+      ...mapData.markers
+        .filter(marker => marker.name !== getCameraName(videoStats.location))
+        .slice(0, 4)
+        .map((marker, index) => ({
+          id: index + 2,
+          name: marker.name,
+          count: marker.count
+        }))
     ].sort((a, b) => (b.count || 0) - (a.count || 0))
   };  
   
-  // Update average foot traffic to include real-time data
+  // Use time series data from context for average foot traffic
   const avgFootTrafficData = {
     gates: [
       {
@@ -185,9 +141,14 @@ const Statistics: React.FC = () => {
           videoStats.people_count,
         ]
       },
-      ...(statisticsData?.avgFootTraffic?.gates?.slice(1) || staticStatisticsData.avgFootTraffic.gates.slice(1))
+      ...timeSeriesData.locations.slice(0, 2)
+        .map(loc => ({
+          name: loc.name,
+          color: loc.color,
+          values: loc.trafficValues.slice(-8)
+        }))
     ],
-    timeLabels: statisticsData?.avgFootTraffic?.timeLabels || staticStatisticsData.avgFootTraffic.timeLabels
+    timeLabels: timeSeriesData.timeLabels.slice(-8)
   };  
   
   // Update month foot traffic to include the current location
@@ -199,14 +160,22 @@ const Statistics: React.FC = () => {
         value: videoStats.people_count * 30, // Projected monthly value
         color: getLocationColor(getCameraName(videoStats.location))
       },
-      ...(statisticsData?.monthFootTraffic?.buildings?.slice(0, 10) || staticStatisticsData.monthFootTraffic.buildings.slice(0, 10))
-    ]
+      ...mapData.markers
+        .filter(marker => marker.name !== getCameraName(videoStats.location))
+        .slice(0, 4)
+        .map(marker => ({
+          id: marker.id,
+          name: marker.name,
+          value: marker.count * 30, // Projected monthly value
+          color: marker.color
+        }))
+    ].sort((a, b) => b.value - a.value)
   };
     // Get all locations based on data
   const locations = [
     'All Locations', 
     getCameraName(videoStats.location),
-    ...(statisticsData?.busiestPlaces?.places?.map((place: { name: string }) => place.name) || ['Divisoria', 'Manila Cathedral', 'Fort Santiago'])
+    ...mapData.markers.map(marker => marker.name)
   ].filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
   
   const metrics = ['Count', 'Dwell'];

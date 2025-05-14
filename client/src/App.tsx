@@ -4,6 +4,7 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuth } from "./context/AuthContext";
 import { AuthProvider } from "./context/AuthContext";
+import { FootTrafficProvider } from "./context/FootTrafficContext";
 import SignIn from "@/pages/SignIn";
 import SignUp from "@/pages/SignUp";
 import Dashboard from "@/pages/Dashboard";
@@ -105,8 +106,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router />
-        <Toaster />
+        <FootTrafficProvider>
+          <Router />
+          <Toaster />
+        </FootTrafficProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -31,6 +31,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { getReportData } from '@/data/reportData';
+import { useFootTraffic } from '@/context/FootTrafficContext';
 
 interface BarangayReport {
   id: number;
@@ -43,6 +44,8 @@ interface BarangayReport {
 }
 
 const Reports: React.FC = () => {
+  const { videoStats, mapData, totalPeopleCount } = useFootTraffic();
+  
   const { data: reportsData, isLoading } = useQuery({
     queryKey: ['/api/reports'],
     queryFn: () => fetch('/api/reports').then(res => res.json()),
@@ -85,7 +88,7 @@ const Reports: React.FC = () => {
     }
   };
   
-  if (isLoading) {
+  if (isLoading || !videoStats || !mapData) {
     return (
       <div className="p-6">
         {/* Loading state for main reports container */}
@@ -121,7 +124,23 @@ const Reports: React.FC = () => {
     );
   }
 
-  const barangayReports: BarangayReport[] = reportsData?.barangays || staticReportsData.barangays;
+  // Create dynamic barangay reports using data from both the API and foot traffic context
+  const barangayReports: BarangayReport[] = mapData.markers.map((marker, index) => {
+    // Try to find existing report data for this location
+    const existingReport = (reportsData?.barangays || staticReportsData.barangays)
+      .find(report => report.name.includes(marker.name) || marker.name.includes(report.name));
+
+    // Use existing data or create synthetic data based on marker data
+    return {
+      id: index + 1,
+      name: marker.name,
+      population: existingReport?.population || Math.floor(5000 + Math.random() * 15000),
+      avgFootTraffic: Math.round(marker.count * 0.8),
+      totalFootTraffic: marker.count * 24, // Daily total
+      avgDwellTime: `${Math.floor(2 + Math.random() * 8)} min ${Math.floor(Math.random() * 60)} sec`,
+      totalDwellTime: `${Math.floor(marker.count * 0.2)} hrs ${Math.floor(Math.random() * 60)} min`
+    };
+  }).sort((a, b) => b.totalFootTraffic - a.totalFootTraffic);
 
   const forecastInterpretation = reportsData?.forecastInterpretation || staticReportsData.forecastInterpretation;
 
@@ -821,14 +840,19 @@ const Reports: React.FC = () => {
             Barangay Foot Traffic Reports
           </h2>
           
-          <Button 
-            onClick={() => setExportDialogOpen(true)}
-            variant="outline" 
-            className="flex items-center gap-2"
-          >
-            <span className="material-icons">download</span>
-            Export Report
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-gray-600">
+              <span className="font-medium">Total Foot Traffic:</span> {totalPeopleCount}
+            </div>
+            <Button 
+              onClick={() => setExportDialogOpen(true)}
+              variant="outline" 
+              className="flex items-center gap-2"
+            >
+              <span className="material-icons">download</span>
+              Export Report
+            </Button>
+          </div>
         </div>
         
         <div className="p-4">
