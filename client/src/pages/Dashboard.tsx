@@ -56,9 +56,10 @@ const Dashboard: React.FC = () => {
       
       // Ensure we have a valid stats object with required fields
       if (data && typeof data === 'object' && data.stats) {
+        // Create a validated stats object with defaults for missing values
         const validatedStats: VideoStats = {
           people_count: data.stats.people_count || 0,
-          avg_dwell_time: data.stats.avg_dwell_time || 0,
+          avg_dwell_time: data.stats.people_count === 0 ? 0 : (data.stats.avg_dwell_time || 0),
           highest_dwell_time: data.stats.highest_dwell_time || 0,
           location: data.stats.location || 'Unknown Location',
           timestamp: data.stats.timestamp || new Date().toISOString()
@@ -68,6 +69,7 @@ const Dashboard: React.FC = () => {
       }
     } catch (err) {
       console.error('Error fetching video analysis stats:', err);
+      // Don't set mock stats, just keep the current ones
     }
   };
 
@@ -111,18 +113,8 @@ const Dashboard: React.FC = () => {
     return location;
   };
 
-  // Define a set of colors to use for the different locations
-  const locationColors: {[key: string]: string} = {
-    'School Entrance Camera': '#4338ca', // indigo
-    'Palengke Market Camera': '#0891b2', // cyan
-    'YouTube Stream Camera': '#7c3aed', // violet
-    'Divisoria': '#0039a6',  // blue
-    'Manila Cathedral': '#f97316', // orange
-    'Fort Santiago': '#84cc16'  // lime
-  };
-
   // Get a color for the current camera, default to red if not found
-  const currentLocationColor = locationColors[getCameraName(videoStats.location)] || '#dc2626';
+  const currentLocationColor = dashboardStaticData.locationColors[getCameraName(videoStats.location)] || '#dc2626';
 
   // Create KPI data from video stats
   const footTrafficKpi = {
@@ -132,19 +124,11 @@ const Dashboard: React.FC = () => {
   };
 
   // Create peak hours data (using sample or calculate from historical data if available)
-  const peakHoursData = dashboardData?.peakHours || {
-    peakStart: { time: '9 AM', status: 'Peak already started' },
-    peakMax: { time: '12 PM', status: 'Peak in 3 hours already started' },
-    peakEnd: { time: '8 PM', status: '9 hours and 5 minutes' }
-  };
+  const peakHoursData = dashboardData?.peakHours || dashboardStaticData.defaultData.peakHours;
 
   // Create weekly summary data (using sample or calculate from historical data if available)
-  const weeklySummaryData = dashboardData?.weeklySummary || {
-    monday: 300,
-    weekend: 229,
-    weekday: 400,
-    total: 929
-  };
+  const weeklySummaryData = dashboardData?.weeklySummary || dashboardStaticData.defaultData.weeklySummary;
+  
   // Create map data with current location information
   const mapData = {
     center: { lat: 14.5995, lon: 120.9842 },
@@ -159,34 +143,51 @@ const Dashboard: React.FC = () => {
         color: currentLocationColor, 
         count: videoStats.people_count 
       },
-      ...(dashboardData?.map?.markers?.slice(1) || [])
+      ...(dashboardData?.map?.markers?.slice(1) || dashboardStaticData.map.markers.slice(1))
     ]
   };
 
-  // Create foot traffic data that includes current location's data
+  // Get data from static sources
   const footTrafficData = {
     locations: [
-      { 
-        name: getCameraName(videoStats.location), 
+      // Add current location data
+      {
+        name: getCameraName(videoStats.location),
         color: currentLocationColor,
-        values: [0, 0, 0, 0, 0, videoStats.people_count, 0]
+        values: (() => {
+          const timeLabels = dashboardStaticData.footTraffic.timeLabels;
+          const values = new Array(timeLabels.length).fill(0);
+          // Put the current value in the second-to-last position
+          if (values.length >= 3) {
+            values[values.length - 2] = videoStats.people_count;
+          }
+          return values;
+        })()
       },
-      ...(dashboardData?.footTraffic?.locations || dashboardStaticData.footTraffic.locations)
+      ...dashboardStaticData.footTraffic.locations
     ],
-    timeLabels: dashboardData?.footTraffic?.timeLabels || dashboardStaticData.footTraffic.timeLabels
+    timeLabels: dashboardStaticData.footTraffic.timeLabels
   };
   
-  // Create dwell time data that includes current dwell time
   const dwellTimeData = {
     locations: [
-      { 
-        name: getCameraName(videoStats.location), 
+      // Add current location data
+      {
+        name: getCameraName(videoStats.location),
         color: currentLocationColor,
-        values: [0, 0, 0, 0, 0, videoStats.avg_dwell_time]
+        values: (() => {
+          const timeLabels = dashboardStaticData.dwellTime.timeLabels;
+          const values = new Array(timeLabels.length).fill(0);
+          // Put the current value in the second-to-last position
+          if (values.length >= 3) {
+            values[values.length - 2] = videoStats.avg_dwell_time;
+          }
+          return values;
+        })()
       },
-      ...(dashboardData?.dwellTime?.locations || dashboardStaticData.dwellTime.locations)
+      ...dashboardStaticData.dwellTime.locations
     ],
-    timeLabels: dashboardData?.dwellTime?.timeLabels || dashboardStaticData.dwellTime.timeLabels
+    timeLabels: dashboardStaticData.dwellTime.timeLabels
   };
 
   return (

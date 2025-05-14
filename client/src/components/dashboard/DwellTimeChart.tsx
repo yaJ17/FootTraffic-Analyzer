@@ -13,11 +13,13 @@ interface DwellTimeChartProps {
 }
 
 const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }) => {
-  // Calculate average dwell time
-  const averages = locations.map(loc => ({
+  // Calculate average dwell time and get current value
+  const locationStats = locations.map(loc => ({
     name: loc.name,
-    avg: (loc.values.reduce((sum, val) => sum + val, 0) / loc.values.length).toFixed(1),
-    color: loc.color
+    avg: (loc.values.reduce((sum, val) => sum + val, 0) / loc.values.filter(v => v > 0).length || 1).toFixed(1),
+    color: loc.color,
+    // Get current value (second-to-last position)
+    current: loc.values.length >= 3 ? loc.values[loc.values.length - 2] : 0
   }));
 
   // Create the data array for Plotly
@@ -34,7 +36,7 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }
         color: 'white'
       }
     },
-    hovertemplate: `<b>${location.name}</b><br>Time: %{x}<br>Dwell Time: %{y} min<extra></extra>`
+    hovertemplate: `<b>${location.name}</b><br>Time: %{x}<br>Dwell Time: %{y} sec<extra></extra>`
   }));
 
   const layout = {
@@ -47,7 +49,7 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }
       zeroline: false
     },
     yaxis: {
-      title: 'Minutes',
+      title: 'Seconds',
       titlefont: { size: 12, color: '#777' },
       showgrid: true,
       gridcolor: 'rgba(211, 211, 211, 0.3)',
@@ -73,11 +75,11 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }
         </h2>
 
         <div className="mb-4 flex flex-wrap gap-2">
-          {averages.map((loc) => (
+          {locationStats.map((loc) => (
             <div key={loc.name} className="inline-flex items-center bg-gray-50 rounded-full px-3 py-1 text-sm">
               <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: loc.color }}></div>
               <span className="font-medium">{loc.name}</span>
-              <span className="ml-1 text-gray-500">Avg: {loc.avg} min</span>
+              <span className="ml-1 text-gray-500">Current: {loc.current} sec</span>
             </div>
           ))}
         </div>

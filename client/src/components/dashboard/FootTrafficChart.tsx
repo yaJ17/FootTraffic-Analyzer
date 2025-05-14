@@ -17,7 +17,9 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({ locations, timeLabe
   const totalValues = locations.map(loc => ({
     name: loc.name,
     total: loc.values.reduce((sum, val) => sum + val, 0).toFixed(1),
-    color: loc.color
+    color: loc.color,
+    // Get current value (second-to-last position)
+    current: loc.values.length >= 3 ? loc.values[loc.values.length - 2] : 0
   }));
 
   // Create the data array for Plotly
@@ -27,7 +29,14 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({ locations, timeLabe
     type: 'scatter',
     mode: 'lines+markers',
     name: location.name,
-    marker: { color: location.color, size: 6 },
+    marker: { 
+      color: location.color, 
+      size: 6,
+      line: {
+        width: 1,
+        color: 'white'
+      }
+    },
     line: { color: location.color, width: 3, shape: 'spline' },
     hovertemplate: `<b>${location.name}</b><br>Time: %{x}<br>Foot Traffic: %{y}<extra></extra>`
   }));
@@ -43,7 +52,8 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({ locations, timeLabe
       zeroline: false
     },
     yaxis: {
-      title: '',
+      title: 'People',
+      titlefont: { size: 12, color: '#777' },
       showgrid: true,
       gridcolor: 'rgba(211, 211, 211, 0.3)',
       zeroline: false
@@ -71,7 +81,7 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({ locations, timeLabe
             <div key={loc.name} className="inline-flex items-center bg-gray-50 rounded-full px-3 py-1 text-sm">
               <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: loc.color }}></div>
               <span className="font-medium">{loc.name}</span>
-              <span className="ml-1 text-gray-500">({loc.total})</span>
+              <span className="ml-1 text-gray-500">Current: {loc.current}</span>
             </div>
           ))}
         </div>
