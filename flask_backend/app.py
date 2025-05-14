@@ -7,6 +7,7 @@ from bson import json_util
 import cv2
 import numpy as np
 import logging
+from data_storage import save_stats, load_stats, save_historical_data, load_historical_data, get_backup_list, restore_from_backup
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -16,6 +17,17 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)
+
+# Load historical data on server startup
+try:
+    historical_data = load_historical_data() 
+    if historical_data:
+        logger.info("Historical data loaded successfully on server startup")
+    else:
+        logger.warning("No historical data found on server startup")
+except Exception as e:
+    logger.error(f"Error loading historical data on server startup: {e}")
+    historical_data = {}
 
 # MongoDB connection
 try:
@@ -43,6 +55,84 @@ def parse_json(data):
 @app.route('/api/flask/status', methods=['GET'])
 def status():
     return jsonify({"status": "Flask backend is running", "mongodb_connected": db is not None})
+
+# Data Storage Routes
+@app.route('/api/save-stats', methods=['POST'])
+def api_save_stats():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        success = save_stats(data)
+        if success:
+            return jsonify({"status": "success", "message": "Stats saved successfully"})
+        else:
+            return jsonify({"status": "error", "message": "Failed to save stats"}), 500
+    except Exception as e:
+        logger.error(f"Error in save stats endpoint: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/save-historical', methods=['POST'])
+def api_save_historical():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        success = save_historical_data(data)
+        if success:
+            return jsonify({"status": "success", "message": "Historical data saved successfully"})
+        else:
+            return jsonify({"status": "error", "message": "Failed to save historical data"}), 500
+    except Exception as e:
+        logger.error(f"Error in save historical endpoint: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/load-stats', methods=['GET'])
+def api_load_stats():
+    try:
+        data = load_stats()
+        if data is None:
+            return jsonify({"status": "error", "message": "No stats data found"}), 404
+        
+        return jsonify({"status": "success", "data": data})
+    except Exception as e:
+        logger.error(f"Error in load stats endpoint: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/load-historical', methods=['GET'])
+def api_load_historical():
+    try:
+        data = load_historical_data()
+        if data is None:
+            return jsonify({"status": "error", "message": "No historical data found"}), 404
+        
+        return jsonify({"status": "success", "data": data})
+    except Exception as e:
+        logger.error(f"Error in load historical endpoint: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/backups', methods=['GET'])
+def api_get_backups():
+    try:
+        backups = get_backup_list()
+        return jsonify({"status": "success", "backups": backups})
+    except Exception as e:
+        logger.error(f"Error in get backups endpoint: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/restore/<backup_filename>', methods=['POST'])
+def api_restore_backup(backup_filename):
+    try:
+        success = restore_from_backup(backup_filename)
+        if success:
+            return jsonify({"status": "success", "message": f"Restored from backup: {backup_filename}"})
+        else:
+            return jsonify({"status": "error", "message": f"Failed to restore from backup: {backup_filename}"}), 500
+    except Exception as e:
+        logger.error(f"Error in restore backup endpoint: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # User Routes
 @app.route('/api/flask/users', methods=['GET'])

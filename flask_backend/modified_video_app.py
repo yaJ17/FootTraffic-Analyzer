@@ -34,6 +34,15 @@ CORS(app, resources={
     }
 })
 
+# Data storage paths
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')
+HISTORICAL_FILE = os.path.join(DATA_DIR, 'historical_data.json')
+BACKUP_DIR = os.path.join(DATA_DIR, 'backups')
+
+# Ensure directories exist
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(BACKUP_DIR, exist_ok=True)
+
 # Initialize face recognition system
 try:
     face_recognition_system = VideoFaceRecognition()
@@ -41,6 +50,17 @@ try:
 except Exception as e:
     logger.error(f"Error initializing face recognition system: {e}")
     face_recognition_system = None
+
+# Load historical data on server startup
+try:
+    historical_data = load_historical_data()
+    if historical_data:
+        logger.info("Historical data loaded successfully on server startup")
+    else:
+        logger.warning("No historical data found on server startup")
+except Exception as e:
+    logger.error(f"Error loading historical data on server startup: {e}")
+    historical_data = {}
 
 # Define upload folder and allowed extensions
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -62,6 +82,117 @@ current_stats = {
 video_initialization_error = None
 model = None
 current_video_title = None
+
+# Historical data for time-series tracking
+historical_data = {}
+
+def create_backup(file_path):
+    """Create a timestamped backup of a file"""
+    if not os.path.exists(file_path):
+        return False
+    
+    try:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = os.path.basename(file_path)
+        backup_path = os.path.join(BACKUP_DIR, f"{os.path.splitext(filename)[0]}_{timestamp}.json")
+        
+        with open(file_path, 'r') as src_file:
+            with open(backup_path, 'w') as dst_file:
+                dst_file.write(src_file.read())
+        
+        logger.info(f"Created backup: {backup_path}")
+        return True
+    except Exception as e:
+        logger.error(f"Error creating backup: {e}")
+        return False
+
+def save_historical_data(data):
+    """Save historical data to file"""
+    try:
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(HISTORICAL_FILE), exist_ok=True)
+        
+        # Create backup of existing file if it exists
+        if os.path.exists(HISTORICAL_FILE):
+            create_backup(HISTORICAL_FILE)
+        
+        # Save new data
+        with open(HISTORICAL_FILE, 'w') as f:
+            json.dump(data, f, indent=2)
+        
+        logger.info(f"Historical data saved to {HISTORICAL_FILE}")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving historical data: {e}")
+        return False
+
+def load_historical_data():
+    """Load historical foot traffic data"""
+    try:
+        if not os.path.exists(HISTORICAL_FILE):
+            logger.warning(f"Historical data file not found: {HISTORICAL_FILE}")
+            return {}
+        
+        with open(HISTORICAL_FILE, 'r') as f:
+            data = json.load(f)
+        
+        logger.info(f"Historical data loaded from {HISTORICAL_FILE}")
+        return data
+    except Exception as e:
+        logger.error(f"Error loading historical data: {e}")
+        return {}
+
+def get_backup_list():
+    """Get list of available backups"""
+    try:
+        backups = []
+        if os.path.exists(BACKUP_DIR):
+            for file in os.listdir(BACKUP_DIR):
+                if file.endswith('.json'):
+                    file_path = os.path.join(BACKUP_DIR, file)
+                    backups.append({
+                        'filename': file,
+                        'size': os.path.getsize(file_path),
+                        'modified': datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat(),
+                    })
+        return sorted(backups, key=lambda x: x['modified'], reverse=True)
+    except Exception as e:
+        logger.error(f"Error getting backup list: {e}")
+        return []
+
+def restore_from_backup(backup_filename):
+    """Restore data from a specific backup file"""
+    try:
+        backup_path = os.path.join(BACKUP_DIR, backup_filename)
+        if not os.path.exists(backup_path):
+            logger.error(f"Backup file not found: {backup_path}")
+            return False
+        
+        # Determine target file based on backup filename
+        target_file = None
+        if backup_filename.startswith('historical_data'):
+            target_file = HISTORICAL_FILE
+        else:
+            logger.error(f"Unknown backup type: {backup_filename}")
+            return False
+        
+        # Create backup of current file
+        if os.path.exists(target_file):
+            create_backup(target_file)
+        
+        # Copy backup to target
+        with open(backup_path, 'r') as src_file:
+            with open(target_file, 'w') as dst_file:
+                dst_file.write(src_file.read())
+        
+        logger.info(f"Restored from backup: {backup_filename}")
+        return True
+    except Exception as e:
+        logger.error(f"Error restoring from backup: {e}")
+        return False
+
+# Load historical data at startup
+historical_data = load_historical_data()
 
 def initialize_yolo():
     global model, video_initialization_error
@@ -149,6 +280,9 @@ class StatsExporter:
             "location": self.location,
             "timestamp": current_datetime.strftime("%Y-%m-%d %H:%M:%S")
         }
+        
+        # Also add to historical data
+        add_historical_data_point(current_stats)
         
         return self.filename
     
@@ -819,6 +953,126 @@ def toggle_face_recognition():
             "success": False,
             "error": str(e)
         }), 500
+
+# Add new data point to historical data
+def add_historical_data_point(stats):
+    """Add a data point to the historical data"""
+    global historical_data
+    
+    location = stats.get('location', 'Unknown Location')
+    
+    # Create data point
+    data_point = {
+        'timestamp': stats.get('timestamp', datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        'location': location,
+        'people_count': stats.get('people_count', 0),
+        'avg_dwell_time': stats.get('avg_dwell_time', 0)
+    }
+    
+    # Initialize location array if it doesn't exist
+    if location not in historical_data:
+        historical_data[location] = []
+    
+    # Add data point
+    historical_data[location].append(data_point)
+    
+    # Keep only data from the last 24 hours
+    cutoff_time = datetime.now()
+    cutoff_time = cutoff_time.replace(hour=cutoff_time.hour - 24)
+    cutoff_str = cutoff_time.strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Filter out old data points
+    historical_data[location] = [
+        point for point in historical_data[location]
+        if point['timestamp'] >= cutoff_str
+    ]
+    
+    # Save to file
+    save_historical_data(historical_data)
+    
+    return True
+
+# Add new API routes for the frontend
+@app.route('/api/save-historical', methods=['POST'])
+def api_save_historical():
+    """API endpoint to save historical data"""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        # Merge with existing data rather than replacing
+        global historical_data
+        
+        for location, points in data.items():
+            if location not in historical_data:
+                historical_data[location] = []
+            
+            # For each location, add new points
+            existing_timestamps = {p['timestamp'] for p in historical_data[location]}
+            for point in points:
+                if point['timestamp'] not in existing_timestamps:
+                    historical_data[location].append(point)
+                    existing_timestamps.add(point['timestamp'])
+        
+        # Save to file
+        success = save_historical_data(historical_data)
+        
+        if success:
+            return jsonify({"status": "success", "message": "Historical data saved successfully"})
+        else:
+            return jsonify({"status": "error", "message": "Failed to save historical data"}), 500
+    except Exception as e:
+        logger.error(f"Error in save historical endpoint: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/load-historical', methods=['GET'])
+def api_load_historical():
+    try:
+        logger.info("Loading historical data for API request")
+        data = load_historical_data()
+        if not data:
+            logger.warning("No historical data found for API request")
+            return jsonify({"status": "error", "message": "No historical data found"}), 404
+        
+        logger.info(f"Historical data loaded successfully: {len(data)} locations")
+        return jsonify({"status": "success", "data": data})
+    except Exception as e:
+        logger.error(f"Error in load historical endpoint: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/backups', methods=['GET'])
+def api_get_backups():
+    """API endpoint to get list of backups"""
+    try:
+        backups = get_backup_list()
+        return jsonify({"status": "success", "backups": backups})
+    except Exception as e:
+        logger.error(f"Error in get backups endpoint: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/restore/<backup_filename>', methods=['POST'])
+def api_restore_backup(backup_filename):
+    """API endpoint to restore data from backup"""
+    try:
+        success = restore_from_backup(backup_filename)
+        if success:
+            # Reload historical data
+            global historical_data
+            historical_data = load_historical_data()
+            
+            return jsonify({
+                "status": "success", 
+                "message": f"Restored from backup: {backup_filename}"
+            })
+        else:
+            return jsonify({
+                "status": "error", 
+                "message": f"Failed to restore from backup: {backup_filename}"
+            }), 500
+    except Exception as e:
+        logger.error(f"Error in restore backup endpoint: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
     start_flask_server()

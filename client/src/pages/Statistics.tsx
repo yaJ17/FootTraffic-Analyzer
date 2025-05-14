@@ -6,7 +6,7 @@ import MonthFootTrafficChart from '@/components/statistics/MonthFootTrafficChart
 import { useQuery } from '@tanstack/react-query';
 import Plot from 'react-plotly.js';
 import { locationColors, getStatisticsData } from '@/data/locationData';
-import { sharedDataService, VideoStats, MapData, LocationMarker } from '@/data/sharedDataService';
+import { sharedDataService, VideoStats, MapData, LocationMarker, MinuteAverageDataPoint } from '@/data/sharedDataService';
 
 // Define state values outside the component 
 // to avoid the "Rendered more hooks than during previous render" issue
@@ -34,11 +34,17 @@ const Statistics: React.FC = () => {
     }[];
   } | null>(null);
   
+  // Add the aggregated data state
+  const [aggregatedData, setAggregatedData] = useState<{
+    [location: string]: MinuteAverageDataPoint[];
+  }>({});
+  
   // Get data from shared service
   useEffect(() => {
     // Get initial values
     setVideoStats(sharedDataService.getVideoStats());
     setMapData(sharedDataService.getMapData());
+    setAggregatedData(sharedDataService.getAggregatedHistoricalData());
     
     // Subscribe to changes
     const videoStatsSubscription = sharedDataService.videoStats$.subscribe(
@@ -49,10 +55,15 @@ const Statistics: React.FC = () => {
       (data: MapData | null) => setMapData(data)
     );
     
+    const aggregatedDataSubscription = sharedDataService.aggregatedHistoricalData$.subscribe(
+      (data) => setAggregatedData(data)
+    );
+    
     // Cleanup subscriptions
     return () => {
       videoStatsSubscription.unsubscribe();
       mapDataSubscription.unsubscribe();
+      aggregatedDataSubscription.unsubscribe();
     };
   }, []);
   
@@ -149,32 +160,73 @@ const Statistics: React.FC = () => {
     return time.getHours() + ':00';
   });
   
-  // Use time series data for average foot traffic
+  // Update the avgFootTrafficData to use aggregated data if available
   const avgFootTrafficData = {
     gates: [
       {
         name: sharedDataService.getCameraName(videoStats.location),
         color: getLocationColor(sharedDataService.getCameraName(videoStats.location)),
-        values: [
-          Math.max(10, videoStats.people_count - 10),
-          Math.max(5, videoStats.people_count - 5),
-          videoStats.people_count,
-          Math.max(10, videoStats.people_count - 2),
-          Math.max(5, videoStats.people_count - 8),
-          Math.max(10, videoStats.people_count - 4),
-          Math.max(5, videoStats.people_count - 6),
-          videoStats.people_count,
-        ]
+        values: (() => {
+          const locationName = sharedDataService.getCameraName(videoStats.location);
+          const locationData = aggregatedData[locationName] || [];
+          
+          if (locationData.length > 0) {
+            // Use last 8 minutes or whatever is available
+            const minutesToShow = Math.min(8, locationData.length);
+            return locationData.slice(-minutesToShow).map(point => point.people_count);
+          }
+          
+          // Fallback to synthetic data
+          return [
+            Math.max(10, videoStats.people_count - 10),
+            Math.max(5, videoStats.people_count - 5),
+            videoStats.people_count,
+            Math.max(10, videoStats.people_count - 2),
+            Math.max(5, videoStats.people_count - 8),
+            Math.max(10, videoStats.people_count - 4),
+            Math.max(5, videoStats.people_count - 6),
+            videoStats.people_count,
+          ];
+        })()
       },
       ...mapData.markers.slice(0, 2)
-        .map(marker => ({
-          name: marker.name,
-          color: marker.color,
-          values: Array.from({ length: 8 }, (_, i) => 
-            Math.floor(marker.count * (0.7 + Math.random() * 0.6)))
-        }))
+        .map(marker => {
+          const locationName = marker.name;
+          const locationData = aggregatedData[locationName] || [];
+          
+          if (locationData.length > 0) {
+            // Use last 8 minutes or whatever is available
+            const minutesToShow = Math.min(8, locationData.length);
+            return {
+              name: marker.name,
+              color: marker.color,
+              values: locationData.slice(-minutesToShow).map(point => point.people_count)
+            };
+          }
+          
+          // Fallback to synthetic data
+          return {
+            name: marker.name,
+            color: marker.color,
+            values: Array.from({ length: 8 }, (_, i) => 
+              Math.floor(marker.count * (0.7 + Math.random() * 0.6)))
+          };
+        })
     ],
-    timeLabels
+    timeLabels: (() => {
+      // Generate time labels from aggregated data if available
+      const currentCamera = sharedDataService.getCameraName(videoStats.location);
+      const locationData = aggregatedData[currentCamera] || [];
+      
+      if (locationData.length > 0) {
+        // Use last 8 minutes or whatever is available
+        const minutesToShow = Math.min(8, locationData.length);
+        return locationData.slice(-minutesToShow).map(point => point.minute);
+      }
+      
+      // Fallback to current time-based labels
+      return timeLabels;
+    })()
   };  
   
   // Update month foot traffic to include the current location

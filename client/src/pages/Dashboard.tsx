@@ -7,13 +7,15 @@ import FootTrafficChart from '@/components/dashboard/FootTrafficChart';
 import DwellTimeChart from '@/components/dashboard/DwellTimeChart';
 import { useQuery } from '@tanstack/react-query';
 import { getDashboardData } from '@/data/footTrafficData';
-import { sharedDataService, VideoStats, MapData } from '@/data/sharedDataService';
+import { sharedDataService, VideoStats, MapData, TimeSeriesDataPoint, MinuteAverageDataPoint } from '@/data/sharedDataService';
 
 const Dashboard: React.FC = () => {
   const [flaskServerUrl, setFlaskServerUrl] = useState<string>('http://localhost:5001');
   const [videoStats, setVideoStats] = useState<VideoStats | null>(null);
   const [dashboardStaticData] = useState(getDashboardData());
   const [totalPeopleCount, setTotalPeopleCount] = useState<number>(0);
+  const [historicalData, setHistoricalData] = useState<{[location: string]: TimeSeriesDataPoint[]}>({});
+  const [aggregatedData, setAggregatedData] = useState<{[location: string]: MinuteAverageDataPoint[]}>({});
 
   // Use React Query to fetch dashboard data
   const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
@@ -23,12 +25,53 @@ const Dashboard: React.FC = () => {
 
   // Effect to subscribe to shared data changes
   useEffect(() => {
+    // Initialize from saved data if available
+    const savedVideoStats = sharedDataService.getVideoStats();
+    if (savedVideoStats) {
+      setVideoStats(savedVideoStats);
+    }
+    
+    const savedHistoricalData = sharedDataService.getHistoricalData();
+    if (savedHistoricalData) {
+      setHistoricalData(savedHistoricalData);
+    }
+    
+    const savedAggregatedData = sharedDataService.getAggregatedHistoricalData();
+    if (savedAggregatedData) {
+      setAggregatedData(savedAggregatedData);
+    }
+    
+    // Explicitly try to load from server if data is missing or empty
+    if (!savedHistoricalData || Object.keys(savedHistoricalData).length === 0) {
+      console.log("Dashboard: No historical data found, explicitly requesting from server");
+      sharedDataService.loadHistoricalDataFromServer().then(success => {
+        if (success) {
+          // Update state with newly loaded data
+          setHistoricalData(sharedDataService.getHistoricalData());
+          setAggregatedData(sharedDataService.getAggregatedHistoricalData());
+          console.log("Dashboard: Successfully loaded data from server");
+        } else {
+          console.warn("Dashboard: Failed to load data from server");
+        }
+      });
+    }
+    
     const totalSubscription = sharedDataService.totalPeopleCount$.subscribe(
       (count: number) => setTotalPeopleCount(count)
     );
     
+    const historicalSubscription = sharedDataService.historicalData$.subscribe(
+      (data) => setHistoricalData(data)
+    );
+    
+    const aggregatedSubscription = sharedDataService.aggregatedHistoricalData$.subscribe(
+      (data) => setAggregatedData(data)
+    );
+    
     return () => {
       totalSubscription.unsubscribe();
+      historicalSubscription.unsubscribe();
+      aggregatedSubscription.unsubscribe();
     };
   }, []);
 
@@ -81,7 +124,12 @@ const Dashboard: React.FC = () => {
 
   // Fetch video stats on component mount and every 5 seconds
   useEffect(() => {
-    fetchVideoStats();
+    // If we already have video stats from storage, don't fetch immediately
+    const hasExistingData = sharedDataService.getVideoStats() !== null;
+    
+    if (!hasExistingData) {
+      fetchVideoStats();
+    }
     
     const interval = setInterval(() => {
       fetchVideoStats();
@@ -92,6 +140,11 @@ const Dashboard: React.FC = () => {
 
   // Effect to update map data in the shared service when videoStats changes
   useEffect(() => {
+    // If we have map data from storage and no video stats yet, skip this update
+    if (!videoStats && sharedDataService.getMapData() !== null) {
+      return;
+    }
+    
     if (videoStats) {
       // Get a formatted camera name for display
       const cameraName = sharedDataService.getCameraName(videoStats.location);
@@ -180,26 +233,100 @@ const Dashboard: React.FC = () => {
     ]
   };
 
-  // Get data from static sources
+  // Generate time labels for charts based on aggregated data
+  const generateTimeLabels = () => {
+    const currentCamera = sharedDataService.getCameraName(videoStats.location);
+    const locationData = aggregatedData[currentCamera] || [];
+    
+    if (locationData.length > 0) {
+      // Use last 7 minutes or whatever is available
+      const minutesToShow = Math.min(7, locationData.length);
+      return locationData.slice(-minutesToShow).map(point => point.minute);
+    }
+    
+    // Fallback to default time labels
+    return dashboardStaticData.footTraffic.timeLabels;
+  };
+  
+  // Generate foot traffic values from aggregated data
+  const generateFootTrafficValues = (location: string) => {
+    const locationData = aggregatedData[location] || [];
+    
+    if (locationData.length > 0) {
+      // Use last 7 minutes or whatever is available
+      const minutesToShow = Math.min(7, locationData.length);
+      return locationData.slice(-minutesToShow).map(point => point.people_count);
+    }
+    
+    // Fallback: generate values based on current count
+    if (location === sharedDataService.getCameraName(videoStats.location)) {
+      const timeLabels = dashboardStaticData.footTraffic.timeLabels;
+      const values = new Array(timeLabels.length).fill(0);
+      
+      // Put the current value in the second-to-last position
+      if (values.length >= 3) {
+        values[values.length - 2] = videoStats.people_count;
+      }
+      return values;
+    }
+    
+    // For other locations, use static data
+    const staticLocation = dashboardStaticData.footTraffic.locations.find(
+      loc => loc.name === location
+    );
+    
+    return staticLocation?.values || Array(7).fill(0);
+  };
+  
+  // Generate dwell time values from aggregated data
+  const generateDwellTimeValues = (location: string) => {
+    const locationData = aggregatedData[location] || [];
+    
+    if (locationData.length > 0) {
+      // Use last 7 minutes or whatever is available
+      const minutesToShow = Math.min(7, locationData.length);
+      return locationData.slice(-minutesToShow).map(point => point.avg_dwell_time);
+    }
+    
+    // Fallback: generate values based on current dwell time
+    if (location === sharedDataService.getCameraName(videoStats.location)) {
+      const timeLabels = dashboardStaticData.dwellTime.timeLabels;
+      const values = new Array(timeLabels.length).fill(0);
+      
+      // Put the current value in the second-to-last position
+      if (values.length >= 3) {
+        values[values.length - 2] = videoStats.avg_dwell_time;
+      }
+      return values;
+    }
+    
+    // For other locations, use static data
+    const staticLocation = dashboardStaticData.dwellTime.locations.find(
+      loc => loc.name === location
+    );
+    
+    return staticLocation?.values || Array(7).fill(0);
+  };
+
+  // Get time labels for charts
+  const timeLabels = generateTimeLabels();
+
+  // Get data from static sources and enhance with historical data
   const footTrafficData = {
     locations: [
       // Add current location data
       {
         name: sharedDataService.getCameraName(videoStats.location),
         color: dashboardStaticData.locationColors[sharedDataService.getCameraName(videoStats.location)] || '#dc2626',
-        values: (() => {
-          const timeLabels = dashboardStaticData.footTraffic.timeLabels;
-          const values = new Array(timeLabels.length).fill(0);
-          // Put the current value in the second-to-last position
-          if (values.length >= 3) {
-            values[values.length - 2] = videoStats.people_count;
-          }
-          return values;
-        })()
+        values: generateFootTrafficValues(sharedDataService.getCameraName(videoStats.location))
       },
-      ...dashboardStaticData.footTraffic.locations
+      ...dashboardStaticData.footTraffic.locations.map(location => ({
+        name: location.name,
+        color: location.color,
+        values: generateFootTrafficValues(location.name)
+      }))
     ],
-    timeLabels: dashboardStaticData.footTraffic.timeLabels
+    timeLabels
   };
   
   const dwellTimeData = {
@@ -208,19 +335,15 @@ const Dashboard: React.FC = () => {
       {
         name: sharedDataService.getCameraName(videoStats.location),
         color: dashboardStaticData.locationColors[sharedDataService.getCameraName(videoStats.location)] || '#dc2626',
-        values: (() => {
-          const timeLabels = dashboardStaticData.dwellTime.timeLabels;
-          const values = new Array(timeLabels.length).fill(0);
-          // Put the current value in the second-to-last position
-          if (values.length >= 3) {
-            values[values.length - 2] = videoStats.avg_dwell_time;
-          }
-          return values;
-        })()
+        values: generateDwellTimeValues(sharedDataService.getCameraName(videoStats.location))
       },
-      ...dashboardStaticData.dwellTime.locations
+      ...dashboardStaticData.dwellTime.locations.map(location => ({
+        name: location.name,
+        color: location.color,
+        values: generateDwellTimeValues(location.name)
+      }))
     ],
-    timeLabels: dashboardStaticData.dwellTime.timeLabels
+    timeLabels
   };
 
   return (
