@@ -4400,6 +4400,177 @@
             "timestamp": "20250514_214828",
             "people_count": 1,
             "average_dwell_time": 2.28
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:06:49",
+            "timestamp": "20250515_000649",
+            "people_count": 7,
+            "average_dwell_time": 0
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:06:52",
+            "timestamp": "20250515_000652",
+            "people_count": 7,
+            "average_dwell_time": 1.26
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:06:55",
+            "timestamp": "20250515_000655",
+            "people_count": 8,
+            "average_dwell_time": 1.24
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:06:58",
+            "timestamp": "20250515_000658",
+            "people_count": 7,
+            "average_dwell_time": 1.43
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:01",
+            "timestamp": "20250515_000701",
+            "people_count": 7,
+            "average_dwell_time": 1.87
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:04",
+            "timestamp": "20250515_000704",
+            "people_count": 7,
+            "average_dwell_time": 2.18
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:07",
+            "timestamp": "20250515_000707",
+            "people_count": 6,
+            "average_dwell_time": 2.35
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:10",
+            "timestamp": "20250515_000710",
+            "people_count": 7,
+            "average_dwell_time": 2.46
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:13",
+            "timestamp": "20250515_000713",
+            "people_count": 6,
+            "average_dwell_time": 2.41
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:16",
+            "timestamp": "20250515_000716",
+            "people_count": 7,
+            "average_dwell_time": 2.42
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:19",
+            "timestamp": "20250515_000719",
+            "people_count": 7,
+            "average_dwell_time": 2.44
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:22",
+            "timestamp": "20250515_000722",
+            "people_count": 5,
+            "average_dwell_time": 2.19
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:25",
+            "timestamp": "20250515_000725",
+            "people_count": 5,
+            "average_dwell_time": 2.06
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:29",
+            "timestamp": "20250515_000729",
+            "people_count": 5,
+            "average_dwell_time": 1.91
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:32",
+            "timestamp": "20250515_000732",
+            "people_count": 5,
+            "average_dwell_time": 1.83
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:35",
+            "timestamp": "20250515_000735",
+            "people_count": 7,
+            "average_dwell_time": 0.69
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:39",
+            "timestamp": "20250515_000739",
+            "people_count": 8,
+            "average_dwell_time": 0.92
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:42",
+            "timestamp": "20250515_000742",
+            "people_count": 8,
+            "average_dwell_time": 1.26
+        },
+        {
+            "location": null,
+            "date": "05/15/2025",
+            "day": "Thursday",
+            "time": "00:07:45",
+            "timestamp": "20250515_000745",
+            "people_count": 7,
+            "average_dwell_time": 1.37
         }
     ]
 }

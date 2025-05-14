@@ -348,9 +348,18 @@ const Dashboard: React.FC = () => {
 
   // Create KPI data from video stats
   const footTrafficKpi = {
-    title: 'Total Foot Traffic',
+    title: 'Traffic Detected on Current Camera',
     value: videoStats.people_count.toString(),
-    icon: 'groups'
+    icon: 'camera'
+  };
+
+  // Calculate total people count across all areas
+  const totalPeopleCount = mapData.markers.reduce((total, marker) => total + marker.count, 0);
+  
+  const totalPeopleCountKpi = {
+    title: 'Total People (All Areas)',
+    value: totalPeopleCount.toString(),
+    icon: 'people'
   };
 
   // Map traffic and dwell time data to the chart structure
@@ -381,6 +390,12 @@ const Dashboard: React.FC = () => {
             title={footTrafficKpi.title} 
             value={footTrafficKpi.value} 
             icon={footTrafficKpi.icon} 
+          />
+          
+          <KpiCard 
+            title={totalPeopleCountKpi.title} 
+            value={totalPeopleCountKpi.value} 
+            icon={totalPeopleCountKpi.icon} 
           />
           
           <PeakHoursCard 
