@@ -6,11 +6,11 @@ import MonthFootTrafficChart from '@/components/statistics/MonthFootTrafficChart
 import { useQuery } from '@tanstack/react-query';
 import Plot from 'react-plotly.js';
 import { locationColors, getStatisticsData } from '@/data/locationData';
-import { sharedDataService, VideoStats, MapData, LocationMarker } from '@/data/sharedDataService';
+import { sharedDataService, VideoStats, MapData } from '@/data/sharedDataService';
 
 // Define state values outside the component 
 // to avoid the "Rendered more hooks than during previous render" issue
-const defaultLocation = 'All Locations';
+const defaultLocation = 'Current Location';
 const defaultMetric = 'Count';
 const defaultTimePeriod = 'month';
 
@@ -24,15 +24,6 @@ const Statistics: React.FC = () => {
   // State for shared data
   const [videoStats, setVideoStats] = useState<VideoStats | null>(null);
   const [mapData, setMapData] = useState<MapData | null>(null);
-  const [timeSeriesData, setTimeSeriesData] = useState<{
-    timeLabels: string[];
-    locations: {
-      name: string;
-      color: string;
-      trafficValues: number[];
-      dwellTimeValues: number[];
-    }[];
-  } | null>(null);
   
   // Get data from shared service
   useEffect(() => {
@@ -74,7 +65,7 @@ const Statistics: React.FC = () => {
     }
     
     // Default fallback color
-    return '#777777';
+    return '#4338ca';
   };
 
   if (isStatisticsLoading || !videoStats || !mapData) {
@@ -125,20 +116,16 @@ const Statistics: React.FC = () => {
   // Sample data for heatmap with dynamically updated values
   const heatmapData = generateDynamicHeatmap();
 
-  // Update busiest places to include current location and data from mapData
+  // Update busiest places to show current location
   const busiestPlacesData = {
     places: [
-      { id: 1, name: sharedDataService.getCameraName(videoStats.location), count: videoStats.people_count },
-      ...mapData.markers
-        .filter(marker => marker.name !== sharedDataService.getCameraName(videoStats.location))
-        .slice(0, 4)
-        .map((marker, index) => ({
-          id: index + 2,
-          name: marker.name,
-          count: marker.count
-        }))
-    ].sort((a, b) => (b.count || 0) - (a.count || 0))
-  };  
+      { 
+        id: 1, 
+        name: sharedDataService.getCameraName(videoStats.location), 
+        count: videoStats.people_count 
+      }
+    ]
+  };
   
   // Generate time series data from video stats
   // Generate realistic time labels based on current time
@@ -156,23 +143,16 @@ const Statistics: React.FC = () => {
         name: sharedDataService.getCameraName(videoStats.location),
         color: getLocationColor(sharedDataService.getCameraName(videoStats.location)),
         values: [
-          Math.max(10, videoStats.people_count - 10),
+          Math.max(5, videoStats.people_count - 5),
+          Math.max(3, videoStats.people_count - 7),
+          Math.max(7, videoStats.people_count - 3),
+          Math.max(5, videoStats.people_count - 5),
+          Math.max(8, videoStats.people_count - 2),
+          Math.max(4, videoStats.people_count - 6),
           Math.max(5, videoStats.people_count - 5),
           videoStats.people_count,
-          Math.max(10, videoStats.people_count - 2),
-          Math.max(5, videoStats.people_count - 8),
-          Math.max(10, videoStats.people_count - 4),
-          Math.max(5, videoStats.people_count - 6),
-          videoStats.people_count,
         ]
-      },
-      ...mapData.markers.slice(0, 2)
-        .map(marker => ({
-          name: marker.name,
-          color: marker.color,
-          values: Array.from({ length: 8 }, (_, i) => 
-            Math.floor(marker.count * (0.7 + Math.random() * 0.6)))
-        }))
+      }
     ],
     timeLabels
   };  
@@ -185,23 +165,14 @@ const Statistics: React.FC = () => {
         name: sharedDataService.getCameraName(videoStats.location), 
         value: videoStats.people_count * 30, // Projected monthly value
         color: getLocationColor(sharedDataService.getCameraName(videoStats.location))
-      },
-      ...mapData.markers
-        .filter(marker => marker.name !== sharedDataService.getCameraName(videoStats.location))
-        .slice(0, 4)
-        .map(marker => ({
-          id: marker.id,
-          name: marker.name,
-          value: marker.count * 30, // Projected monthly value
-          color: marker.color
-        }))
-    ].sort((a, b) => b.value - a.value)
+      }
+    ]
   };
-    // Get all locations based on data
+
+  // Get all locations - in simplified version we only have one location
   const locations = [
-    'All Locations', 
-    sharedDataService.getCameraName(videoStats.location),
-    ...mapData.markers.map(marker => marker.name)
+    'Current Location', 
+    sharedDataService.getCameraName(videoStats.location)
   ].filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
   
   const metrics = ['Count', 'Dwell'];
@@ -352,9 +323,10 @@ const Statistics: React.FC = () => {
         {/* Busiest Places - Match reference image styling */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="bg-blue-800 text-white py-3 px-4">
-            <h3 className="font-bold text-center text-base">BUSIEST PLACES TODAY</h3>
-          </div>          <div className="divide-y">
-            {busiestPlacesData.places.map((place: { id: number; name: string; count?: number }, index: number) => {
+            <h3 className="font-bold text-center text-base">CURRENT LOCATION STATS</h3>
+          </div>          
+          <div className="divide-y">
+            {busiestPlacesData.places.map((place, index) => {
               // Get color for the location based on our consistent color scheme
               const locationColor = getLocationColor(place.name);
               
@@ -364,11 +336,17 @@ const Statistics: React.FC = () => {
                   <span className="flex-1">{place.name}</span>
                   <span className="text-gray-500 flex items-center">
                     <span className="material-icons text-sm mr-1" style={{ color: locationColor }}>people</span>
-                    {place.count || Math.floor(Math.random() * 100) + 50}
+                    {place.count || 0}
                   </span>
                 </div>
               );
             })}
+            <div className="py-3 px-4 flex items-center bg-gray-50">
+              <span className="text-sm text-gray-500">
+                This application is using real-time data without historical tracking. 
+                Enable data persistence for more comprehensive statistics.
+              </span>
+            </div>
           </div>
         </div>
         

@@ -32,34 +32,52 @@ const totalPeopleCountSubject = new BehaviorSubject<number>(0);
 
 // Service methods
 export const sharedDataService = {
-  // Current value getters
+  // Current values accessors
   getVideoStats: () => videoStatsSubject.getValue(),
   getMapData: () => mapDataSubject.getValue(),
   getTotalPeopleCount: () => totalPeopleCountSubject.getValue(),
   
-  // Observables
+  // Observable streams
   videoStats$: videoStatsSubject.asObservable(),
   mapData$: mapDataSubject.asObservable(),
   totalPeopleCount$: totalPeopleCountSubject.asObservable(),
   
   // Update methods
-  updateVideoStats: (stats: VideoStats) => {
-    videoStatsSubject.next(stats);
-  },
+  updateVideoStats: (stats: VideoStats) => videoStatsSubject.next(stats),
+  updateMapData: (data: MapData) => mapDataSubject.next(data),
+  updateTotalPeopleCount: (count: number) => totalPeopleCountSubject.next(count),
   
-  updateMapData: (data: MapData) => {
-    mapDataSubject.next(data);
+  // Helper methods
+  getCameraName: (location: string): string => {
+    if (!location) return 'Unknown Camera';
     
-    // Calculate total people count
-    const totalCount = data.markers.reduce((sum, marker) => sum + marker.count, 0);
-    totalPeopleCountSubject.next(totalCount);
-  },
-  
-  // Helper function to format camera name
-  getCameraName: (location: string) => {
-    if (location?.includes('School')) return 'School Entrance Camera';
-    if (location?.includes('Palengke')) return 'Palengke Market Camera';
-    if (location?.includes('YouTube')) return 'YouTube Stream Camera';
-    return location || 'Unknown Location';
+    // Convert location identifier to a friendly name
+    // Example: "camera1" -> "Camera 1"
+    // Example: "school_entrance" -> "School Entrance"
+    if (location.toLowerCase().includes('camera')) {
+      return location; // Already has camera in the name
+    }
+    
+    if (location.includes('_')) {
+      // Convert snake_case to Title Case
+      return location
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ') + ' Camera';
+    }
+    
+    if (/^[a-z0-9]+$/i.test(location)) {
+      // If it's just a simple alphanumeric string like "camera1"
+      // Try to split it into words using regex to detect numbers
+      const matches = location.match(/[a-z]+|[0-9]+/gi);
+      if (matches) {
+        return matches
+          .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+          .join(' ') + ' Camera';
+      }
+    }
+    
+    // Return as is with first letter capitalized
+    return location.charAt(0).toUpperCase() + location.slice(1) + ' Camera';
   }
 }; 

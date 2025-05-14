@@ -60,46 +60,12 @@ export interface FootTrafficData {
   };
 }
 
-// Function to generate time labels dynamically based on current time
-function generateDynamicTimeLabels(hours: number, interval: number): string[] {
-  const labels: string[] = [];
-  const now = new Date();
-  
-  // Round current hour down to the nearest interval
-  const currentHour = now.getHours();
-  const roundedCurrentHour = Math.floor(currentHour / interval) * interval;
-  
-  // Start from (hours) hours ago, and move forward in (interval) hour steps
-  for (let i = hours; i >= -interval; i -= interval) {  // Changed to go to -interval to include one future time point
-    // Calculate the hour (hours-i) hours ago from the rounded current hour
-    let hour = (roundedCurrentHour - i + 24) % 24; // Add 24 and mod 24 to handle negative hours
-    
-    // Convert to 12-hour format with AM/PM
-    const amPm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12; // Convert 0 to 12 for 12 AM
-    
-    labels.push(`${hour12} ${amPm}`);
-  }
-  
-  return labels;
-}
-
-// Create time labels for 12 hours of history with 2-hour intervals
-const FOOT_TRAFFIC_TIME_LABELS = generateDynamicTimeLabels(12, 2);
-
-// Create time labels for 10 hours of history with 2-hour intervals
-const DWELL_TIME_LABELS = generateDynamicTimeLabels(10, 2);
-
 // Define a set of colors to use for the different locations
 const LOCATION_COLORS: { [key: string]: string } = {
   'School Entrance Camera': '#e6194b', // red
   'Palengke Market Camera': '#3cb44b', // green
   'YouTube Stream Camera': '#4363d8', // blue
-  'Divisoria': '#f58231', // orange
-  'Manila Cathedral': '#911eb4', // purple
-  'Fort Santiago': '#ffe119'  // yellow
 };
-
 
 // Define default data to use when API data is not available
 const DEFAULT_DATA = {
@@ -116,18 +82,31 @@ const DEFAULT_DATA = {
   }
 };
 
-export const getDashboardData = (): FootTrafficData => {
-  // Helper function to create random values matching the number of labels
-  const generateValues = (min: number, max: number, count: number): number[] => {
-    return Array.from({ length: count }, () => 
-      Math.round((Math.random() * (max - min) + min) * 10) / 10
-    );
-  };
+// Generate time labels
+const generateTimeLabels = () => {
+  const now = new Date();
+  const labels = [];
   
+  for (let i = 6; i >= 0; i--) {
+    const time = new Date(now);
+    time.setHours(time.getHours() - i);
+    const hour = time.getHours();
+    const amPm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    labels.push(`${hour12} ${amPm}`);
+  }
+  
+  return labels;
+};
+
+// Fixed time labels for consistency
+const TIME_LABELS = generateTimeLabels();
+
+export const getDashboardData = (): FootTrafficData => {
   return {
     kpi: {
-      title: 'Total Foot Traffic',
-      value: '1,064',
+      title: 'Current Foot Traffic',
+      value: '0',
       icon: 'groups'
     },
     peakHours: DEFAULT_DATA.peakHours,
@@ -135,85 +114,32 @@ export const getDashboardData = (): FootTrafficData => {
     map: {
       center: { lat: 14.5995, lon: 120.9842 },
       zoom: 13,
-      zoneInfo: '649 ZONE 68',
+      zoneInfo: 'Current Location',
       markers: [
-        { id: '1', name: 'Manila Cathedral', lat: 14.5915, lon: 120.9722, color: '#911eb4', count: 342 },
-        { id: '2', name: 'Divisoria', lat: 14.6019, lon: 120.9719, color: '#f58231', count: 578 },
-        { id: '3', name: 'Fort Santiago', lat: 14.5958, lon: 120.9669, color: '#ffe119', count: 219 }
+        { id: '1', name: 'Current Location', lat: 14.5915, lon: 120.9722, color: '#e6194b', count: 0 }
       ]
     },
     footTraffic: {
       locations: [
         { 
-          name: 'Divisoria', 
-          color: '#f58231',
-          values: [5,10,8,6,11,7,6]
-        },
-        { 
-          name: 'Manila Cathedral', 
-          color: '#911eb4',
-          values: [2,8,6,5,8,3,2]
-        },
-        { 
-          name: 'Fort Santiago', 
-          color: '#ffe119',
-          values: [5,4,6,2,2,7,3]
+          name: 'Current Location', 
+          color: '#e6194b',
+          values: [0, 0, 0, 0, 0, 0, 0]
         }
       ],
-      timeLabels: FOOT_TRAFFIC_TIME_LABELS
+      timeLabels: TIME_LABELS
     },    
     dwellTime: {
       locations: [
         { 
-          name: 'Divisoria', 
-          color: '#0039a6',
-          values: [2.5, 3.0, 3.5, 4.2, 4.8, 5.0]
-        },
-        { 
-          name: 'Manila Cathedral', 
-          color: '#f97316',
-          values: [2.0, 2.5, 3.0, 3.5, 3.8, 3.5]
+          name: 'Current Location', 
+          color: '#e6194b',
+          values: [0, 0, 0, 0, 0, 0, 0]
         }
       ],
-      timeLabels: DWELL_TIME_LABELS
+      timeLabels: TIME_LABELS
     },
     locationColors: LOCATION_COLORS,
     defaultData: DEFAULT_DATA
   };
 };
-
-/**
- * Generates time labels for the past N hours with the specified interval
- * This function is kept for reference but we're using fixed labels instead
- * to ensure consistency across re-renders
- * 
- * @param hours Number of hours to go back
- * @param interval Interval between hours
- * @returns Array of time labels in format "h AM/PM"
- */
-function generateTimeLabels(hours: number, interval: number): string[] {
-  const labels: string[] = [];
-  const now = new Date();
-  
-  console.log("Generating time labels, starting from:", now);
-  console.log("Going back hours:", hours, "with interval:", interval);
-  
-  // Starting with the earliest time (hours ago) and moving toward now
-  for (let i = hours; i >= 0; i -= interval) {
-    const hoursAgo = i;
-    const time = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
-    
-    // Format the hour for display
-    const hour = time.getHours();
-    const amPm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12; // Convert 0 to 12 for 12 AM
-    
-    const label = `${hour12} ${amPm}`;
-    labels.push(label);
-    
-    console.log(`Added label: ${label} for time ${time.toLocaleTimeString()} (${hoursAgo} hours ago)`);
-  }
-  
-  console.log("Final labels:", labels);
-  return labels;
-}

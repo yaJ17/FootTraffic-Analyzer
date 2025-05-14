@@ -15,23 +15,6 @@ const Dashboard: React.FC = () => {
   const [dashboardStaticData] = useState(getDashboardData());
   const [totalPeopleCount, setTotalPeopleCount] = useState<number>(0);
 
-  // Use React Query to fetch dashboard data
-  const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
-    queryKey: ['/api/dashboard'],
-    queryFn: () => fetch('/api/dashboard').then(res => res.json()),
-  });
-
-  // Effect to subscribe to shared data changes
-  useEffect(() => {
-    const totalSubscription = sharedDataService.totalPeopleCount$.subscribe(
-      (count: number) => setTotalPeopleCount(count)
-    );
-    
-    return () => {
-      totalSubscription.unsubscribe();
-    };
-  }, []);
-
   // Determine Flask server URL based on hostname
   useEffect(() => {
     const baseUrl = window.location.hostname.includes('replit') 
@@ -72,10 +55,13 @@ const Dashboard: React.FC = () => {
         setVideoStats(validatedStats);
         // Share the data with other components
         sharedDataService.updateVideoStats(validatedStats);
+        
+        // Update total people count based on current count (simplified)
+        setTotalPeopleCount(validatedStats.people_count);
+        sharedDataService.updateTotalPeopleCount(validatedStats.people_count);
       }
     } catch (err) {
       console.error('Error fetching video analysis stats:', err);
-      // Don't set mock stats, just keep the current ones
     }
   };
 
@@ -97,7 +83,7 @@ const Dashboard: React.FC = () => {
       const cameraName = sharedDataService.getCameraName(videoStats.location);
       
       // Get a color for the current camera, default to red if not found
-      const currentLocationColor = dashboardStaticData.locationColors[cameraName] || '#dc2626';
+      const currentLocationColor = dashboardStaticData.locationColors[cameraName] || '#e6194b';
       
       // Create map data with current location information
       const mapData: MapData = {
@@ -112,17 +98,16 @@ const Dashboard: React.FC = () => {
             lon: 120.9722, 
             color: currentLocationColor, 
             count: videoStats.people_count 
-          },
-          ...(dashboardData?.map?.markers?.slice(1) || dashboardStaticData.map.markers.slice(1))
+          }
         ]
       };
       
       // Share map data with other components
       sharedDataService.updateMapData(mapData);
     }
-  }, [videoStats, dashboardData, dashboardStaticData]);
+  }, [videoStats, dashboardStaticData]);
 
-  if (isDashboardLoading || !videoStats) {
+  if (!videoStats) {
     return (
       <div className="p-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -145,22 +130,20 @@ const Dashboard: React.FC = () => {
 
   // Create KPI data from video stats
   const footTrafficKpi = {
-    title: 'Traffic Detected on Current Camera',
+    title: 'Current People Count',
     value: videoStats.people_count.toString(),
-    icon: 'camera'
+    icon: 'groups'
   };
   
-  const totalPeopleCountKpi = {
-    title: 'Total People (All Areas)',
-    value: totalPeopleCount.toString(),
-    icon: 'people'
+  const dwellTimeKpi = {
+    title: 'Average Dwell Time',
+    value: `${Math.round(videoStats.avg_dwell_time)} sec`,
+    icon: 'timer'
   };
 
-  // Create peak hours data (using sample or calculate from historical data if available)
-  const peakHoursData = dashboardData?.peakHours || dashboardStaticData.defaultData.peakHours;
-
-  // Create weekly summary data (using sample or calculate from historical data if available)
-  const weeklySummaryData = dashboardData?.weeklySummary || dashboardStaticData.defaultData.weeklySummary;
+  // Use default data for components that don't relate directly to video stats
+  const peakHoursData = dashboardStaticData.defaultData.peakHours;
+  const weeklySummaryData = dashboardStaticData.defaultData.weeklySummary;
 
   // Create map data with current location information
   const mapData = {
@@ -173,54 +156,74 @@ const Dashboard: React.FC = () => {
         name: sharedDataService.getCameraName(videoStats.location), 
         lat: 14.5915, 
         lon: 120.9722, 
-        color: dashboardStaticData.locationColors[sharedDataService.getCameraName(videoStats.location)] || '#dc2626', 
+        color: dashboardStaticData.locationColors[sharedDataService.getCameraName(videoStats.location)] || '#e6194b', 
         count: videoStats.people_count 
-      },
-      ...(dashboardData?.map?.markers?.slice(1) || dashboardStaticData.map.markers.slice(1))
+      }
     ]
   };
 
-  // Get data from static sources
-  const footTrafficData = {
-    locations: [
-      // Add current location data
-      {
-        name: sharedDataService.getCameraName(videoStats.location),
-        color: dashboardStaticData.locationColors[sharedDataService.getCameraName(videoStats.location)] || '#dc2626',
-        values: (() => {
-          const timeLabels = dashboardStaticData.footTraffic.timeLabels;
-          const values = new Array(timeLabels.length).fill(0);
-          // Put the current value in the second-to-last position
-          if (values.length >= 3) {
-            values[values.length - 2] = videoStats.people_count;
-          }
-          return values;
-        })()
-      },
-      ...dashboardStaticData.footTraffic.locations
-    ],
-    timeLabels: dashboardStaticData.footTraffic.timeLabels
+  // Generate simulated historical data based on current values
+  const generateTimeSeriesData = () => {
+    // Create time labels for the last 7 hours
+    const now = new Date();
+    const timeLabels = Array.from({ length: 7 }, (_, i) => {
+      const time = new Date(now);
+      time.setHours(time.getHours() - (6 - i));
+      const hour = time.getHours();
+      const amPm = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12;
+      return `${hour12} ${amPm}`;
+    });
+    
+    // Create synthetic traffic values based on current count
+    const trafficValues = [
+      Math.max(1, Math.round(videoStats.people_count * 0.6)),
+      Math.max(1, Math.round(videoStats.people_count * 0.7)),
+      Math.max(1, Math.round(videoStats.people_count * 0.5)),
+      Math.max(1, Math.round(videoStats.people_count * 0.8)),
+      Math.max(1, Math.round(videoStats.people_count * 0.9)),
+      Math.max(1, Math.round(videoStats.people_count * 0.7)),
+      videoStats.people_count
+    ];
+    
+    // Create synthetic dwell time values
+    const dwellValues = [
+      Math.max(1, Math.round(videoStats.avg_dwell_time * 0.8)),
+      Math.max(1, Math.round(videoStats.avg_dwell_time * 0.9)),
+      Math.max(1, Math.round(videoStats.avg_dwell_time * 0.7)),
+      Math.max(1, Math.round(videoStats.avg_dwell_time * 1.0)),
+      Math.max(1, Math.round(videoStats.avg_dwell_time * 1.1)),
+      Math.max(1, Math.round(videoStats.avg_dwell_time * 0.9)),
+      videoStats.avg_dwell_time
+    ];
+    
+    return { timeLabels, trafficValues, dwellValues };
   };
   
-  const dwellTimeData = {
+  const { timeLabels, trafficValues, dwellValues } = generateTimeSeriesData();
+  
+  // Create foot traffic chart data
+  const footTrafficData = {
     locations: [
-      // Add current location data
       {
         name: sharedDataService.getCameraName(videoStats.location),
-        color: dashboardStaticData.locationColors[sharedDataService.getCameraName(videoStats.location)] || '#dc2626',
-        values: (() => {
-          const timeLabels = dashboardStaticData.dwellTime.timeLabels;
-          const values = new Array(timeLabels.length).fill(0);
-          // Put the current value in the second-to-last position
-          if (values.length >= 3) {
-            values[values.length - 2] = videoStats.avg_dwell_time;
-          }
-          return values;
-        })()
-      },
-      ...dashboardStaticData.dwellTime.locations
+        color: dashboardStaticData.locationColors[sharedDataService.getCameraName(videoStats.location)] || '#e6194b',
+        values: trafficValues
+      }
     ],
-    timeLabels: dashboardStaticData.dwellTime.timeLabels
+    timeLabels
+  };
+  
+  // Create dwell time chart data
+  const dwellTimeData = {
+    locations: [
+      {
+        name: sharedDataService.getCameraName(videoStats.location),
+        color: dashboardStaticData.locationColors[sharedDataService.getCameraName(videoStats.location)] || '#e6194b',
+        values: dwellValues
+      }
+    ],
+    timeLabels
   };
 
   return (
@@ -235,9 +238,9 @@ const Dashboard: React.FC = () => {
           />
           
           <KpiCard 
-            title={totalPeopleCountKpi.title} 
-            value={totalPeopleCountKpi.value} 
-            icon={totalPeopleCountKpi.icon} 
+            title={dwellTimeKpi.title} 
+            value={dwellTimeKpi.value} 
+            icon={dwellTimeKpi.icon} 
           />
           
           <PeakHoursCard 
@@ -274,6 +277,12 @@ const Dashboard: React.FC = () => {
               locations={dwellTimeData.locations}
               timeLabels={dwellTimeData.timeLabels}
             />
+          </div>
+          
+          {/* Information Box */}
+          <div className="p-4 bg-gray-100 rounded-lg border border-gray-300 text-sm text-gray-600 flex items-start">
+            <span className="material-icons mr-2 text-amber-500">info</span>
+            <p>This application is using real-time data from video analysis without historical persistence. The charts show simulated historical data based on current values.</p>
           </div>
         </div>
       </div>

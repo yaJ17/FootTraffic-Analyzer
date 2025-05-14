@@ -127,7 +127,7 @@ const Reports: React.FC = () => {
           <div className="p-4 border-b">
             <h2 className="text-xl font-bold flex items-center">
               <span className="material-icons mr-2 text-primary">assessment</span>
-              Barangay Foot Traffic Reports
+              Foot Traffic Reports
             </h2>
           </div>
           <div className="p-4">
@@ -144,36 +144,30 @@ const Reports: React.FC = () => {
             </h2>
           </div>
           <div className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="h-40 bg-gray-100 animate-pulse rounded"></div>
-              <div className="h-40 bg-gray-100 animate-pulse rounded"></div>
-              <div className="h-40 bg-gray-100 animate-pulse rounded"></div>
-            </div>
+            <div className="h-40 bg-gray-100 animate-pulse rounded"></div>
           </div>
         </div>
       </div>
     );
   }
 
-  // Create dynamic barangay reports using data from both the API and foot traffic context
-  const barangayReports: BarangayReport[] = mapData.markers.map((marker, index) => {
-    // Try to find existing report data for this location
-    const existingReport = (reportsData?.barangays || staticReportsData.barangays)
-      .find((report: BarangayReport) => report.name.includes(marker.name) || marker.name.includes(report.name));
+  // Create report data based on current video analysis stats
+  const barangayReports: BarangayReport[] = [
+    {
+      id: 1,
+      name: sharedDataService.getCameraName(videoStats.location),
+      population: 1000, // Default population estimate
+      avgFootTraffic: videoStats.people_count,
+      totalFootTraffic: videoStats.people_count * 24, // Daily estimate
+      avgDwellTime: `${Math.round(videoStats.avg_dwell_time)} secs`,
+      totalDwellTime: `${Math.round(videoStats.avg_dwell_time * videoStats.people_count)} secs`
+    }
+  ];
 
-    // Use existing data or create synthetic data based on marker data
-    return {
-      id: index + 1,
-      name: marker.name,
-      population: existingReport?.population || Math.floor(5000 + Math.random() * 15000),
-      avgFootTraffic: Math.round(marker.count * 0.8),
-      totalFootTraffic: marker.count * 24, // Daily total
-      avgDwellTime: `${Math.floor(2 + Math.random() * 8)} min ${Math.floor(Math.random() * 60)} sec`,
-      totalDwellTime: `${Math.floor(marker.count * 0.2)} hrs ${Math.floor(Math.random() * 60)} min`
-    };
-  }).sort((a, b) => b.totalFootTraffic - a.totalFootTraffic);
-
-  const forecastInterpretation = reportsData?.forecastInterpretation || staticReportsData.forecastInterpretation;
+  const forecastInterpretation = {
+    currentLocation: reportsData?.forecastInterpretation?.currentLocation || 
+      staticReportsData.forecastInterpretation.currentLocation
+  };
 
   // Handle exporting reports
   const handleExport = () => {
@@ -193,14 +187,6 @@ const Reports: React.FC = () => {
     
     // Create filename based on selected options
     const filename = `FootTrafficReport_${locationsStr}_${startDateFormatted}_${endDateFormatted}`;
-    
-    // Filter reports based on selected locations
-    const filteredReports = selectedLocations.includes('all') 
-      ? barangayReports 
-      : barangayReports.filter(report => {
-          const reportLocationId = report.name.toLowerCase().replace(/\s+/g, '_');
-          return selectedLocations.includes(reportLocationId);
-        });
     
     toast({
       title: "Report Downloaded",
@@ -310,7 +296,7 @@ const Reports: React.FC = () => {
             <div className="space-y-3">
               <h3 className="font-medium text-sm">Locations</h3>
               
-              <div className="grid grid-cols-2 gap-2 max-h-[180px] overflow-y-auto border rounded-md p-3">
+              <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
                 {/* All Locations checkbox */}
                 <div className="flex items-center space-x-2">
                   <input
@@ -325,25 +311,20 @@ const Reports: React.FC = () => {
                   </label>
                 </div>
                 
-                {/* Location checkboxes from dynamic data */}
-                {barangayReports.map((barangay) => {
-                  const locationId = barangay.name.toLowerCase().replace(/\s+/g, '_');
-                  return (
-                    <div key={barangay.id} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={`location-${locationId}`}
-                        checked={selectedLocations.includes(locationId)}
-                        onChange={() => toggleLocation(locationId)}
-                        className="rounded border-gray-300"
-                        disabled={selectedLocations.includes('all')}
-                      />
-                      <label htmlFor={`location-${locationId}`} className="text-sm">
-                        {barangay.name}
-                      </label>
-                    </div>
-                  );
-                })}
+                {/* Location checkbox for current location */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="location-current"
+                    checked={selectedLocations.includes('current_location')}
+                    onChange={() => toggleLocation('current_location')}
+                    className="rounded border-gray-300"
+                    disabled={selectedLocations.includes('all')}
+                  />
+                  <label htmlFor="location-current" className="text-sm">
+                    {sharedDataService.getCameraName(videoStats.location)}
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -365,12 +346,12 @@ const Reports: React.FC = () => {
         <div className="p-4 border-b flex justify-between items-center">
           <h2 className="text-xl font-bold flex items-center">
             <span className="material-icons mr-2 text-primary">assessment</span>
-            Barangay Foot Traffic Reports
+            Foot Traffic Reports
           </h2>
           
           <div className="flex items-center gap-3">
             <div className="text-sm text-gray-600">
-              <span className="font-medium">Total Foot Traffic:</span> {totalPeopleCount}
+              <span className="font-medium">People Count:</span> {videoStats.people_count}
             </div>
             <Button 
               onClick={() => setExportDialogOpen(true)}
@@ -390,21 +371,21 @@ const Reports: React.FC = () => {
                 <tr className="bg-primary text-white text-left">
                   <th className="py-3 px-4 rounded-tl-lg">Location</th>
                   <th className="py-3 px-4">Population</th>
-                  <th className="py-3 px-4">Avg. Foot Traffic</th>
-                  <th className="py-3 px-4">Total Foot Traffic</th>
+                  <th className="py-3 px-4">Current Count</th>
+                  <th className="py-3 px-4">Est. Daily Total</th>
                   <th className="py-3 px-4">Avg. Dwell Time</th>
-                  <th className="py-3 px-4 rounded-tr-lg">Total Dwell Time</th>
+                  <th className="py-3 px-4 rounded-tr-lg">Est. Total Dwell Time</th>
                 </tr>
               </thead>
               <tbody>
-                {barangayReports.map((barangay, index) => (
-                  <tr key={barangay.id} className={index < barangayReports.length - 1 ? "border-b" : ""}>
-                    <td className="py-3 px-4 font-medium">{index + 1}. {barangay.name}</td>
-                    <td className="py-3 px-4">{barangay.population.toLocaleString()}</td>
-                    <td className="py-3 px-4">{barangay.avgFootTraffic}</td>
-                    <td className="py-3 px-4">{barangay.totalFootTraffic.toLocaleString()}</td>
-                    <td className="py-3 px-4">{barangay.avgDwellTime}</td>
-                    <td className="py-3 px-4">{barangay.totalDwellTime}</td>
+                {barangayReports.map((report) => (
+                  <tr key={report.id} className="border-b">
+                    <td className="py-3 px-4 font-medium">{report.name}</td>
+                    <td className="py-3 px-4">{report.population.toLocaleString()}</td>
+                    <td className="py-3 px-4">{report.avgFootTraffic}</td>
+                    <td className="py-3 px-4">{report.totalFootTraffic.toLocaleString()}</td>
+                    <td className="py-3 px-4">{report.avgDwellTime}</td>
+                    <td className="py-3 px-4">{report.totalDwellTime}</td>
                   </tr>
                 ))}
               </tbody>
@@ -413,7 +394,7 @@ const Reports: React.FC = () => {
         </div>
       </div>
       
-      {/* Separate Forecast Interpretation Container */}
+      {/* Forecast Interpretation Container */}
       <div className="bg-white rounded-lg shadow-sm">
         <div className="p-4 border-b flex justify-between items-center">
           <h2 className="text-xl font-bold flex items-center">
@@ -436,57 +417,24 @@ const Reports: React.FC = () => {
         </div>
         
         <div className="p-4">
-          {/* Cards for each location */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Manila Cathedral */}
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <h3 className="font-bold text-lg mb-2 flex items-center">
-                <span className="material-icons text-primary mr-2 text-sm">place</span>
-                Manila Cathedral
-              </h3>
-              <p className="text-sm">{forecastInterpretation.manilaCathedral}</p>
-              <div className="mt-3 flex justify-end">
-                <button className="text-xs text-primary flex items-center">
-                  <span className="material-icons text-xs mr-1">trending_up</span>
-                  View Trend
-                </button>
-              </div>
-            </div>
-            
-            {/* Divisoria Market */}
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <h3 className="font-bold text-lg mb-2 flex items-center">
-                <span className="material-icons text-primary mr-2 text-sm">place</span>
-                Divisoria Market
-              </h3>
-              <p className="text-sm">{forecastInterpretation.divisoriaMarket}</p>
-              <div className="mt-3 flex justify-end">
-                <button className="text-xs text-primary flex items-center">
-                  <span className="material-icons text-xs mr-1">trending_up</span>
-                  View Trend
-                </button>
-              </div>
-            </div>
-            
-            {/* Fort Santiago */}
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <h3 className="font-bold text-lg mb-2 flex items-center">
-                <span className="material-icons text-primary mr-2 text-sm">place</span>
-                Fort Santiago
-              </h3>
-              <p className="text-sm">{forecastInterpretation.fortSantiago}</p>
-              <div className="mt-3 flex justify-end">
-                <button className="text-xs text-primary flex items-center">
-                  <span className="material-icons text-xs mr-1">trending_up</span>
-                  View Trend
-                </button>
-              </div>
+          {/* Card for current location */}
+          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <h3 className="font-bold text-lg mb-2 flex items-center">
+              <span className="material-icons text-primary mr-2 text-sm">place</span>
+              {sharedDataService.getCameraName(videoStats.location)}
+            </h3>
+            <p className="text-sm">{forecastInterpretation.currentLocation}</p>
+            <div className="mt-3 flex justify-end">
+              <button className="text-xs text-primary flex items-center">
+                <span className="material-icons text-xs mr-1">trending_up</span>
+                View Data
+              </button>
             </div>
           </div>
           
           <div className="mt-4 p-3 bg-gray-100 rounded text-sm text-gray-600 flex items-start">
             <span className="material-icons mr-2 text-amber-500">info</span>
-            <p>These forecasts are generated based on historical foot traffic data and predictive analytics. For more detailed analysis, please check the full report or contact the analytics team.</p>
+            <p>This application is using real-time data from the video analysis without historical persistence. Enable data persistence for more accurate forecasting.</p>
           </div>
         </div>
       </div>
