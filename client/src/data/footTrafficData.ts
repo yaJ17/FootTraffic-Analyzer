@@ -91,14 +91,15 @@ const FOOT_TRAFFIC_TIME_LABELS = generateDynamicTimeLabels(12, 2);
 const DWELL_TIME_LABELS = generateDynamicTimeLabels(10, 2);
 
 // Define a set of colors to use for the different locations
-const LOCATION_COLORS: {[key: string]: string} = {
-  'School Entrance Camera': '#4338ca', // indigo
-  'Palengke Market Camera': '#0891b2', // cyan
-  'YouTube Stream Camera': '#7c3aed', // violet
-  'Divisoria': '#0039a6',  // blue
-  'Manila Cathedral': '#f97316', // orange
-  'Fort Santiago': '#84cc16'  // lime
+const LOCATION_COLORS: { [key: string]: string } = {
+  'School Entrance Camera': '#e6194b', // red
+  'Palengke Market Camera': '#3cb44b', // green
+  'YouTube Stream Camera': '#4363d8', // blue
+  'Divisoria': '#f58231', // orange
+  'Manila Cathedral': '#911eb4', // purple
+  'Fort Santiago': '#ffe119'  // yellow
 };
+
 
 // Define default data to use when API data is not available
 const DEFAULT_DATA = {
@@ -136,26 +137,26 @@ export const getDashboardData = (): FootTrafficData => {
       zoom: 13,
       zoneInfo: '649 ZONE 68',
       markers: [
-        { id: '1', name: 'Manila Cathedral', lat: 14.5915, lon: 120.9722, color: '#dc2626', count: 342 },
-        { id: '2', name: 'Divisoria', lat: 14.6019, lon: 120.9719, color: '#0039a6', count: 578 },
-        { id: '3', name: 'Fort Santiago', lat: 14.5958, lon: 120.9669, color: '#eab308', count: 219 }
+        { id: '1', name: 'Manila Cathedral', lat: 14.5915, lon: 120.9722, color: '#911eb4', count: 342 },
+        { id: '2', name: 'Divisoria', lat: 14.6019, lon: 120.9719, color: '#f58231', count: 578 },
+        { id: '3', name: 'Fort Santiago', lat: 14.5958, lon: 120.9669, color: '#ffe119', count: 219 }
       ]
     },
     footTraffic: {
       locations: [
         { 
           name: 'Divisoria', 
-          color: '#0039a6',
+          color: '#f58231',
           values: [1.2, 1.8, 2.5, 3.2, 3.6, 3.8, 4.0]
         },
         { 
           name: 'Manila Cathedral', 
-          color: '#dc2626',
+          color: '#911eb4',
           values: [0.8, 1.2, 1.7, 2.1, 2.5, 2.8, 2.6]
         },
         { 
           name: 'Fort Santiago', 
-          color: '#eab308',
+          color: '#ffe119',
           values: [0.4, 0.5, 0.6, 0.7, 0.9, 1.0, 0.9]
         }
       ],

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Plot from 'react-plotly.js';
 
 interface LocationData {
@@ -13,6 +13,9 @@ interface DwellTimeChartProps {
 }
 
 const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }) => {
+  // Add state to track selected locations
+  const [selectedLocations, setSelectedLocations] = useState<Set<string>>(new Set(locations.map(loc => loc.name)));
+
   // Calculate average dwell time and get current value
   const locationStats = locations.map(loc => ({
     name: loc.name,
@@ -22,8 +25,11 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }
     current: loc.values.length >= 3 ? loc.values[loc.values.length - 2] : 0
   }));
 
+  // Filter locations based on selection
+  const filteredLocations = locations.filter(loc => selectedLocations.has(loc.name));
+
   // Create the data array for Plotly
-  const plotlyData = locations.map(location => ({
+  const plotlyData = filteredLocations.map(location => ({
     x: timeLabels,
     y: location.values,
     type: 'bar',
@@ -55,7 +61,7 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }
       gridcolor: 'rgba(211, 211, 211, 0.3)',
       zeroline: false
     },
-    showlegend: false, // Remove the plotly legend since we have our own custom circular legend
+    showlegend: false, // Keep custom legend
     barmode: 'group',
     height: 300,
     margin: { l: 40, r: 20, t: 60, b: 40 }
@@ -64,6 +70,22 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }
   const config = {
     displayModeBar: false,
     responsive: true
+  };
+
+  // Handle legend click
+  const handleLegendClick = (locationName: string) => {
+    setSelectedLocations(prev => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(locationName)) {
+        // If it's the only selected item, don't remove it
+        if (newSelection.size > 1) {
+          newSelection.delete(locationName);
+        }
+      } else {
+        newSelection.add(locationName);
+      }
+      return newSelection;
+    });
   };
 
   return (
@@ -76,11 +98,19 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }
 
         <div className="mb-4 flex flex-wrap gap-2">
           {locationStats.map((loc) => (
-            <div key={loc.name} className="inline-flex items-center bg-gray-50 rounded-full px-3 py-1 text-sm">
+            <button
+              key={loc.name}
+              onClick={() => handleLegendClick(loc.name)}
+              className={`inline-flex items-center rounded-full px-3 py-1 text-sm transition-all duration-200 ${
+                selectedLocations.has(loc.name)
+                  ? 'bg-gray-50 opacity-100'
+                  : 'bg-gray-100 opacity-50'
+              }`}
+            >
               <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: loc.color }}></div>
               <span className="font-medium">{loc.name}</span>
               <span className="ml-1 text-gray-500">Current: {loc.current} sec</span>
-            </div>
+            </button>
           ))}
         </div>
 
