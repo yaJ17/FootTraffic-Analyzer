@@ -7,26 +7,30 @@ import FootTrafficChart from '@/components/dashboard/FootTrafficChart';
 import DwellTimeChart from '@/components/dashboard/DwellTimeChart';
 import { useQuery } from '@tanstack/react-query';
 import { getDashboardData } from '@/data/footTrafficData';
-
-// Define interface for stats from the API
-interface VideoStats {
-  people_count: number;
-  avg_dwell_time: number;
-  highest_dwell_time: number;
-  location: string;
-  timestamp: string;
-}
+import { sharedDataService, VideoStats, MapData } from '@/data/sharedDataService';
 
 const Dashboard: React.FC = () => {
   const [flaskServerUrl, setFlaskServerUrl] = useState<string>('http://localhost:5001');
   const [videoStats, setVideoStats] = useState<VideoStats | null>(null);
   const [dashboardStaticData] = useState(getDashboardData());
+  const [totalPeopleCount, setTotalPeopleCount] = useState<number>(0);
 
   // Use React Query to fetch dashboard data
   const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
     queryKey: ['/api/dashboard'],
     queryFn: () => fetch('/api/dashboard').then(res => res.json()),
   });
+
+  // Effect to subscribe to shared data changes
+  useEffect(() => {
+    const totalSubscription = sharedDataService.totalPeopleCount$.subscribe(
+      (count: number) => setTotalPeopleCount(count)
+    );
+    
+    return () => {
+      totalSubscription.unsubscribe();
+    };
+  }, []);
 
   // Determine Flask server URL based on hostname
   useEffect(() => {
@@ -66,6 +70,8 @@ const Dashboard: React.FC = () => {
         };
         
         setVideoStats(validatedStats);
+        // Share the data with other components
+        sharedDataService.updateVideoStats(validatedStats);
       }
     } catch (err) {
       console.error('Error fetching video analysis stats:', err);
@@ -83,6 +89,38 @@ const Dashboard: React.FC = () => {
     
     return () => clearInterval(interval);
   }, [flaskServerUrl]);
+
+  // Effect to update map data in the shared service when videoStats changes
+  useEffect(() => {
+    if (videoStats) {
+      // Get a formatted camera name for display
+      const cameraName = sharedDataService.getCameraName(videoStats.location);
+      
+      // Get a color for the current camera, default to red if not found
+      const currentLocationColor = dashboardStaticData.locationColors[cameraName] || '#dc2626';
+      
+      // Create map data with current location information
+      const mapData: MapData = {
+        center: { lat: 14.5995, lon: 120.9842 },
+        zoom: 13,
+        zoneInfo: cameraName,
+        markers: [
+          { 
+            id: '1', 
+            name: cameraName, 
+            lat: 14.5915, 
+            lon: 120.9722, 
+            color: currentLocationColor, 
+            count: videoStats.people_count 
+          },
+          ...(dashboardData?.map?.markers?.slice(1) || dashboardStaticData.map.markers.slice(1))
+        ]
+      };
+      
+      // Share map data with other components
+      sharedDataService.updateMapData(mapData);
+    }
+  }, [videoStats, dashboardData, dashboardStaticData]);
 
   if (isDashboardLoading || !videoStats) {
     return (
@@ -105,22 +143,17 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // Get a formatted camera name for display
-  const getCameraName = (location: string) => {
-    if (location.includes('School')) return 'School Entrance Camera';
-    if (location.includes('Palengke')) return 'Palengke Market Camera';
-    if (location.includes('YouTube')) return 'YouTube Stream Camera';
-    return location;
-  };
-
-  // Get a color for the current camera, default to red if not found
-  const currentLocationColor = dashboardStaticData.locationColors[getCameraName(videoStats.location)] || '#dc2626';
-
   // Create KPI data from video stats
   const footTrafficKpi = {
-    title: 'Total Foot Traffic',
+    title: 'Traffic Detected on Current Camera',
     value: videoStats.people_count.toString(),
-    icon: 'groups'
+    icon: 'camera'
+  };
+  
+  const totalPeopleCountKpi = {
+    title: 'Total People (All Areas)',
+    value: totalPeopleCount.toString(),
+    icon: 'people'
   };
 
   // Create peak hours data (using sample or calculate from historical data if available)
@@ -128,19 +161,19 @@ const Dashboard: React.FC = () => {
 
   // Create weekly summary data (using sample or calculate from historical data if available)
   const weeklySummaryData = dashboardData?.weeklySummary || dashboardStaticData.defaultData.weeklySummary;
-  
+
   // Create map data with current location information
   const mapData = {
     center: { lat: 14.5995, lon: 120.9842 },
     zoom: 13,
-    zoneInfo: getCameraName(videoStats.location),
+    zoneInfo: sharedDataService.getCameraName(videoStats.location),
     markers: [
       { 
         id: '1', 
-        name: getCameraName(videoStats.location), 
+        name: sharedDataService.getCameraName(videoStats.location), 
         lat: 14.5915, 
         lon: 120.9722, 
-        color: currentLocationColor, 
+        color: dashboardStaticData.locationColors[sharedDataService.getCameraName(videoStats.location)] || '#dc2626', 
         count: videoStats.people_count 
       },
       ...(dashboardData?.map?.markers?.slice(1) || dashboardStaticData.map.markers.slice(1))
@@ -152,8 +185,8 @@ const Dashboard: React.FC = () => {
     locations: [
       // Add current location data
       {
-        name: getCameraName(videoStats.location),
-        color: currentLocationColor,
+        name: sharedDataService.getCameraName(videoStats.location),
+        color: dashboardStaticData.locationColors[sharedDataService.getCameraName(videoStats.location)] || '#dc2626',
         values: (() => {
           const timeLabels = dashboardStaticData.footTraffic.timeLabels;
           const values = new Array(timeLabels.length).fill(0);
@@ -173,8 +206,8 @@ const Dashboard: React.FC = () => {
     locations: [
       // Add current location data
       {
-        name: getCameraName(videoStats.location),
-        color: currentLocationColor,
+        name: sharedDataService.getCameraName(videoStats.location),
+        color: dashboardStaticData.locationColors[sharedDataService.getCameraName(videoStats.location)] || '#dc2626',
         values: (() => {
           const timeLabels = dashboardStaticData.dwellTime.timeLabels;
           const values = new Array(timeLabels.length).fill(0);
@@ -199,6 +232,12 @@ const Dashboard: React.FC = () => {
             title={footTrafficKpi.title} 
             value={footTrafficKpi.value} 
             icon={footTrafficKpi.icon} 
+          />
+          
+          <KpiCard 
+            title={totalPeopleCountKpi.title} 
+            value={totalPeopleCountKpi.value} 
+            icon={totalPeopleCountKpi.icon} 
           />
           
           <PeakHoursCard 

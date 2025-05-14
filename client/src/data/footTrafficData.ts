@@ -147,17 +147,17 @@ export const getDashboardData = (): FootTrafficData => {
         { 
           name: 'Divisoria', 
           color: '#f58231',
-          values: [1.2, 1.8, 2.5, 3.2, 3.6, 3.8, 4.0]
+          values: [5,10,8,6,11,7,6]
         },
         { 
           name: 'Manila Cathedral', 
           color: '#911eb4',
-          values: [0.8, 1.2, 1.7, 2.1, 2.5, 2.8, 2.6]
+          values: [2,8,6,5,8,3,2]
         },
         { 
           name: 'Fort Santiago', 
           color: '#ffe119',
-          values: [0.4, 0.5, 0.6, 0.7, 0.9, 1.0, 0.9]
+          values: [5,4,6,2,2,7,3]
         }
       ],
       timeLabels: FOOT_TRAFFIC_TIME_LABELS

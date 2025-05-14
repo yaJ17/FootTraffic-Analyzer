@@ -6,6 +6,7 @@ import MonthFootTrafficChart from '@/components/statistics/MonthFootTrafficChart
 import { useQuery } from '@tanstack/react-query';
 import Plot from 'react-plotly.js';
 import { locationColors, getStatisticsData } from '@/data/locationData';
+import { sharedDataService, VideoStats, MapData, LocationMarker } from '@/data/sharedDataService';
 
 // Define state values outside the component 
 // to avoid the "Rendered more hooks than during previous render" issue
@@ -13,89 +14,52 @@ const defaultLocation = 'All Locations';
 const defaultMetric = 'Count';
 const defaultTimePeriod = 'month';
 
-// Define interface for stats from the API
-interface VideoStats {
-  people_count: number;
-  avg_dwell_time: number;
-  highest_dwell_time: number;
-  location: string;
-  timestamp: string;
-}
-
 const Statistics: React.FC = () => {
   // Move all useState hooks to the very top of the component
   const [selectedLocation, setSelectedLocation] = useState(defaultLocation);
   const [selectedMetric, setSelectedMetric] = useState(defaultMetric);
   const [timePeriod, setTimePeriod] = useState(defaultTimePeriod);
-  const [videoStats, setVideoStats] = useState<VideoStats | null>(null);
-  const [flaskServerUrl, setFlaskServerUrl] = useState<string>('http://localhost:5001');
   const [staticStatisticsData] = useState(getStatisticsData());
+  
+  // State for shared data
+  const [videoStats, setVideoStats] = useState<VideoStats | null>(null);
+  const [mapData, setMapData] = useState<MapData | null>(null);
+  const [timeSeriesData, setTimeSeriesData] = useState<{
+    timeLabels: string[];
+    locations: {
+      name: string;
+      color: string;
+      trafficValues: number[];
+      dwellTimeValues: number[];
+    }[];
+  } | null>(null);
+  
+  // Get data from shared service
+  useEffect(() => {
+    // Get initial values
+    setVideoStats(sharedDataService.getVideoStats());
+    setMapData(sharedDataService.getMapData());
+    
+    // Subscribe to changes
+    const videoStatsSubscription = sharedDataService.videoStats$.subscribe(
+      (stats: VideoStats | null) => setVideoStats(stats)
+    );
+    
+    const mapDataSubscription = sharedDataService.mapData$.subscribe(
+      (data: MapData | null) => setMapData(data)
+    );
+    
+    // Cleanup subscriptions
+    return () => {
+      videoStatsSubscription.unsubscribe();
+      mapDataSubscription.unsubscribe();
+    };
+  }, []);
   
   const { data: statisticsData, isLoading: isStatisticsLoading } = useQuery({
     queryKey: ['/api/statistics'],
     queryFn: () => fetch('/api/statistics').then(res => res.json()),
   });
-
-  // Determine Flask server URL based on hostname
-  useEffect(() => {
-    const baseUrl = window.location.hostname.includes('replit') 
-      ? `https://${window.location.hostname.replace('5000', '5001')}` 
-      : 'http://localhost:5001';
-    setFlaskServerUrl(baseUrl);
-  }, []);
-
-  // Fetch video stats from Flask backend
-  const fetchVideoStats = async () => {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
-      const response = await fetch(`${flaskServerUrl}/api/stats`, {
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch video analysis stats');
-      }
-      
-      const data = await response.json();
-      
-      // Ensure we have a valid stats object with required fields
-      if (data && typeof data === 'object' && data.stats) {
-        const validatedStats: VideoStats = {
-          people_count: data.stats.people_count || 0,
-          avg_dwell_time: data.stats.avg_dwell_time || 0,
-          highest_dwell_time: data.stats.highest_dwell_time || 0,
-          location: data.stats.location || 'Unknown Location',
-          timestamp: data.stats.timestamp || new Date().toISOString()
-        };
-        
-        setVideoStats(validatedStats);
-      }
-    } catch (err) {
-      console.error('Error fetching video analysis stats:', err);
-    }
-  };
-
-  // Fetch video stats on component mount and every 5 seconds
-  useEffect(() => {
-    fetchVideoStats();
-    
-    const interval = setInterval(() => {
-      fetchVideoStats();
-    }, 5000);
-    
-    return () => clearInterval(interval);
-  }, [flaskServerUrl]);
-  // Get a formatted camera name for display
-  const getCameraName = (location: string): string => {
-    if (location?.includes('School')) return 'School Entrance';
-    if (location?.includes('Palengke')) return 'Palengke Market';
-    if (location?.includes('YouTube')) return 'YouTube Stream';
-    return location || 'Unknown Location';
-  };
 
   // Get color for a location based on our consistent color scheme
   const getLocationColor = (locationName: string): string => {
@@ -113,7 +77,7 @@ const Statistics: React.FC = () => {
     return '#777777';
   };
 
-  if (isStatisticsLoading || !videoStats) {
+  if (isStatisticsLoading || !videoStats || !mapData) {
     return (
       <div className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -128,6 +92,7 @@ const Statistics: React.FC = () => {
       </div>
     );
   }
+  
   // Function to generate dynamic heatmap based on current foot traffic
   const generateDynamicHeatmap = () => {
     const baseHeatmap = statisticsData?.heatmap || staticStatisticsData.heatmap;
@@ -160,20 +125,36 @@ const Statistics: React.FC = () => {
   // Sample data for heatmap with dynamically updated values
   const heatmapData = generateDynamicHeatmap();
 
-  // Update busiest places to include current location
+  // Update busiest places to include current location and data from mapData
   const busiestPlacesData = {
     places: [
-      { id: 1, name: getCameraName(videoStats.location), count: videoStats.people_count },
-      ...(statisticsData?.busiestPlaces?.places?.slice(0, 4) || staticStatisticsData.busiestPlaces.places.slice(0, 4))
+      { id: 1, name: sharedDataService.getCameraName(videoStats.location), count: videoStats.people_count },
+      ...mapData.markers
+        .filter(marker => marker.name !== sharedDataService.getCameraName(videoStats.location))
+        .slice(0, 4)
+        .map((marker, index) => ({
+          id: index + 2,
+          name: marker.name,
+          count: marker.count
+        }))
     ].sort((a, b) => (b.count || 0) - (a.count || 0))
   };  
   
-  // Update average foot traffic to include real-time data
+  // Generate time series data from video stats
+  // Generate realistic time labels based on current time
+  const now = new Date();
+  const timeLabels = Array.from({ length: 8 }, (_, i) => {
+    const time = new Date(now);
+    time.setHours(time.getHours() - (7 - i));
+    return time.getHours() + ':00';
+  });
+  
+  // Use time series data for average foot traffic
   const avgFootTrafficData = {
     gates: [
       {
-        name: getCameraName(videoStats.location),
-        color: getLocationColor(getCameraName(videoStats.location)),
+        name: sharedDataService.getCameraName(videoStats.location),
+        color: getLocationColor(sharedDataService.getCameraName(videoStats.location)),
         values: [
           Math.max(10, videoStats.people_count - 10),
           Math.max(5, videoStats.people_count - 5),
@@ -185,9 +166,15 @@ const Statistics: React.FC = () => {
           videoStats.people_count,
         ]
       },
-      ...(statisticsData?.avgFootTraffic?.gates?.slice(1) || staticStatisticsData.avgFootTraffic.gates.slice(1))
+      ...mapData.markers.slice(0, 2)
+        .map(marker => ({
+          name: marker.name,
+          color: marker.color,
+          values: Array.from({ length: 8 }, (_, i) => 
+            Math.floor(marker.count * (0.7 + Math.random() * 0.6)))
+        }))
     ],
-    timeLabels: statisticsData?.avgFootTraffic?.timeLabels || staticStatisticsData.avgFootTraffic.timeLabels
+    timeLabels
   };  
   
   // Update month foot traffic to include the current location
@@ -195,18 +182,26 @@ const Statistics: React.FC = () => {
     buildings: [
       { 
         id: 'current', 
-        name: getCameraName(videoStats.location), 
+        name: sharedDataService.getCameraName(videoStats.location), 
         value: videoStats.people_count * 30, // Projected monthly value
-        color: getLocationColor(getCameraName(videoStats.location))
+        color: getLocationColor(sharedDataService.getCameraName(videoStats.location))
       },
-      ...(statisticsData?.monthFootTraffic?.buildings?.slice(0, 10) || staticStatisticsData.monthFootTraffic.buildings.slice(0, 10))
-    ]
+      ...mapData.markers
+        .filter(marker => marker.name !== sharedDataService.getCameraName(videoStats.location))
+        .slice(0, 4)
+        .map(marker => ({
+          id: marker.id,
+          name: marker.name,
+          value: marker.count * 30, // Projected monthly value
+          color: marker.color
+        }))
+    ].sort((a, b) => b.value - a.value)
   };
     // Get all locations based on data
   const locations = [
     'All Locations', 
-    getCameraName(videoStats.location),
-    ...(statisticsData?.busiestPlaces?.places?.map((place: { name: string }) => place.name) || ['Divisoria', 'Manila Cathedral', 'Fort Santiago'])
+    sharedDataService.getCameraName(videoStats.location),
+    ...mapData.markers.map(marker => marker.name)
   ].filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
   
   const metrics = ['Count', 'Dwell'];
@@ -230,7 +225,7 @@ const Statistics: React.FC = () => {
       {/* Live Statistics Summary */}
       <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
         <div className="border-b pb-2 mb-3">
-          <h3 className="font-bold">Current Analysis: {getCameraName(videoStats.location)}</h3>
+          <h3 className="font-bold">Current Analysis: {sharedDataService.getCameraName(videoStats.location)}</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="border rounded p-3 bg-blue-50">
