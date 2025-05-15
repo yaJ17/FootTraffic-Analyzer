@@ -7,16 +7,26 @@ interface LocationData {
   values: number[];
 }
 
+interface LocationWithForecast extends LocationData {
+  trafficForecast: number[];
+}
+
 interface FootTrafficChartProps {
   locations: LocationData[];
   timeLabels: string[];
+  forecastLabels?: string[]; // Add optional forecast labels
 }
 
-const FootTrafficChart: React.FC<FootTrafficChartProps> = ({ locations, timeLabels }) => {
+const FootTrafficChart: React.FC<FootTrafficChartProps> = ({ 
+  locations, 
+  timeLabels,
+  forecastLabels = [] 
+}) => {
   // Add state to track selected locations
   const [selectedLocations, setSelectedLocations] = useState<Set<string>>(new Set(locations.map(loc => loc.name)));
   const [chartData, setChartData] = useState<LocationData[]>(locations);
   const [currentLabels, setCurrentLabels] = useState<string[]>(timeLabels);
+  const [showForecast, setShowForecast] = useState<boolean>(true);
 
   // Update only the latest data point when props change to simulate real-time updates
   useEffect(() => {
@@ -74,24 +84,71 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({ locations, timeLabe
   // Filter locations based on selection
   const filteredLocations = chartData.filter(loc => selectedLocations.has(loc.name));
 
-  // Create the data array for Plotly
-  const plotlyData = filteredLocations.map(location => ({
-    x: currentLabels,
-    y: location.values,
-    type: 'scatter',
-    mode: 'lines+markers',
-    name: location.name,
-    marker: { 
-      color: location.color, 
-      size: 6,
-      line: {
-        width: 1,
-        color: 'white'
-      }
-    },
-    line: { color: location.color, width: 3, shape: 'spline' },
-    hovertemplate: `<b>${location.name}</b><br>Time: %{x}<br>Foot Traffic: %{y}<extra></extra>`
-  }));
+  // Create the data array for Plotly, including forecasts if available and enabled
+  const plotlyData = filteredLocations.flatMap(location => {
+    // Get the matching original location that might contain forecast data
+    const originalLocation = locations.find(loc => loc.name === location.name) as LocationWithForecast | undefined;
+    const hasForecast = originalLocation && 
+                        'trafficForecast' in originalLocation && 
+                        Array.isArray(originalLocation.trafficForecast) &&
+                        originalLocation.trafficForecast.length > 0 &&
+                        forecastLabels.length > 0;
+
+    // Create the historical data trace
+    const historicalTrace = {
+      x: currentLabels,
+      y: location.values,
+      type: 'scatter',
+      mode: 'lines+markers',
+      name: location.name,
+      marker: { 
+        color: location.color, 
+        size: 6,
+        line: {
+          width: 1,
+          color: 'white'
+        }
+      },
+      line: { color: location.color, width: 3, shape: 'spline' },
+      hovertemplate: `<b>${location.name}</b><br>Time: %{x}<br>Foot Traffic: %{y}<extra></extra>`
+    };
+
+    // If no forecast or forecast is disabled, return only the historical trace
+    if (!hasForecast || !showForecast) {
+      return [historicalTrace];
+    }
+
+    // Create the forecast trace with dashed line
+    const forecastTrace = {
+      x: forecastLabels,
+      y: originalLocation.trafficForecast,
+      type: 'scatter',
+      mode: 'lines',
+      name: `${location.name} (Forecast)`,
+      line: { 
+        color: location.color, 
+        width: 2, 
+        dash: 'dash',
+        shape: 'spline' 
+      },
+      marker: { color: location.color, opacity: 0.7 },
+      hovertemplate: `<b>${location.name} (Forecast)</b><br>Time: %{x}<br>Estimated Traffic: %{y}<extra></extra>`,
+      showlegend: false
+    };
+
+    // Create a small gap between historical and forecast data to visually separate them
+    const separatorTrace = {
+      x: [currentLabels[currentLabels.length - 1], forecastLabels[0]],
+      y: [location.values[location.values.length - 1], originalLocation.trafficForecast[0]],
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: location.color, width: 1, dash: 'dot' },
+      showlegend: false,
+      hoverinfo: 'skip'
+    };
+
+    return [historicalTrace, separatorTrace, forecastTrace];
+  });
 
   const layout = {
     autosize: true,
@@ -112,7 +169,23 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({ locations, timeLabe
     },
     showlegend: false, // Keep custom legend
     height: 300,
-    margin: { l: 40, r: 20, t: 60, b: 40 }
+    margin: { l: 40, r: 20, t: 60, b: 40 },
+    shapes: showForecast && forecastLabels.length > 0 ? [
+      // Add a vertical line to separate historical from forecast data
+      {
+        type: 'line',
+        x0: currentLabels[currentLabels.length - 1],
+        x1: currentLabels[currentLabels.length - 1],
+        y0: 0,
+        y1: 1,
+        yref: 'paper',
+        line: {
+          color: 'rgba(180, 180, 180, 0.4)',
+          width: 1,
+          dash: 'dot'
+        }
+      }
+    ] : []
   };
 
   const config = {
@@ -136,13 +209,36 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({ locations, timeLabe
     });
   };
 
+  // Toggle forecast visibility
+  const toggleForecast = () => {
+    setShowForecast(prev => !prev);
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100">
       <div className="p-4">
-        <h2 className="text-lg font-bold mb-3 flex items-center">
-          <span className="material-icons mr-2 text-primary">timeline</span>
-          Foot Traffic Trends
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold flex items-center">
+            <span className="material-icons mr-2 text-primary">timeline</span>
+            Foot Traffic Trends
+          </h2>
+          
+          {forecastLabels.length > 0 && (
+            <button 
+              onClick={toggleForecast}
+              className={`text-xs px-2 py-1 rounded-full transition-all ${
+                showForecast 
+                  ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                  : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              <span className="material-icons text-xs mr-1 align-text-bottom">
+                {showForecast ? 'visibility' : 'visibility_off'}
+              </span>
+              Forecast
+            </button>
+          )}
+        </div>
 
         <div className="mb-4 flex flex-wrap gap-2">
           {totalValues.map((loc) => (
@@ -176,6 +272,13 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({ locations, timeLabe
             style={{ width: '100%', height: '300px' }}
           />
         </div>
+
+        {showForecast && forecastLabels.length > 0 && (
+          <div className="flex items-center text-xs text-gray-500 mt-2">
+            <span className="material-icons text-xs mr-1">info</span>
+            Dashed lines represent AI-powered traffic forecasts
+          </div>
+        )}
       </div>
     </div>
   );

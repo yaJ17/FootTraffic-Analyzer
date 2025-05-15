@@ -32,11 +32,14 @@ export interface FootTrafficContextType {
   } | null;
   timeSeriesData: {
     timeLabels: string[];
+    forecastLabels: string[];
     locations: {
       name: string;
       color: string;
       trafficValues: number[];
       dwellTimeValues: number[];
+      trafficForecast: number[];
+      dwellTimeForecast: number[];
     }[];
   } | null;
   peakHoursData: {
@@ -79,6 +82,47 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [peakHoursData, setPeakHoursData] = useState(dashboardStaticData.defaultData.peakHours);
   const [weeklySummaryData, setWeeklySummaryData] = useState(dashboardStaticData.defaultData.weeklySummary);
 
+  // Function to generate forecast data based on historical patterns
+  const generateForecast = (historicalData: number[], numPoints: number = 4): number[] => {
+    if (historicalData.length < 4) return Array(numPoints).fill(0);
+    
+    // Get the last few data points to identify trends
+    const recentData = historicalData.slice(-4);
+    const avg = recentData.reduce((sum, val) => sum + val, 0) / recentData.length;
+    
+    // Calculate the recent trend (positive or negative)
+    const trend = (recentData[recentData.length - 1] - recentData[0]) / recentData.length;
+    
+    // Create a forecast with some randomness and trend continuation
+    return Array.from({ length: numPoints }, (_, i) => {
+      // Apply trend with decay (trend strength decreases over time)
+      const trendEffect = trend * (1 - (i * 0.2));
+      
+      // Add randomness that increases with forecast distance
+      const randomFactor = 0.05 + (i * 0.02);
+      const randomVariation = avg * randomFactor * (Math.random() - 0.5);
+      
+      // Calculate the forecasted value
+      let forecastValue = avg + (trendEffect * (i + 1)) + randomVariation;
+      
+      // Ensure forecast values are non-negative and reasonable
+      forecastValue = Math.max(0, Math.round(forecastValue));
+      
+      return forecastValue;
+    });
+  };
+
+  // Generate forecast time labels (future hours)
+  const generateForecastLabels = (lastTimeLabel: string, numPoints: number = 4): string[] => {
+    const [hour] = lastTimeLabel.split(':');
+    const hourNum = parseInt(hour);
+    
+    return Array.from({ length: numPoints }, (_, i) => {
+      const nextHour = (hourNum + i + 1) % 24;
+      return `${nextHour}:00`;
+    });
+  };
+
   // Function to update analysis stats from VideoAnalysis component
   const updateAnalysisStats = (stats: VideoStats) => {
     setAnalysisVideoStats(stats);
@@ -114,17 +158,21 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
         if (timeSeriesData.timeLabels[timeSeriesData.timeLabels.length - 1] !== currentHour) {
           // Add the new time point
           const newTimeLabels = [...timeSeriesData.timeLabels.slice(1), currentHour];
+          const newForecastLabels = generateForecastLabels(currentHour);
           
           // Add the new location to time series
           const newLocation = {
             name: getCameraName(stats.location),
             color: '#3b82f6',
             trafficValues: Array(newTimeLabels.length - 1).fill(0).concat([stats.people_count]),
-            dwellTimeValues: Array(newTimeLabels.length - 1).fill(0).concat([stats.avg_dwell_time])
+            dwellTimeValues: Array(newTimeLabels.length - 1).fill(0).concat([stats.avg_dwell_time]),
+            trafficForecast: generateForecast([stats.people_count]),
+            dwellTimeForecast: generateForecast([stats.avg_dwell_time])
           };
           
           setTimeSeriesData({
             timeLabels: newTimeLabels,
+            forecastLabels: newForecastLabels,
             locations: [...timeSeriesData.locations, newLocation]
           });
         } else {
@@ -133,11 +181,13 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
             name: getCameraName(stats.location),
             color: '#3b82f6',
             trafficValues: Array(timeSeriesData.timeLabels.length - 1).fill(0).concat([stats.people_count]),
-            dwellTimeValues: Array(timeSeriesData.timeLabels.length - 1).fill(0).concat([stats.avg_dwell_time])
+            dwellTimeValues: Array(timeSeriesData.timeLabels.length - 1).fill(0).concat([stats.avg_dwell_time]),
+            trafficForecast: generateForecast([stats.people_count]),
+            dwellTimeForecast: generateForecast([stats.avg_dwell_time])
           };
           
           setTimeSeriesData({
-            timeLabels: timeSeriesData.timeLabels,
+            ...timeSeriesData,
             locations: [...timeSeriesData.locations, newLocation]
           });
         }
@@ -164,10 +214,16 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
               updatedTrafficValues[updatedTrafficValues.length - 1] = stats.people_count;
               updatedDwellTimeValues[updatedDwellTimeValues.length - 1] = stats.avg_dwell_time;
               
+              // Generate updated forecasts
+              const updatedTrafficForecast = generateForecast(updatedTrafficValues);
+              const updatedDwellTimeForecast = generateForecast(updatedDwellTimeValues);
+              
               return {
                 ...loc,
                 trafficValues: updatedTrafficValues,
-                dwellTimeValues: updatedDwellTimeValues
+                dwellTimeValues: updatedDwellTimeValues,
+                trafficForecast: updatedTrafficForecast,
+                dwellTimeForecast: updatedDwellTimeForecast
               };
             }
             return loc;
@@ -341,6 +397,9 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
       time.setHours(time.getHours() - (11 - i));
       return time.getHours() + ':00';
     });
+
+    // Generate forecast labels (future hours)
+    const forecastLabels = generateForecastLabels(timeLabels[timeLabels.length - 1]);
     
     // Generate data for each location with realistic patterns
     const locations = manilaLocations.map(location => {
@@ -390,12 +449,18 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
         // Base dwell time between 2-4 minutes
         return Math.floor((120 + Math.random() * 120) * dwellMultiplier);
       });
+
+      // Generate forecast data for next 4 hours
+      const trafficForecast = generateForecast(trafficValues);
+      const dwellTimeForecast = generateForecast(dwellTimeValues);
       
       return {
         name: location.name,
         color: dashboardStaticData.locationColors[location.name] || '#dc2626',
         trafficValues,
-        dwellTimeValues
+        dwellTimeValues,
+        trafficForecast,
+        dwellTimeForecast
       };
     });
 
@@ -414,17 +479,27 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
         trafficValues[trafficValues.length - 1] = analysisVideoStats.people_count;
         dwellTimeValues[dwellTimeValues.length - 1] = analysisVideoStats.avg_dwell_time;
         
+        // Generate forecast data
+        const trafficForecast = generateForecast(trafficValues);
+        const dwellTimeForecast = generateForecast(dwellTimeValues);
+        
         // Add the new location to the array
         locations.push({
           name: analysisLocationName,
           color: '#3b82f6', // Blue color for analysis location
           trafficValues,
-          dwellTimeValues
+          dwellTimeValues,
+          trafficForecast,
+          dwellTimeForecast
         });
       } else {
         // Update the existing location with analysis data
         locations[existingLocationIndex].trafficValues[timeLabels.length - 1] = analysisVideoStats.people_count;
         locations[existingLocationIndex].dwellTimeValues[timeLabels.length - 1] = analysisVideoStats.avg_dwell_time;
+        
+        // Update forecast data
+        locations[existingLocationIndex].trafficForecast = generateForecast(locations[existingLocationIndex].trafficValues);
+        locations[existingLocationIndex].dwellTimeForecast = generateForecast(locations[existingLocationIndex].dwellTimeValues);
       }
     }
     
@@ -437,6 +512,7 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     setTimeSeriesData({
       timeLabels,
+      forecastLabels,
       locations: topLocations
     });
     
@@ -449,12 +525,29 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
         color: string;
         trafficValues: number[];
         dwellTimeValues: number[];
+        trafficForecast: number[];
+        dwellTimeForecast: number[];
       }[] = topLocations;
       
-      // Aggregate traffic across all locations for each time period
-      const aggregateTraffic = peakTimeLabels.map((label: string, index: number) => {
-        const total = peakLocations.reduce((sum, location) => sum + location.trafficValues[index], 0);
-        return { time: label, traffic: total };
+      // Combine historical and forecast data for improved peak detection
+      const combinedTimeLabels = [...timeLabels, ...forecastLabels];
+      
+      // Aggregate traffic across all locations for each time period (including forecast)
+      const aggregateTraffic = combinedTimeLabels.map((label: string, index: number) => {
+        // Check if we're in the historical or forecast period
+        const isHistorical = index < timeLabels.length;
+        
+        let total = 0;
+        if (isHistorical) {
+          // Sum historical values
+          total = peakLocations.reduce((sum, location) => sum + location.trafficValues[index], 0);
+        } else {
+          // Sum forecasted values
+          const forecastIndex = index - timeLabels.length;
+          total = peakLocations.reduce((sum, location) => sum + location.trafficForecast[forecastIndex], 0);
+        }
+        
+        return { time: label, traffic: total, isForecast: !isHistorical };
       });
       
       // Sort by traffic to find peak times
@@ -468,25 +561,26 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const currentHour = now.getHours();
       
       // Calculate time until peak
-      const calculateTimeUntil = (peakHour: number) => {
+      const calculateTimeUntil = (peakHour: number, isForecast: boolean) => {
         const hourDiff = (peakHour - currentHour + 24) % 24;
-        if (hourDiff === 0) return 'happening now';
+        
+        if (hourDiff === 0 && !isForecast) return 'happening now';
         if (hourDiff === 1) return 'in 1 hour';
-        return `in ${hourDiff} hours`;
+        return `in ${hourDiff} hours` + (isForecast ? ' (forecast)' : '');
       };
       
       setPeakHoursData({
         peakStart: { 
           time: peakHours[2].time, 
-          status: calculateTimeUntil(parseInt(peakHours[2].time.split(':')[0]))
+          status: calculateTimeUntil(parseInt(peakHours[2].time.split(':')[0]), peakHours[2].isForecast)
         },
         peakMax: { 
           time: peakHours[0].time, 
-          status: calculateTimeUntil(parseInt(peakHours[0].time.split(':')[0]))
+          status: calculateTimeUntil(parseInt(peakHours[0].time.split(':')[0]), peakHours[0].isForecast)
         },
         peakEnd: { 
           time: peakHours[1].time, 
-          status: calculateTimeUntil(parseInt(peakHours[1].time.split(':')[0]))
+          status: calculateTimeUntil(parseInt(peakHours[1].time.split(':')[0]), peakHours[1].isForecast)
         }
       });
     }

@@ -58,23 +58,29 @@ const Dashboard: React.FC = () => {
     icon: 'people'
   };
 
-  // Map traffic and dwell time data to the chart structure
+  // Map traffic and dwell time data to the chart structure, including forecast data
   const footTrafficData = {
     locations: timeSeriesData.locations.map(loc => ({
       name: loc.name,
       color: loc.color,
-      values: loc.trafficValues
+      values: loc.trafficValues,
+      // Add the forecast data to pass through
+      ...(loc.trafficForecast && { trafficForecast: loc.trafficForecast })
     })),
-    timeLabels: timeSeriesData.timeLabels
+    timeLabels: timeSeriesData.timeLabels,
+    forecastLabels: timeSeriesData.forecastLabels || []
   };
   
   const dwellTimeData = {
     locations: timeSeriesData.locations.map(loc => ({
       name: loc.name,
       color: loc.color,
-      values: loc.dwellTimeValues
+      values: loc.dwellTimeValues,
+      // Add the forecast data to pass through
+      ...(loc.dwellTimeForecast && { dwellTimeForecast: loc.dwellTimeForecast })
     })),
-    timeLabels: timeSeriesData.timeLabels
+    timeLabels: timeSeriesData.timeLabels,
+    forecastLabels: timeSeriesData.forecastLabels || []
   };
 
   return (
@@ -122,11 +128,13 @@ const Dashboard: React.FC = () => {
             <FootTrafficChart 
               locations={footTrafficData.locations}
               timeLabels={footTrafficData.timeLabels}
+              forecastLabels={footTrafficData.forecastLabels}
             />
             
             <DwellTimeChart 
               locations={dwellTimeData.locations}
               timeLabels={dwellTimeData.timeLabels}
+              forecastLabels={dwellTimeData.forecastLabels}
             />
           </div>
         </div>

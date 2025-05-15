@@ -7,16 +7,26 @@ interface LocationData {
   values: number[];
 }
 
+interface LocationWithForecast extends LocationData {
+  dwellTimeForecast: number[];
+}
+
 interface DwellTimeChartProps {
   locations: LocationData[];
   timeLabels: string[];
+  forecastLabels?: string[]; // Add optional forecast labels
 }
 
-const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }) => {
+const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ 
+  locations, 
+  timeLabels,
+  forecastLabels = [] 
+}) => {
   // Add state to track selected locations
   const [selectedLocations, setSelectedLocations] = useState<Set<string>>(new Set(locations.map(loc => loc.name)));
   const [chartData, setChartData] = useState<LocationData[]>(locations);
   const [currentLabels, setCurrentLabels] = useState<string[]>(timeLabels);
+  const [showForecast, setShowForecast] = useState<boolean>(true);
 
   // Update only the latest data point when props change to simulate real-time updates
   useEffect(() => {
@@ -74,8 +84,11 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }
   // Filter locations based on selection
   const filteredLocations = chartData.filter(loc => selectedLocations.has(loc.name));
 
-  // Create the data array for Plotly
-  const plotlyData = filteredLocations.map(location => ({
+  // Create data for historical bars and forecast bars
+  let plotlyData = [];
+  
+  // Historical data bars
+  const historicalBars = filteredLocations.map(location => ({
     x: currentLabels,
     y: location.values,
     type: 'bar',
@@ -88,8 +101,48 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }
         color: 'white'
       }
     },
-    hovertemplate: `<b>${location.name}</b><br>Time: %{x}<br>Dwell Time: %{y} sec<extra></extra>`
+    hovertemplate: `<b>${location.name}</b><br>Time: %{x}<br>Dwell Time: %{y} sec<extra></extra>`,
   }));
+  
+  plotlyData = [...historicalBars];
+  
+  // Add forecast bars if available and enabled
+  if (showForecast && forecastLabels.length > 0) {
+    filteredLocations.forEach(location => {
+      // Find the original location with forecast data
+      const originalLocation = locations.find(loc => loc.name === location.name) as LocationWithForecast | undefined;
+      
+      if (originalLocation && 
+          'dwellTimeForecast' in originalLocation && 
+          Array.isArray(originalLocation.dwellTimeForecast) && 
+          originalLocation.dwellTimeForecast.length > 0) {
+        
+        // Create forecast bars with a striped pattern
+        const forecastBar = {
+          x: forecastLabels,
+          y: originalLocation.dwellTimeForecast,
+          type: 'bar',
+          name: `${location.name} (Forecast)`,
+          marker: { 
+            color: location.color,
+            opacity: 0.6,
+            pattern: {
+              shape: '/', 
+              bgcolor: 'white'
+            },
+            line: {
+              width: 1,
+              color: 'white'
+            }
+          },
+          hovertemplate: `<b>${location.name} (Forecast)</b><br>Time: %{x}<br>Est. Dwell Time: %{y} sec<extra></extra>`,
+          showlegend: false
+        };
+        
+        plotlyData.push(forecastBar);
+      }
+    });
+  }
 
   const layout = {
     autosize: true,
@@ -110,7 +163,23 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }
     showlegend: false, // Keep custom legend
     barmode: 'group',
     height: 300,
-    margin: { l: 40, r: 20, t: 60, b: 40 }
+    margin: { l: 40, r: 20, t: 60, b: 40 },
+    shapes: showForecast && forecastLabels.length > 0 ? [
+      // Add a vertical line to separate historical from forecast data
+      {
+        type: 'line',
+        x0: currentLabels[currentLabels.length - 1],
+        x1: currentLabels[currentLabels.length - 1],
+        y0: 0,
+        y1: 1,
+        yref: 'paper',
+        line: {
+          color: 'rgba(180, 180, 180, 0.4)',
+          width: 1,
+          dash: 'dot'
+        }
+      }
+    ] : []
   };
 
   const config = {
@@ -134,13 +203,36 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }
     });
   };
 
+  // Toggle forecast visibility
+  const toggleForecast = () => {
+    setShowForecast(prev => !prev);
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100">
       <div className="p-4">
-        <h2 className="text-lg font-bold mb-3 flex items-center">
-          <span className="material-icons mr-2 text-primary">timer</span>
-          Dwell Time Analysis
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold flex items-center">
+            <span className="material-icons mr-2 text-primary">timer</span>
+            Dwell Time Analysis
+          </h2>
+          
+          {forecastLabels.length > 0 && (
+            <button 
+              onClick={toggleForecast}
+              className={`text-xs px-2 py-1 rounded-full transition-all ${
+                showForecast 
+                  ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                  : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              <span className="material-icons text-xs mr-1 align-text-bottom">
+                {showForecast ? 'visibility' : 'visibility_off'}
+              </span>
+              Forecast
+            </button>
+          )}
+        </div>
 
         <div className="mb-4 flex flex-wrap gap-2">
           {locationStats.map((loc) => (
@@ -177,7 +269,9 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }
 
         <div className="flex items-center text-xs text-gray-500 mt-2">
           <span className="material-icons text-xs mr-1">info</span>
-          Average time visitors spend at each location
+          {showForecast && forecastLabels.length > 0 
+            ? "Average dwell time with AI-powered forecasts (striped bars)" 
+            : "Average time visitors spend at each location"}
         </div>
       </div>
     </div>
