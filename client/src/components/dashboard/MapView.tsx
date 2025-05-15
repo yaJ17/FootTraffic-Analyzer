@@ -1,11 +1,17 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
-import L from 'leaflet';
+import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-// We're now loading the heat plugin from the index.html file
+import 'leaflet.heat/dist/leaflet-heat.js';
 
 // Fix for Leaflet marker icon issue in React
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+let DefaultIcon = L.icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
 
 // Define the global L.heatLayer function if typings don't exist
 declare global {
@@ -79,17 +85,6 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) =>
     // Create map after a slight delay to ensure DOM is ready
     const initMapTimer = setTimeout(() => {
       try {
-        // Fix for marker icons in React
-        const DefaultIcon = L.icon({
-          iconUrl: icon,
-          shadowUrl: iconShadow,
-          iconSize: [25, 41],
-          iconAnchor: [12, 41]
-        });
-        
-        // Set this before creating any markers
-        L.Marker.prototype.options.icon = DefaultIcon;
-        
         // Set default center and zoom
         const mapCenter = center ? [center.lat, center.lon] : [manilaCoordinates.lat, manilaCoordinates.lng];
         const mapZoom = zoom || 11;
@@ -333,10 +328,6 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) =>
               .slice(0, 6)
               .map(marker => (
                 <div key={marker.id} className="flex items-center p-2 bg-gray-50 rounded">
-                  <div 
-                    className="w-3 h-3 rounded-full mr-2" 
-                    style={{ backgroundColor: marker.color, opacity: 0.9 }}
-                  ></div>
                   <span className="text-sm font-medium">{marker.name}</span>
                   <span className="ml-auto text-sm font-bold">{marker.count}</span>
                 </div>
