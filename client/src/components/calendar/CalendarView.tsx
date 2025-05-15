@@ -1,35 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar } from "@/components/ui/calendar";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Task {
-  id: number;
+  id: string;
   title: string;
-  start: string;
-  end?: string;
+  start: Date;
+  end?: Date;
   color: string;
   type: 'event' | 'task' | 'reminder';
+  description?: string;
 }
 
 interface CalendarViewProps {
   tasks: Task[];
   onAddTask: (task: Omit<Task, 'id'>) => void;
-  onDeleteTask?: (taskId: number) => void;
+  onDeleteTask?: (taskId: string) => void;
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onAddTask, onDeleteTask }) => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [view, setView] = useState<'month' | 'agenda'>('month');
+  const [tasksByDate, setTasksByDate] = useState<Record<string, Task[]>>({});
+  const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
   
-  // Group tasks by date
-  const tasksByDate: Record<string, Task[]> = {};
-  
-  tasks.forEach(task => {
-    const dateKey = new Date(task.start).toISOString().split('T')[0];
-    if (!tasksByDate[dateKey]) {
-      tasksByDate[dateKey] = [];
-    }
-    tasksByDate[dateKey].push(task);
-  });
+  // Update tasksByDate whenever tasks prop changes
+  useEffect(() => {
+    const groupedTasks: Record<string, Task[]> = {};
+    tasks.forEach(task => {
+      const dateKey = new Date(task.start).toISOString().split('T')[0];
+      if (!groupedTasks[dateKey]) {
+        groupedTasks[dateKey] = [];
+      }
+      groupedTasks[dateKey].push(task);
+    });
+    setTasksByDate(groupedTasks);
+  }, [tasks]);
 
   // Generate days for the calendar grid
   const generateDays = () => {
@@ -82,107 +88,92 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onAddTask, onDeleteT
     return [...prevMonthDays, ...currentMonthDays, ...nextMonthDays];
   };
 
-  const days = generateDays();
-  const weekdays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const handleDeleteTask = (taskId: string) => {
+    setDeleteTaskId(taskId);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTaskId && onDeleteTask) {
+      onDeleteTask(deleteTaskId);
+      setDeleteTaskId(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteTaskId(null);
+  };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4">
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center">
-          <button className="px-3 py-1 bg-neutral rounded border mr-2">Today</button>
-          <div className="flex mr-2">
-            <button 
-              className="px-1 py-1 border border-r-0 rounded-l"
-              onClick={() => {
-                if (date) {
-                  const newDate = new Date(date);
-                  newDate.setMonth(newDate.getMonth() - 1);
-                  setDate(newDate);
-                }
-              }}
-            >
-              <span className="material-icons text-sm">chevron_left</span>
-            </button>
-            <button 
-              className="px-1 py-1 border rounded-r"
-              onClick={() => {
-                if (date) {
-                  const newDate = new Date(date);
-                  newDate.setMonth(newDate.getMonth() + 1);
-                  setDate(newDate);
-                }
-              }}
-            >
-              <span className="material-icons text-sm">chevron_right</span>
-            </button>
-          </div>
-          <h2 className="text-lg font-bold">
-            {date ? date.toLocaleString('default', { month: 'long', year: 'numeric' }) : ''}
-          </h2>
+    <div className="col-span-3">
+      <div className="bg-white rounded-lg shadow-sm">
+        <div className="grid grid-cols-7 gap-px bg-gray-200">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+            <div key={day} className="bg-primary text-white font-semibold p-2 text-center">
+              {day}
+            </div>
+          ))}
         </div>
         
-        <div className="flex">
-          <button 
-            className={`px-3 py-1 rounded border mr-1 ${view === 'month' ? 'bg-primary text-white' : 'bg-white'}`}
-            onClick={() => setView('month')}
-          >
-            Month
-          </button>
-          <button 
-            className={`px-3 py-1 rounded border mr-1 ${view === 'agenda' ? 'bg-primary text-white' : 'bg-white'}`}
-            onClick={() => setView('agenda')}
-          >
-            Agenda
-          </button>
+        <div className="grid grid-cols-7 gap-px bg-gray-200">
+          {generateDays().map((day, idx) => {
+            const dateStr = day.date.toISOString().split('T')[0];
+            const tasksForDay = tasksByDate[dateStr] || [];
+            
+            return (
+              <div 
+                key={idx} 
+                className={`min-h-40 border p-1 ${day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'}`}
+              >
+                <div className={`text-right mb-1 ${day.isCurrentMonth ? 'text-gray-900' : 'text-gray-500'}`}>
+                  {day.date.getDate()}
+                </div>
+                {tasksForDay.map((task) => (
+                  <div 
+                    key={task.id}
+                    className={`${task.color} px-2 py-1 text-xs rounded mb-1 border-l-4 border-${task.color}-500 flex items-center group hover:bg-opacity-80 transition-all`}
+                  >
+                    <div className="flex-1 truncate">
+                      <span className="font-bold">
+                        {task.start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      </span>
+                      <span className="ml-1">{task.title}</span>
+                    </div>
+                    {onDeleteTask && (
+                      <button 
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-red-500"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteTask(task.id);
+                        }}
+                      >
+                        <span className="material-icons text-sm">delete</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       </div>
-      
-      <div className="grid grid-cols-7 gap-1 mb-1">
-        {weekdays.map((day) => (
-          <div key={day} className="text-center py-2 font-medium">{day}</div>
-        ))}
-      </div>
-      
-      <div className="grid grid-cols-7 gap-1 border">
-        {days.map((day, idx) => {
-          const dateStr = day.date.toISOString().split('T')[0];
-          const tasksForDay = tasksByDate[dateStr] || [];
-          
-          return (
-            <div 
-              key={idx} 
-              className={`min-h-40 border p-1 ${day.isCurrentMonth ? '' : 'bg-gray-50'}`}
-            >
-              <div className={`text-right mb-1 ${day.isCurrentMonth ? 'text-gray-900' : 'text-gray-500'}`}>
-                {day.date.getDate()}
-              </div>
-              {tasksForDay.map((task) => (
-                <div 
-                  key={task.id}
-                  className={`${task.color} px-2 py-1 text-xs rounded mb-1 border-l-4 border-${task.color}-500 flex items-center`}
-                >
-                  <div className="flex-1">
-                    <span className="font-bold">
-                      {new Date(task.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                    </span> {task.title}
-                  </div>
-                  {onDeleteTask && (
-                    <button 
-                      className="opacity-70 hover:opacity-100 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteTask(task.id);
-                      }}
-                    >
-                      <span className="material-icons text-sm">delete</span>
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteTaskId !== null} onOpenChange={() => setDeleteTaskId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this task? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelDelete}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-500 hover:bg-red-600">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

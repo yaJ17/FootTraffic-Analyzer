@@ -4,3 +4,6 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+flask_backend/serviceAccountKey.json
+__pycache__/
+*.pyc

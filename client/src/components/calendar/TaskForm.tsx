@@ -12,8 +12,9 @@ import { CalendarIcon, Clock } from "lucide-react";
 interface TaskFormProps {
   onAddTask: (task: {
     title: string;
-    date: string;
-    type: string;
+    start: Date;
+    end?: Date;
+    type: 'event' | 'task' | 'reminder';
     description: string;
     color: string;
   }) => void;
@@ -40,14 +41,19 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
       color = 'bg-blue-100';
     }
     
-    // Format the date with time
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    const dateTimeStr = `${dateStr}T${time}:00`;
+    // Create Date objects for start and end times
+    const [hours, minutes] = time.split(':').map(Number);
+    const startDate = new Date(selectedDate);
+    startDate.setHours(hours, minutes, 0, 0);
+    
+    const endDate = new Date(startDate);
+    endDate.setHours(endDate.getHours() + 1);
     
     onAddTask({
       title,
-      date: dateTimeStr,
-      type,
+      start: startDate,
+      end: endDate,
+      type: type.toLowerCase() as 'event' | 'task' | 'reminder',
       description,
       color
     });

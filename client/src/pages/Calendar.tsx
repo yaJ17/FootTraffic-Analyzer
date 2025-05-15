@@ -1,46 +1,98 @@
-import React, { useState } from 'react';
+import React from 'react';
 import CalendarView from '@/components/calendar/CalendarView';
 import TaskForm from '@/components/calendar/TaskForm';
-import { useQuery } from '@tanstack/react-query';
+import { addCalendarTask, getCalendarTasks, deleteCalendarTask } from '@/lib/firebase';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
 
 interface Task {
-  id: number;
+  id: string;
   title: string;
-  start: string;
-  end?: string;
+  start: Date;
+  end?: Date;
   color: string;
   type: 'event' | 'task' | 'reminder';
+  description?: string;
 }
 
 const Calendar: React.FC = () => {
-  const { data: calendarData, isLoading } = useQuery({
-    queryKey: ['/api/calendar'],
-    queryFn: () => fetch('/api/calendar').then(res => res.json()),
-  });
-  
-  const [tasks, setTasks] = useState<Task[]>([]);
-  
-  // When calendar data is loaded, set tasks
-  React.useEffect(() => {
-    if (calendarData?.tasks) {
-      setTasks(calendarData.tasks);
-    }
-  }, [calendarData]);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const handleAddTask = (task: any) => {
-    const newTask: Task = {
-      id: Date.now(), // Simple unique ID for demo
-      title: task.title,
-      start: task.date,
-      color: task.color,
-      type: task.type.toLowerCase() as 'event' | 'task' | 'reminder'
-    };
-    
-    setTasks([...tasks, newTask]);
+  // Fetch calendar tasks
+  const { data: calendarData, isLoading } = useQuery({
+    queryKey: ['calendar-tasks'],
+    queryFn: async () => {
+      try {
+        const tasks = await getCalendarTasks();
+        return { tasks };
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+        throw new Error('Failed to fetch calendar tasks');
+      }
+    },
+    staleTime: 1000 * 60 * 5, // Consider data fresh for 5 minutes
+  });
+
+  // Add task mutation
+  const addTaskMutation = useMutation({
+    mutationFn: async (task: Omit<Task, 'id'>) => {
+      try {
+        const newTask = await addCalendarTask(task);
+        return newTask;
+      } catch (error) {
+        console.error('Error adding task:', error);
+        throw new Error('Failed to add task');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] });
+      toast({
+        title: "Task Added",
+        description: "Your task has been added successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add task",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete task mutation
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      try {
+        await deleteCalendarTask(taskId);
+      } catch (error) {
+        console.error('Error deleting task:', error);
+        throw new Error('Failed to delete task');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] });
+      toast({
+        title: "Task Deleted",
+        description: "Your task has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete task",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAddTask = async (task: Omit<Task, 'id'>) => {
+    addTaskMutation.mutate(task);
   };
-  
-  const handleDeleteTask = (taskId: number) => {
-    setTasks(tasks.filter(task => task.id !== taskId));
+
+  const handleDeleteTask = async (taskId: string) => {
+    deleteTaskMutation.mutate(taskId);
   };
 
   if (isLoading) {
@@ -69,47 +121,48 @@ const Calendar: React.FC = () => {
               <span className="material-icons mr-2 text-primary">event_note</span>
               Upcoming Tasks
             </h3>
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
-              {tasks.length === 0 ? (
-                <p className="text-gray-500 text-sm italic">No upcoming tasks</p>
-              ) : (
-                tasks
-                  .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-                  .slice(0, 5)
-                  .map(task => (
-                    <div key={task.id} className="border-l-4 pl-3 py-2 group relative" style={{ borderColor: task.color.includes('green') ? '#10b981' : task.color.includes('yellow') ? '#f59e0b' : '#3b82f6' }}>
-                      <div className="flex justify-between items-start">
-                        <p className="font-medium">{task.title}</p>
-                        <button 
-                          className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleDeleteTask(task.id)}
-                        >
-                          <span className="material-icons text-sm">delete</span>
-                        </button>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <span className="material-icons text-xs mr-1">event</span>
-                        <span>{new Date(task.start).toLocaleDateString()}</span>
-                        <span className="mx-2">•</span>
-                        <span className="bg-gray-100 px-2 py-0.5 rounded text-xs">
-                          {task.type.charAt(0).toUpperCase() + task.type.slice(1)}
-                        </span>
-                      </div>
+            
+            {(!calendarData?.tasks || calendarData.tasks.length === 0) ? (
+              <p className="text-gray-500 text-sm italic">No upcoming tasks</p>
+            ) : (
+              calendarData.tasks
+                .sort((a: Task, b: Task) => a.start.getTime() - b.start.getTime())
+                .slice(0, 5)
+                .map((task: Task) => (
+                  <div
+                    key={task.id}
+                    className="border-l-4 pl-3 py-2 mb-2 group relative hover:bg-gray-50 transition-colors rounded"
+                    style={{ borderColor: task.color }}
+                  >
+                    <div className="flex justify-between items-start">
+                      <p className="font-medium">{task.title}</p>
+                      <button 
+                        className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => handleDeleteTask(task.id)}
+                      >
+                        <span className="material-icons text-sm">delete</span>
+                      </button>
                     </div>
-                  ))
-              )}
-            </div>
+                    <div className="flex items-center text-sm text-gray-500">
+                      <span className="material-icons text-xs mr-1">event</span>
+                      <span>{task.start.toLocaleDateString()} {task.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="mx-2">•</span>
+                      <span className="bg-gray-100 px-2 py-0.5 rounded text-xs">
+                        {task.type.charAt(0).toUpperCase() + task.type.slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                ))
+            )}
           </div>
         </div>
-        
+
         {/* Main calendar - takes 3/4 of space */}
-        <div className="md:col-span-3">
-          <CalendarView 
-            tasks={tasks}
-            onAddTask={handleAddTask}
-            onDeleteTask={handleDeleteTask}
-          />
-        </div>
+        <CalendarView 
+          tasks={calendarData?.tasks || []}
+          onAddTask={handleAddTask}
+          onDeleteTask={handleDeleteTask}
+        />
       </div>
     </div>
   );

@@ -118,13 +118,13 @@ const SignUp: React.FC = () => {
           />
         </div>
         
-        <div className="w-full md:w-1/2 flex flex-col p-8 justify-center items-center bg-gradient-to-r from-blue-500 to-purple-600">
+        <div className="w-full md:w-1/2 flex flex-col p-8 justify-center items-center">
           <div className="flex items-center mb-8">
-            <Logo textColor="text-white" />
+            <Logo textColor="text-black" />
           </div>
           <div className="max-w-md w-full">
-            <h2 className="text-3xl font-bold mb-2 text-center text-white drop-shadow-md">Let's get started</h2>
-            <p className="text-white mb-8 text-center drop-shadow-md">Enter your details to create an account</p>
+            <h2 className="text-3xl font-bold mb-2 text-center text-black drop-shadow-md">Let's get started</h2>
+            <p className="text-gray-600 mb-8 text-center drop-shadow-md">Enter your details to create an account</p>
             
             <form className="w-full" onSubmit={handleEmailSignUp}>
               <div className="mb-4">

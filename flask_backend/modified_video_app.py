@@ -13,11 +13,32 @@ import logging
 import yt_dlp
 from urllib.parse import urlparse, parse_qs
 from video_face_recognition import VideoFaceRecognition
+from data_management import storage
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.units import inch
+from io import BytesIO
 
 location = None
 frame_count = None
 face_recognition_active = False
 face_recognition_system = None
+video_path = None
+output_frame = None
+processing_complete = False
+stream_lock = threading.Lock()
+current_stats = {
+    "people_count": 0,
+    "avg_dwell_time": 0,
+    "highest_dwell_time": 0,
+    "location": "Divisoria",
+    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+}
+video_initialization_error = None
+model = None
+current_video_title = None
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -48,17 +69,7 @@ ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Global variables for video streaming
-video_path = None
-output_frame = None
-processing_complete = False
 stream_lock = threading.Lock()  # Add lock for thread safety
-current_stats = {
-    "people_count": 0,
-    "avg_dwell_time": 0,
-    "highest_dwell_time": 0,
-    "location": "Divisoria",
-    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-}
 video_initialization_error = None
 model = None
 current_video_title = None
@@ -100,62 +111,45 @@ def initialize_video(video_file):
 
 # Stats exporter class remains unchanged
 class StatsExporter:
-    def __init__(self, location="Divisoria", filename="tracking_statistics.json"):
+    def __init__(self, location="Divisoria", export_interval=3):
         self.location = location
         self.last_export_time = time.time()
-        self.export_interval = 3 
-        self.filename = filename
+        self.export_interval = export_interval
         
-        # Initialize or load existing stats file
-        if not os.path.exists(self.filename):
-            self.all_stats = {"records": []}
-            self._save_stats()
-        else:
-            with open(self.filename, 'r') as f:
-                self.all_stats = json.load(f)
-                if "records" not in self.all_stats:
-                    self.all_stats["records"] = []
-    
     def should_export(self, current_time):
         return (current_time - self.last_export_time) >= self.export_interval
     
     def export_stats(self, people_count, avg_dwell_time):
+        global current_stats
         current_datetime = datetime.now()
         
         # Set avg_dwell_time to 0 if people_count is 0
         if people_count == 0:
             avg_dwell_time = 0
             
-        new_stats = {
-            "location": self.location,
-            "date": current_datetime.strftime("%m/%d/%Y"),
-            "day": current_datetime.strftime("%A"),
-            "time": current_datetime.strftime("%H:%M:%S"),
-            "timestamp": current_datetime.strftime("%Y%m%d_%H%M%S"),
-            "people_count": people_count,
-            "average_dwell_time": round(avg_dwell_time, 2) if avg_dwell_time else 0
-        }
-        
-        self.all_stats["records"].append(new_stats)
-        self._save_stats()
-        self.last_export_time = time.time()
-        
-        # Update global current stats
-        global current_stats
-        current_stats = {
-            "people_count": people_count,
-            "avg_dwell_time": round(avg_dwell_time, 2) if avg_dwell_time else 0,
-            "highest_dwell_time": current_stats["highest_dwell_time"],
-            "location": self.location,
-            "timestamp": current_datetime.strftime("%Y-%m-%d %H:%M:%S")
-        }
-        
-        return self.filename
-    
-    def _save_stats(self):
-        os.makedirs(os.path.dirname(self.filename) if os.path.dirname(self.filename) else '.', exist_ok=True)
-        with open(self.filename, 'w') as f:
-            json.dump(self.all_stats, f, indent=4)
+        # Add data to Firestore
+        try:
+            new_stats = storage.add_foot_traffic_data({
+                'people_count': people_count,
+                'avg_dwell_time': round(avg_dwell_time, 2) if avg_dwell_time else 0,
+                'highest_dwell_time': current_stats["highest_dwell_time"],
+                'location': self.location
+            })
+            
+            # Update current stats
+            current_stats.update({
+                "people_count": people_count,
+                "avg_dwell_time": round(avg_dwell_time, 2) if avg_dwell_time else 0,
+                "highest_dwell_time": current_stats["highest_dwell_time"],
+                "location": self.location,
+                "timestamp": current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+            })
+            
+            self.last_export_time = time.time()
+            return True
+        except Exception as e:
+            logger.error(f"Error exporting stats to Firestore: {e}")
+            return False
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -819,6 +813,364 @@ def toggle_face_recognition():
             "success": False,
             "error": str(e)
         }), 500
+
+# Add new API routes for data management
+@app.route('/api/dashboard', methods=['GET'])
+def get_dashboard():
+    """Get dashboard data"""
+    try:
+        dashboard_data = storage.get_foot_traffic_summary()
+        return jsonify(dashboard_data)
+    except Exception as e:
+        logger.error(f"Failed to fetch dashboard data: {e}")
+        return jsonify({"message": "Failed to fetch dashboard data"}), 500
+
+@app.route('/api/statistics', methods=['GET'])
+def get_statistics():
+    """Get statistics data"""
+    try:
+        statistics_data = storage.get_statistics_data()
+        return jsonify(statistics_data)
+    except Exception as e:
+        logger.error(f"Failed to fetch statistics data: {e}")
+        return jsonify({"message": "Failed to fetch statistics data"}), 500
+
+@app.route('/api/reports', methods=['GET'])
+def get_reports():
+    """Get reports data"""
+    try:
+        barangays = storage.get_barangay_reports()
+        interpretations = storage.get_report_interpretations()
+        
+        # Find interpretations for specific locations
+        manila_cathedral = next((i for i in interpretations if i.get('locationId') == 1), None)
+        divisoria_market = next((i for i in interpretations if i.get('locationId') == 2), None)
+        fort_santiago = next((i for i in interpretations if i.get('locationId') == 3), None)
+        
+        reports_data = {
+            "barangays": barangays,
+            "forecastInterpretation": {
+                "manilaCathedral": manila_cathedral.get('interpretation', "No interpretation available") if manila_cathedral else "No interpretation available",
+                "divisoriaMarket": divisoria_market.get('interpretation', "No interpretation available") if divisoria_market else "No interpretation available",
+                "fortSantiago": fort_santiago.get('interpretation', "No interpretation available") if fort_santiago else "No interpretation available"
+            }
+        }
+        
+        return jsonify(reports_data)
+    except Exception as e:
+        logger.error(f"Failed to fetch reports data: {e}")
+        return jsonify({"message": "Failed to fetch reports data"}), 500
+
+@app.route('/api/calendar', methods=['GET'])
+def get_calendar():
+    """Get calendar events"""
+    try:
+        logger.info("Fetching calendar events...")
+        events = storage.get_calendar_events()
+        logger.info(f"Found {len(events)} events")
+        
+        tasks = [{
+            'id': event['id'],
+            'title': event['title'],
+            'start': event['start'],
+            'end': event.get('end'),
+            'color': event.get('color'),
+            'type': event.get('type'),
+            'description': event.get('description', '')
+        } for event in events]
+        
+        logger.info(f"Returning {len(tasks)} tasks")
+        return jsonify({"tasks": tasks})
+    except Exception as e:
+        logger.error(f"Failed to fetch calendar data: {e}")
+        return jsonify({"message": "Failed to fetch calendar data", "error": str(e)}), 500
+
+@app.route('/api/calendar', methods=['POST'])
+def add_calendar_event():
+    """Add a new calendar event"""
+    try:
+        event_data = request.get_json()
+        logger.info(f"Received calendar event data: {event_data}")
+        
+        if not event_data:
+            return jsonify({"success": False, "message": "No event data provided"}), 400
+            
+        required_fields = ['title', 'start']
+        missing_fields = [field for field in required_fields if field not in event_data]
+        if missing_fields:
+            return jsonify({
+                "success": False,
+                "message": f"Missing required fields: {', '.join(missing_fields)}"
+            }), 400
+            
+        try:
+            logger.info("Adding calendar event to Firestore...")
+            new_event = storage.add_calendar_event(event_data)
+            logger.info(f"Successfully added event: {new_event}")
+            return jsonify({
+                "success": True,
+                "event": new_event
+            })
+        except ValueError as e:
+            logger.error(f"Validation error: {e}")
+            return jsonify({
+                "success": False,
+                "message": str(e)
+            }), 400
+        except Exception as e:
+            logger.error(f"Error saving event: {e}")
+            raise
+            
+    except Exception as e:
+        logger.error(f"Failed to add calendar event: {e}")
+        return jsonify({
+            "success": False,
+            "message": "Failed to add calendar event",
+            "error": str(e)
+        }), 500
+
+@app.route('/api/profile', methods=['GET'])
+def get_profile():
+    """Get user profile"""
+    try:
+        # For demo purposes, use a default user ID
+        user_id = 1
+        profile = storage.get_profile(user_id)
+        
+        if profile:
+            # Get supervisor data if present
+            supervisor_data = None
+            if profile.get('supervisorId'):
+                supervisor = storage.get_profile(profile['supervisorId'])
+                if supervisor:
+                    supervisor_data = {
+                        'name': supervisor['fullName'],
+                        'phone': supervisor['phone'],
+                        'photoUrl': supervisor['photoUrl']
+                    }
+            
+            return jsonify({
+                'fullName': profile['fullName'],
+                'title': profile['title'],
+                'phone': profile['phone'],
+                'address': profile['address'],
+                'email': profile['email'],
+                'biography': profile['biography'],
+                'photoUrl': profile['photoUrl'],
+                'supervisor': supervisor_data
+            })
+        else:
+            return jsonify({"message": "Profile not found"}), 404
+    except Exception as e:
+        logger.error(f"Failed to fetch profile data: {e}")
+        return jsonify({"message": "Failed to fetch profile data"}), 500
+
+@app.route('/api/profile', methods=['PATCH'])
+def update_profile():
+    """Update user profile"""
+    try:
+        # For demo purposes, use a default user ID
+        user_id = 1
+        profile_data = request.get_json()
+        if not profile_data:
+            return jsonify({"message": "No profile data provided"}), 400
+            
+        updated_profile = storage.update_profile(user_id, profile_data)
+        if updated_profile:
+            return jsonify(updated_profile)
+        else:
+            return jsonify({"message": "Profile not found"}), 404
+    except Exception as e:
+        logger.error(f"Failed to update profile: {e}")
+        return jsonify({"message": "Failed to update profile"}), 500
+
+@app.route('/api/locations', methods=['GET'])
+def get_locations():
+    """Get all locations"""
+    try:
+        locations = storage.get_locations()
+        return jsonify(locations)
+    except Exception as e:
+        logger.error(f"Failed to fetch locations: {e}")
+        return jsonify({"message": "Failed to fetch locations"}), 500
+
+@app.route('/api/calendar/<event_id>', methods=['DELETE'])
+def delete_calendar_event(event_id):
+    """Delete a calendar event"""
+    try:
+        logger.info(f"Deleting calendar event: {event_id}")
+        storage.delete_calendar_event(event_id)
+        logger.info("Event deleted successfully")
+        return jsonify({"message": "Event deleted successfully"})
+    except ValueError as e:
+        logger.error(f"Event not found: {e}")
+        return jsonify({"message": str(e)}), 404
+    except Exception as e:
+        logger.error(f"Failed to delete calendar event: {e}")
+        return jsonify({"message": "Failed to delete calendar event", "error": str(e)}), 500
+
+@app.route('/api/reports/pdf', methods=['POST'])
+def generate_pdf_report():
+    """Generate a PDF report"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"message": "No data provided"}), 400
+
+        selected_locations = data.get('locations', ['all'])
+        start_date = data.get('startDate')
+        end_date = data.get('endDate')
+        
+        # Get reports data
+        try:
+            barangays = storage.get_barangay_reports()
+            interpretations = storage.get_report_interpretations()
+            if not barangays:
+                return jsonify({"message": "No report data available"}), 404
+        except Exception as e:
+            logger.error(f"Error fetching report data: {e}")
+            return jsonify({"message": "Failed to fetch report data"}), 500
+        
+        # Filter reports based on selected locations
+        if 'all' not in selected_locations:
+            barangays = [b for b in barangays if b['name'].lower().replace(' ', '_') in selected_locations]
+            if not barangays:
+                return jsonify({"message": "No data available for selected locations"}), 404
+        
+        # Create PDF
+        buffer = BytesIO()
+        
+        try:
+            doc = SimpleDocTemplate(
+                buffer,
+                pagesize=A4,
+                rightMargin=72,
+                leftMargin=72,
+                topMargin=72,
+                bottomMargin=72
+            )
+            
+            # Get styles
+            styles = getSampleStyleSheet()
+            elements = []
+            
+            # Title
+            title_style = ParagraphStyle(
+                'CustomTitle',
+                parent=styles['Heading1'],
+                fontSize=24,
+                spaceAfter=30,
+                textColor=colors.HexColor('#1a56db')
+            )
+            elements.append(Paragraph("Foot Traffic Analysis Report", title_style))
+            
+            # Date Range
+            date_style = ParagraphStyle(
+                'DateInfo',
+                parent=styles['Normal'],
+                fontSize=12,
+                spaceAfter=20,
+                textColor=colors.HexColor('#666666')
+            )
+            date_text = f"Date Range: {start_date if start_date else 'All'} to {end_date if end_date else 'All'}"
+            elements.append(Paragraph(date_text, date_style))
+            
+            # Table style
+            table_style = TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a56db')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')])
+            ])
+            
+            # Table data
+            table_data = [['Location', 'Population', 'Avg. Foot Traffic', 'Total Foot Traffic', 'Avg. Dwell Time', 'Total Dwell Time']]
+            for report in barangays:
+                table_data.append([
+                    report['name'],
+                    str(report.get('population', 0)),
+                    str(report.get('avgFootTraffic', 0)),
+                    str(report.get('totalFootTraffic', 0)),
+                    str(report.get('avgDwellTime', '0:00')),
+                    str(report.get('totalDwellTime', '0:00'))
+                ])
+            
+            # Create and style the table
+            table = Table(table_data, repeatRows=1)
+            table.setStyle(table_style)
+            elements.append(table)
+            elements.append(Spacer(1, 30))
+            
+            # Forecast Interpretations
+            section_style = ParagraphStyle(
+                'Section',
+                parent=styles['Heading2'],
+                fontSize=18,
+                spaceAfter=20,
+                textColor=colors.HexColor('#1a56db')
+            )
+            elements.append(Paragraph("Forecast Interpretation", section_style))
+            
+            location_style = ParagraphStyle(
+                'Location',
+                parent=styles['Normal'],
+                fontSize=14,
+                spaceAfter=10,
+                textColor=colors.HexColor('#1a56db'),
+                fontName='Helvetica-Bold'
+            )
+            
+            text_style = ParagraphStyle(
+                'Text',
+                parent=styles['Normal'],
+                fontSize=12,
+                spaceAfter=20,
+                textColor=colors.black
+            )
+            
+            # Add interpretations
+            for location_id, name in [(1, 'Manila Cathedral'), (2, 'Divisoria Market'), (3, 'Fort Santiago')]:
+                if 'all' in selected_locations or name.lower().replace(' ', '_') in selected_locations:
+                    interpretation = next((i for i in interpretations if i.get('locationId') == location_id), None)
+                    elements.append(Paragraph(name, location_style))
+                    elements.append(Paragraph(
+                        interpretation.get('interpretation', "No interpretation available") if interpretation else "No interpretation available",
+                        text_style
+                    ))
+                    elements.append(Spacer(1, 10))
+            
+            # Build PDF
+            doc.build(elements)
+            buffer.seek(0)
+            
+            # Generate unique filename
+            filename = f"FootTrafficReport_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            
+            # Send the PDF file
+            return send_file(
+                buffer,
+                mimetype='application/pdf',
+                as_attachment=True,
+                download_name=filename,
+                max_age=0
+            )
+            
+        except Exception as e:
+            logger.error(f"Error generating PDF: {e}")
+            return jsonify({"message": f"Failed to generate PDF: {str(e)}"}), 500
+        
+    except Exception as e:
+        logger.error(f"Failed to process PDF generation request: {e}")
+        return jsonify({"message": f"Failed to generate PDF report: {str(e)}"}), 500
 
 if __name__ == '__main__':
     start_flask_server()
