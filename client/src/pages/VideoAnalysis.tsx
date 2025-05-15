@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { FiUpload, FiVideo, FiBarChart2, FiClock, FiUsers, FiMapPin } from 'react-icons/fi';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { useFootTraffic } from "@/context/FootTrafficContext";
 
 interface Stats {
   people_count: number;
@@ -42,10 +43,13 @@ export default function VideoAnalysis() {
   );
   const [newYoutubeLink, setNewYoutubeLink] = useState<string>('');
   
+  // Use the FootTrafficContext
+  const { flaskServerUrl: contextFlaskUrl, updateAnalysisStats } = useFootTraffic();
+  
   // Use the Replit domain with port 5003 for the Flask server
-  const flaskServerUrl = window.location.hostname.includes('replit') 
+  const flaskServerUrl = contextFlaskUrl || (window.location.hostname.includes('replit') 
     ? `https://${window.location.hostname.replace('5000', '5001')}` 
-    : 'http://localhost:5001';
+    : 'http://localhost:5001');
   const { toast } = useToast();
 
   // Check if Flask server is running on component mount
@@ -73,6 +77,13 @@ export default function VideoAnalysis() {
       return () => clearInterval(interval);
     }
   }, [isYoutubeAnalyzing]);
+
+  // Update the FootTrafficContext with stats whenever they change
+  useEffect(() => {
+    if (stats) {
+      updateAnalysisStats(stats);
+    }
+  }, [stats, updateAnalysisStats]);
 
   const checkFlaskServer = async () => {
     try {

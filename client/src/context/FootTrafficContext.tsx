@@ -23,6 +23,7 @@ export interface LocationMarker {
 
 export interface FootTrafficContextType {
   videoStats: VideoStats | null;
+  analysisVideoStats: VideoStats | null;
   mapData: {
     center: { lat: number; lon: number };
     zoom: number;
@@ -52,6 +53,7 @@ export interface FootTrafficContextType {
   flaskServerUrl: string;
   totalPeopleCount: number;
   fetchVideoStats: () => Promise<void>;
+  updateAnalysisStats: (stats: VideoStats) => void;
 }
 
 const FootTrafficContext = createContext<FootTrafficContextType | null>(null);
@@ -66,6 +68,7 @@ export const useFootTraffic = () => {
 
 export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [videoStats, setVideoStats] = useState<VideoStats | null>(null);
+  const [analysisVideoStats, setAnalysisVideoStats] = useState<VideoStats | null>(null);
   const [mapData, setMapData] = useState<FootTrafficContextType['mapData']>(null);
   const [timeSeriesData, setTimeSeriesData] = useState<FootTrafficContextType['timeSeriesData']>(null);
   const [dashboardStaticData] = useState(getDashboardData());
@@ -75,6 +78,104 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // Initialize with default data
   const [peakHoursData, setPeakHoursData] = useState(dashboardStaticData.defaultData.peakHours);
   const [weeklySummaryData, setWeeklySummaryData] = useState(dashboardStaticData.defaultData.weeklySummary);
+
+  // Function to update analysis stats from VideoAnalysis component
+  const updateAnalysisStats = (stats: VideoStats) => {
+    setAnalysisVideoStats(stats);
+    
+    // Add this location's stats to the map data and time series data
+    if (stats && mapData && timeSeriesData) {
+      // Create a new marker for this location if it doesn't exist
+      const locationExists = mapData.markers.some(marker => 
+        marker.name === getCameraName(stats.location));
+      
+      if (!locationExists) {
+        // Add a new location to the map with appropriate coordinates
+        const newMarker: LocationMarker = {
+          id: `analysis-${Date.now()}`,
+          name: getCameraName(stats.location),
+          // Assign a position near Manila
+          lat: 14.5995 + (Math.random() * 0.1 - 0.05),
+          lon: 120.9842 + (Math.random() * 0.1 - 0.05),
+          color: '#3b82f6', // Blue color for analysis location
+          count: stats.people_count
+        };
+        
+        setMapData({
+          ...mapData,
+          markers: [...mapData.markers, newMarker]
+        });
+        
+        // Also add to time series data
+        const now = new Date();
+        const currentHour = `${now.getHours()}:00`;
+        
+        // Check if we need to add this timeLabel
+        if (timeSeriesData.timeLabels[timeSeriesData.timeLabels.length - 1] !== currentHour) {
+          // Add the new time point
+          const newTimeLabels = [...timeSeriesData.timeLabels.slice(1), currentHour];
+          
+          // Add the new location to time series
+          const newLocation = {
+            name: getCameraName(stats.location),
+            color: '#3b82f6',
+            trafficValues: Array(newTimeLabels.length - 1).fill(0).concat([stats.people_count]),
+            dwellTimeValues: Array(newTimeLabels.length - 1).fill(0).concat([stats.avg_dwell_time])
+          };
+          
+          setTimeSeriesData({
+            timeLabels: newTimeLabels,
+            locations: [...timeSeriesData.locations, newLocation]
+          });
+        } else {
+          // Just update the existing time series data with the new location
+          const newLocation = {
+            name: getCameraName(stats.location),
+            color: '#3b82f6',
+            trafficValues: Array(timeSeriesData.timeLabels.length - 1).fill(0).concat([stats.people_count]),
+            dwellTimeValues: Array(timeSeriesData.timeLabels.length - 1).fill(0).concat([stats.avg_dwell_time])
+          };
+          
+          setTimeSeriesData({
+            timeLabels: timeSeriesData.timeLabels,
+            locations: [...timeSeriesData.locations, newLocation]
+          });
+        }
+      } else {
+        // Update existing location's stats
+        setMapData({
+          ...mapData,
+          markers: mapData.markers.map(marker => {
+            if (marker.name === getCameraName(stats.location)) {
+              return { ...marker, count: stats.people_count };
+            }
+            return marker;
+          })
+        });
+        
+        // Update time series data for this location
+        setTimeSeriesData({
+          ...timeSeriesData,
+          locations: timeSeriesData.locations.map(loc => {
+            if (loc.name === getCameraName(stats.location)) {
+              // Update the latest values
+              const updatedTrafficValues = [...loc.trafficValues];
+              const updatedDwellTimeValues = [...loc.dwellTimeValues];
+              updatedTrafficValues[updatedTrafficValues.length - 1] = stats.people_count;
+              updatedDwellTimeValues[updatedDwellTimeValues.length - 1] = stats.avg_dwell_time;
+              
+              return {
+                ...loc,
+                trafficValues: updatedTrafficValues,
+                dwellTimeValues: updatedDwellTimeValues
+              };
+            }
+            return loc;
+          })
+        });
+      }
+    }
+  };
 
   // Manila locations for map visualization
   const manilaLocations = [
@@ -197,6 +298,28 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
         count
       };
     });
+
+    // Add analysis video stats marker if it exists
+    if (analysisVideoStats) {
+      const analysisLocationName = getCameraName(analysisVideoStats.location);
+      // Check if the location already exists in our markers
+      const existingMarkerIndex = markers.findIndex(m => m.name === analysisLocationName);
+      
+      if (existingMarkerIndex === -1) {
+        // Add a new marker for the analysis location
+        markers.push({
+          id: `analysis-${Date.now()}`,
+          name: analysisLocationName,
+          lat: 14.5995 + (Math.random() * 0.1 - 0.05),
+          lon: 120.9842 + (Math.random() * 0.1 - 0.05),
+          color: '#3b82f6', // Blue color for analysis location
+          count: analysisVideoStats.people_count
+        });
+      } else {
+        // Update the existing marker with analysis data
+        markers[existingMarkerIndex].count = analysisVideoStats.people_count;
+      }
+    }
     
     const newMapData = {
       center: { lat: 14.5995, lon: 120.9842 }, // Manila center
@@ -275,6 +398,35 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
         dwellTimeValues
       };
     });
+
+    // Add analysis video stats to time series if it exists
+    if (analysisVideoStats) {
+      const analysisLocationName = getCameraName(analysisVideoStats.location);
+      // Check if the location already exists in our locations
+      const existingLocationIndex = locations.findIndex(l => l.name === analysisLocationName);
+      
+      if (existingLocationIndex === -1) {
+        // Create traffic and dwell time values for this location
+        const trafficValues = Array(timeLabels.length).fill(0);
+        const dwellTimeValues = Array(timeLabels.length).fill(0);
+        
+        // Set the current hour's values
+        trafficValues[trafficValues.length - 1] = analysisVideoStats.people_count;
+        dwellTimeValues[dwellTimeValues.length - 1] = analysisVideoStats.avg_dwell_time;
+        
+        // Add the new location to the array
+        locations.push({
+          name: analysisLocationName,
+          color: '#3b82f6', // Blue color for analysis location
+          trafficValues,
+          dwellTimeValues
+        });
+      } else {
+        // Update the existing location with analysis data
+        locations[existingLocationIndex].trafficValues[timeLabels.length - 1] = analysisVideoStats.people_count;
+        locations[existingLocationIndex].dwellTimeValues[timeLabels.length - 1] = analysisVideoStats.avg_dwell_time;
+      }
+    }
     
     // Only include the top 5 locations by traffic for clarity
     const topLocations = [...locations].sort((a, b) => {
@@ -288,7 +440,7 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
       locations: topLocations
     });
     
-    // Calculate peak hours data
+    // Calculate peak hours data using actual timeSeriesData instead of generating random values
     if (timeSeriesData) {
       // Explicitly type the timeLabels and locations variables
       const peakTimeLabels: string[] = timeLabels;
@@ -375,13 +527,15 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const contextValue: FootTrafficContextType = {
     videoStats,
+    analysisVideoStats,
     mapData,
     timeSeriesData,
     peakHoursData,
     weeklySummaryData,
     flaskServerUrl,
     totalPeopleCount,
-    fetchVideoStats
+    fetchVideoStats,
+    updateAnalysisStats
   };
 
   return (
