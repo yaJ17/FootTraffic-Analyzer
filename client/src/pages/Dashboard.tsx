@@ -148,7 +148,34 @@ const Dashboard: React.FC = () => {
       ...(dashboardData?.map?.markers?.slice(1) || [])
     ]
   };
+  function generateDynamicTimeLabels(hours: number, interval: number): string[] {
+    const labels: string[] = [];
+    const now = new Date();
 
+    // Round current hour down to the nearest interval
+    const currentHour = now.getHours();
+    const roundedCurrentHour = Math.floor(currentHour / interval) * interval;
+
+    // Start from (hours) hours ago, and move forward in (interval) hour steps
+    for (let i = hours; i >= -interval; i -= interval) {  // Changed to go to -interval to include one future time point
+      // Calculate the hour (hours-i) hours ago from the rounded current hour
+      let hour = (roundedCurrentHour - i + 24) % 24; // Add 24 and mod 24 to handle negative hours
+
+      // Convert to 12-hour format with AM/PM
+      const amPm = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12; // Convert 0 to 12 for 12 AM
+
+      labels.push(`${hour12} ${amPm}`);
+    }
+
+    return labels;
+  }
+
+  // Create time labels for 12 hours of history with 2-hour intervals
+  const FOOT_TRAFFIC_TIME_LABELS = generateDynamicTimeLabels(12, 2);
+
+  // Create time labels for 10 hours of history with 2-hour intervals
+  const DWELL_TIME_LABELS = generateDynamicTimeLabels(10, 2);
   // Create foot traffic data that includes current location's data
   const footTrafficData = {
     locations: [
@@ -159,7 +186,7 @@ const Dashboard: React.FC = () => {
       },
       ...(dashboardData?.footTraffic?.locations?.slice(1) || [])
     ],
-    timeLabels: dashboardData?.footTraffic?.timeLabels || ['7 AM', '9 AM', '11 AM', '1 PM', '3 PM', '5 PM', '7 PM']
+    timeLabels: FOOT_TRAFFIC_TIME_LABELS,
   };
 
   // Create dwell time data that includes current dwell time
@@ -172,7 +199,7 @@ const Dashboard: React.FC = () => {
       },
       ...(dashboardData?.dwellTime?.locations?.slice(1) || [])
     ],
-    timeLabels: dashboardData?.dwellTime?.timeLabels || ['7 AM', '9 AM', '11 AM', '1 PM', '3 PM', '5 PM']
+    timeLabels: DWELL_TIME_LABELS
   };
 
   return (
