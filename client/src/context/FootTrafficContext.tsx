@@ -290,11 +290,18 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     // Calculate peak hours data
     if (timeSeriesData) {
-      const { timeLabels, locations } = {timeLabels, locations: topLocations};
+      // Explicitly type the timeLabels and locations variables
+      const peakTimeLabels: string[] = timeLabels;
+      const peakLocations: {
+        name: string;
+        color: string;
+        trafficValues: number[];
+        dwellTimeValues: number[];
+      }[] = topLocations;
       
       // Aggregate traffic across all locations for each time period
-      const aggregateTraffic = timeLabels.map((label, index) => {
-        const total = locations.reduce((sum, location) => sum + location.trafficValues[index], 0);
+      const aggregateTraffic = peakTimeLabels.map((label: string, index: number) => {
+        const total = peakLocations.reduce((sum, location) => sum + location.trafficValues[index], 0);
         return { time: label, traffic: total };
       });
       

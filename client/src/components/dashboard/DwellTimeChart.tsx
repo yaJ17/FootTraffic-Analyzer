@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
 
 interface LocationData {
@@ -15,22 +15,68 @@ interface DwellTimeChartProps {
 const DwellTimeChart: React.FC<DwellTimeChartProps> = ({ locations, timeLabels }) => {
   // Add state to track selected locations
   const [selectedLocations, setSelectedLocations] = useState<Set<string>>(new Set(locations.map(loc => loc.name)));
+  const [chartData, setChartData] = useState<LocationData[]>(locations);
+  const [currentLabels, setCurrentLabels] = useState<string[]>(timeLabels);
+
+  // Update only the latest data point when props change to simulate real-time updates
+  useEffect(() => {
+    if (locations.length > 0 && timeLabels.length > 0) {
+      // Check if we need to add a new time label
+      if (timeLabels[timeLabels.length - 1] !== currentLabels[currentLabels.length - 1]) {
+        // Add the new time label
+        setCurrentLabels(prev => [...prev.slice(1), timeLabels[timeLabels.length - 1]]);
+        
+        // Shift all data points and add the new one
+        setChartData(prev => 
+          prev.map((loc, idx) => {
+            const matchingLocation = locations.find(l => l.name === loc.name);
+            if (!matchingLocation) return loc;
+            
+            return {
+              ...loc,
+              values: [...loc.values.slice(1), matchingLocation.values[matchingLocation.values.length - 1]]
+            };
+          })
+        );
+      } else {
+        // Just update the last value of each location
+        setChartData(prev => 
+          prev.map((loc, idx) => {
+            const matchingLocation = locations.find(l => l.name === loc.name);
+            if (!matchingLocation) return loc;
+            
+            return {
+              ...loc,
+              values: [
+                ...loc.values.slice(0, -1), 
+                matchingLocation.values[matchingLocation.values.length - 1]
+              ]
+            };
+          })
+        );
+      }
+    } else {
+      // Initial load
+      setChartData(locations);
+      setCurrentLabels(timeLabels);
+    }
+  }, [locations, timeLabels]);
 
   // Calculate average dwell time and get current value
-  const locationStats = locations.map(loc => ({
+  const locationStats = chartData.map(loc => ({
     name: loc.name,
     avg: (loc.values.reduce((sum, val) => sum + val, 0) / loc.values.filter(v => v > 0).length || 1).toFixed(1),
     color: loc.color,
-    // Get current value (second-to-last position)
-    current: loc.values.length >= 3 ? loc.values[loc.values.length - 2] : 0
+    // Get current value (last position)
+    current: loc.values.length > 0 ? loc.values[loc.values.length - 1] : 0
   }));
 
   // Filter locations based on selection
-  const filteredLocations = locations.filter(loc => selectedLocations.has(loc.name));
+  const filteredLocations = chartData.filter(loc => selectedLocations.has(loc.name));
 
   // Create the data array for Plotly
   const plotlyData = filteredLocations.map(location => ({
-    x: timeLabels,
+    x: currentLabels,
     y: location.values,
     type: 'bar',
     name: location.name,
