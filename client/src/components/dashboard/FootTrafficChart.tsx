@@ -27,6 +27,61 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
   const [chartData, setChartData] = useState<LocationData[]>(locations);
   const [currentLabels, setCurrentLabels] = useState<string[]>(timeLabels);
   const [showForecast, setShowForecast] = useState<boolean>(true);
+  const [timeRange, setTimeRange] = useState<{ start: number; end: number }>({ start: 0, end: 23 });
+
+  // Generate time range options based on available data
+  const timeRangeOptions = React.useMemo(() => {
+    const availableHours = new Set(
+      timeLabels.map(label => parseInt(label.split(':')[0]))
+    );
+    return Array.from({ length: 24 }, (_, i) => ({
+      value: i,
+      label: `${i}:00`,
+      available: availableHours.has(i)
+    })).filter(option => option.available);
+  }, [timeLabels]);
+
+  // Reset time range to show all available data
+  const resetTimeRange = () => {
+    if (timeRangeOptions.length > 0) {
+      const newTimeRange = {
+        start: timeRangeOptions[0].value,
+        end: timeRangeOptions[timeRangeOptions.length - 1].value
+      };
+      setTimeRange(newTimeRange);
+      
+      // Reset the chart data to show all available data
+      setChartData(locations);
+      setCurrentLabels(timeLabels);
+    }
+  };
+
+  // Filter data based on selected time range
+  const filterDataByTimeRange = (data: LocationData[], labels: string[]) => {
+    return data.map(loc => ({
+      ...loc,
+      values: loc.values.filter((_, index) => {
+        const hour = parseInt(labels[index].split(':')[0]);
+        return hour >= timeRange.start && hour <= timeRange.end;
+      })
+    }));
+  };
+
+  // Filter labels based on selected time range
+  const filterLabelsByTimeRange = (labels: string[]) => {
+    return labels.filter(label => {
+      const hour = parseInt(label.split(':')[0]);
+      return hour >= timeRange.start && hour <= timeRange.end;
+    });
+  };
+
+  // Update chart data when time range changes
+  useEffect(() => {
+    const filteredLabels = filterLabelsByTimeRange(timeLabels);
+    const filteredData = filterDataByTimeRange(locations, timeLabels);
+    setChartData(filteredData);
+    setCurrentLabels(filteredLabels);
+  }, [timeRange, locations, timeLabels]);
 
   // Update only the latest data point when props change to simulate real-time updates
   useEffect(() => {
@@ -223,21 +278,56 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
             Foot Traffic Trends
           </h2>
           
-          {forecastLabels.length > 0 && (
-            <button 
-              onClick={toggleForecast}
-              className={`text-xs px-2 py-1 rounded-full transition-all ${
-                showForecast 
-                  ? 'bg-blue-100 text-blue-700 border border-blue-200' 
-                  : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              <span className="material-icons text-xs mr-1 align-text-bottom">
-                {showForecast ? 'visibility' : 'visibility_off'}
-              </span>
-              Forecast
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <select
+                value={timeRange.start}
+                onChange={(e) => setTimeRange(prev => ({ ...prev, start: parseInt(e.target.value) }))}
+                className="text-xs px-2 py-1 rounded border border-gray-200"
+              >
+                {timeRangeOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-gray-500">to</span>
+              <select
+                value={timeRange.end}
+                onChange={(e) => setTimeRange(prev => ({ ...prev, end: parseInt(e.target.value) }))}
+                className="text-xs px-2 py-1 rounded border border-gray-200"
+              >
+                {timeRangeOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={resetTimeRange}
+                className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all"
+                title="Reset time range"
+              >
+                <span className="material-icons text-xs">refresh</span>
+              </button>
+            </div>
+            
+            {forecastLabels.length > 0 && (
+              <button 
+                onClick={toggleForecast}
+                className={`text-xs px-2 py-1 rounded-full transition-all ${
+                  showForecast 
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                <span className="material-icons text-xs mr-1 align-text-bottom">
+                  {showForecast ? 'visibility' : 'visibility_off'}
+                </span>
+                Forecast
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="mb-4 flex flex-wrap gap-2">
