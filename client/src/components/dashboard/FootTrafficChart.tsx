@@ -69,13 +69,15 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
       setIsSorting(false);
     }
   };
-
   // Filter data based on selected time range
   const filterDataByTimeRange = (data: LocationData[], labels: string[]) => {
     return data.map(loc => ({
       ...loc,
       values: loc.values.filter((_, index) => {
-        const hour = parseInt(labels[index].split(':')[0]);
+        const [timeStr, period] = labels[index].split(' ');
+        let hour = parseInt(timeStr);
+        if (period === 'PM' && hour !== 12) hour += 12;
+        if (period === 'AM' && hour === 12) hour = 0;
         return hour >= timeRange.start && hour <= timeRange.end;
       })
     }));
@@ -84,7 +86,10 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
   // Filter labels based on selected time range
   const filterLabelsByTimeRange = (labels: string[]) => {
     return labels.filter(label => {
-      const hour = parseInt(label.split(':')[0]);
+      const [timeStr, period] = label.split(' ');
+      let hour = parseInt(timeStr);
+      if (period === 'PM' && hour !== 12) hour += 12;
+      if (period === 'AM' && hour === 12) hour = 0;
       return hour >= timeRange.start && hour <= timeRange.end;
     });
   };

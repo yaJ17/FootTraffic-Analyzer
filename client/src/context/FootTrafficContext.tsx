@@ -167,8 +167,8 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
           const newLocation = {
             name: getCameraName(stats.location),
             color: '#3b82f6',
-            trafficValues: Array(newTimeLabels.length - 1).fill(0).concat([stats.people_count]),
-            dwellTimeValues: Array(newTimeLabels.length - 1).fill(0).concat([stats.avg_dwell_time]),
+            trafficValues: Array(20).fill(0).slice(1).concat([stats.people_count]),
+            dwellTimeValues: Array(20).fill(0).slice(1).concat([stats.avg_dwell_time]),
             trafficForecast: generateForecast([stats.people_count]),
             dwellTimeForecast: generateForecast([stats.avg_dwell_time])
           };
@@ -182,9 +182,8 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
           // Just update the existing time series data with the new location
           const newLocation = {
             name: getCameraName(stats.location),
-            color: '#3b82f6',
-            trafficValues: Array(timeSeriesData.timeLabels.length - 1).fill(0).concat([stats.people_count]),
-            dwellTimeValues: Array(timeSeriesData.timeLabels.length - 1).fill(0).concat([stats.avg_dwell_time]),
+            color: '#3b82f6',            trafficValues: Array(20).fill(0).slice(1).concat([stats.people_count]),
+            dwellTimeValues: Array(20).fill(0).slice(1).concat([stats.avg_dwell_time]),
             trafficForecast: generateForecast([stats.people_count]),
             dwellTimeForecast: generateForecast([stats.avg_dwell_time])
           };
@@ -405,11 +404,10 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // Generate realistic time labels based on current time
     const now = new Date();
     now.setMinutes(0, 0, 0); // Just set to current hour without rounding
-    
-    // Generate time labels for the last 10 hours
-    const timeLabels = Array.from({ length: 10 }, (_, i) => {
+      // Generate time labels for the last 20 hours
+    const timeLabels = Array.from({ length: 20 }, (_, i) => {
       const time = new Date(now);
-      time.setHours(time.getHours() - (9 - i));  // Changed from 10-i to show current hour
+      time.setHours(time.getHours() - (19 - i));  // Changed from 9-i to 19-i for 20-hour window
       const hours = time.getHours();
       const ampm = hours >= 12 ? 'PM' : 'AM';
       const hours12 = hours % 12 || 12;
@@ -665,4 +663,4 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
       {children}
     </FootTrafficContext.Provider>
   );
-}; 
+};
