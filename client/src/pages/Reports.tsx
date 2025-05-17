@@ -334,7 +334,7 @@ const Reports: React.FC = () => {
               
               <div class="section">
                 <p><strong>Date Range:</strong> ${startDate ? format(startDate, 'MMMM d, yyyy') : 'All'} to ${endDate ? format(endDate, 'MMMM d, yyyy') : 'All'}</p>
-                <p><strong>Selected Locations:</strong> ${selectedLocations.includes('all') ? 'All Locations' : selectedLocations.join(', ')}</p>
+                <p><strong>Selected Locations:</strong> ${selectedLocations.includes('all') ? 'All Locations' : selectedLocations.map(loc => formatLocationName(loc)).join(', ')}</p>
               </div>
 
               ${selectedLocations.includes('all') 
@@ -353,8 +353,7 @@ const Reports: React.FC = () => {
                       </thead>
                       <tbody>
                         ${filteredReports.map(report => `
-                          <tr>
-                            <td>${report.name}</td>
+                          <tr>                            <td>${formatLocationName(report.name.toLowerCase().replace(/\s+/g, '_'))}</td>
                             <td>${report.population.toLocaleString()}</td>
                             <td>${report.avgFootTraffic}</td>
                             <td>${report.totalFootTraffic.toLocaleString()}</td>
@@ -367,18 +366,14 @@ const Reports: React.FC = () => {
 
                     <h2 class="section-title" style="margin-top: 40px;">Forecast Interpretations</h2>
                     ${Object.entries(forecastInterpretation).map(([key, value]) => `
-                      <div class="forecast-section">
-                        <h3>${key === 'manilaCathedral' ? 'Manila Cathedral' : 
-                              key === 'divisoriaMarket' ? 'Divisoria Market' : 
-                              key === 'fortSantiago' ? 'Fort Santiago' : key}</h3>
+                      <div class="forecast-section">                        <h3>${formatLocationName(key)}</h3>
                         <p>${value}</p>
                       </div>
                     `).join('')}
                   </div>`
                 : selectedLocations.length === 1 
-                  ? `<div class="single-location-content">
-                      ${filteredReports.map(report => `
-                        <h2 class="section-title">${report.name} - Foot Traffic Analysis</h2>
+                  ? `<div class="single-location-content">                      ${filteredReports.map(report => `
+                        <h2 class="section-title">${formatLocationName(report.name.toLowerCase().replace(/\s+/g, '_'))} - Foot Traffic Analysis</h2>
                         <table>
                           <thead>
                             <tr>
