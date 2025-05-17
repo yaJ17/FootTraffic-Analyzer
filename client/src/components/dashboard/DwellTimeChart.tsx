@@ -21,13 +21,30 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
   locations, 
   timeLabels,
   forecastLabels = [] 
-}) => {
-  // Add state to track selected locations
+}) => {  // Add state to track selected locations
   const [selectedLocations, setSelectedLocations] = useState<Set<string>>(new Set(locations.map(loc => loc.name)));
-  const [chartData, setChartData] = useState<LocationData[]>(locations);
-  const [currentLabels, setCurrentLabels] = useState<string[]>(timeLabels);
+  const [chartData, setChartData] = useState<LocationData[]>(() => {
+    // Initialize with only the last 10 data points
+    return locations.map(loc => ({
+      ...loc,
+      values: loc.values.slice(-10)
+    }));
+  });
+  const [currentLabels, setCurrentLabels] = useState<string[]>(() => timeLabels.slice(-10));
   const [showForecast, setShowForecast] = useState<boolean>(true);
-  const [timeRange, setTimeRange] = useState<{ start: number; end: number }>({ start: 0, end: 23 });
+  const [timeRange, setTimeRange] = useState<{ start: number; end: number}>(() => {
+    // Initialize with the current time range based on available data
+    const times = timeLabels.map(label => {
+      const [timeStr, period] = label.split(' ');
+      let hour = parseInt(timeStr);
+      if (period === 'PM' && hour !== 12) hour += 12;
+      if (period === 'AM' && hour === 12) hour = 0;
+      return hour;
+    });
+    const minTime = Math.min(...times);
+    const maxTime = Math.max(...times);
+    return { start: minTime, end: maxTime };
+  });
   const [isSorting, setIsSorting] = useState<boolean>(false);
   // Generate time range options based on available data
   const timeRangeOptions = React.useMemo(() => {
@@ -50,19 +67,32 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
       };
     }).filter(option => option.available);
   }, [timeLabels]);
-
-  // Reset time range to show all available data
+  // Reset time range to show last 10 hours + forecast
   const resetTimeRange = () => {
     if (timeRangeOptions.length > 0) {
-      const newTimeRange = {
-        start: timeRangeOptions[0].value,
-        end: timeRangeOptions[timeRangeOptions.length - 1].value
-      };
-      setTimeRange(newTimeRange);
+      // Get the last 10 hours of data
+      const last10Labels = timeLabels.slice(-10);
+      const [lastTimeStr, lastPeriod] = last10Labels[last10Labels.length - 1].split(' ');
+      let lastHour = parseInt(lastTimeStr);
+      if (lastPeriod === 'PM' && lastHour !== 12) lastHour += 12;
+      if (lastPeriod === 'AM' && lastHour === 12) lastHour = 0;
       
-      // Reset the chart data to show all available data
-      setChartData(locations);
-      setCurrentLabels(timeLabels);
+      const [firstTimeStr, firstPeriod] = last10Labels[0].split(' ');
+      let firstHour = parseInt(firstTimeStr);
+      if (firstPeriod === 'PM' && firstHour !== 12) firstHour += 12;
+      if (firstPeriod === 'AM' && firstHour === 12) firstHour = 0;
+      
+      setTimeRange({
+        start: firstHour,
+        end: lastHour
+      });
+      
+      // Reset the chart data to show last 10 hours
+      setChartData(locations.map(loc => ({
+        ...loc,
+        values: loc.values.slice(-10)
+      })));
+      setCurrentLabels(last10Labels);
       // Re-enable forecast when resetting time range
       setShowForecast(true);
       // Reset sorting flag
@@ -109,17 +139,21 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
     setTimeRange(prev => ({ ...prev, [type]: value }));
     setIsSorting(true);
     setShowForecast(false);
-  };
-
-  // Update only the latest data point when props change to simulate real-time updates
+  };    // Update only the latest data point when props change to simulate real-time updates
   useEffect(() => {
     // Skip updates if sorting/filtering is active
     if (isSorting) return;
 
     // Handle initial load
     if (!chartData.length || !currentLabels.length) {
-      const filteredLabels = filterLabelsByTimeRange(timeLabels);
-      const filteredData = filterDataByTimeRange(locations, timeLabels);
+      const filteredLabels = filterLabelsByTimeRange(timeLabels.slice(-10));
+      const filteredData = filterDataByTimeRange(
+        locations.map(loc => ({
+          ...loc,
+          values: loc.values.slice(-10)
+        })), 
+        timeLabels.slice(-10)
+      );
       setChartData(filteredData);
       setCurrentLabels(filteredLabels);
       return;
