@@ -29,17 +29,26 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
   const [showForecast, setShowForecast] = useState<boolean>(true);
   const [timeRange, setTimeRange] = useState<{ start: number; end: number }>({ start: 0, end: 23 });
   const [isSorting, setIsSorting] = useState<boolean>(false);
-
   // Generate time range options based on available data
   const timeRangeOptions = React.useMemo(() => {
     const availableHours = new Set(
-      timeLabels.map(label => parseInt(label.split(':')[0]))
+      timeLabels.map(label => {
+        const [timeStr, period] = label.split(' ');
+        let hour = parseInt(timeStr);
+        if (period === 'PM' && hour !== 12) hour += 12;
+        if (period === 'AM' && hour === 12) hour = 0;
+        return hour;
+      })
     );
-    return Array.from({ length: 24 }, (_, i) => ({
-      value: i,
-      label: `${i}:00`,
-      available: availableHours.has(i)
-    })).filter(option => option.available);
+    return Array.from({ length: 24 }, (_, i) => {
+      const hour12 = i % 12 || 12;
+      const ampm = i >= 12 ? 'PM' : 'AM';
+      return {
+        value: i,
+        label: `${hour12} ${ampm}`,
+        available: availableHours.has(i)
+      };
+    }).filter(option => option.available);
   }, [timeLabels]);
 
   // Reset time range to show all available data
