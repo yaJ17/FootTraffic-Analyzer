@@ -31,19 +31,21 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
     }));
   });
   const [currentLabels, setCurrentLabels] = useState<string[]>(() => timeLabels.slice(-10));
-  const [showForecast, setShowForecast] = useState<boolean>(true);
-  const [timeRange, setTimeRange] = useState<{ start: number; end: number}>(() => {
-    // Initialize with the current time range based on available data
-    const times = timeLabels.map(label => {
-      const [timeStr, period] = label.split(' ');
-      let hour = parseInt(timeStr);
-      if (period === 'PM' && hour !== 12) hour += 12;
-      if (period === 'AM' && hour === 12) hour = 0;
-      return hour;
-    });
-    const minTime = Math.min(...times);
-    const maxTime = Math.max(...times);
-    return { start: minTime, end: maxTime };
+  const [showForecast, setShowForecast] = useState<boolean>(true);  const [timeRange, setTimeRange] = useState<{ start: number; end: number}>(() => {
+    // Initialize with the last 10 time labels
+    const last10Labels = timeLabels.slice(-10);
+    const [firstTimeStr, firstPeriod] = last10Labels[0].split(' ');
+    const [lastTimeStr, lastPeriod] = last10Labels[last10Labels.length - 1].split(' ');
+    
+    let startHour = parseInt(firstTimeStr);
+    if (firstPeriod === 'PM' && startHour !== 12) startHour += 12;
+    if (firstPeriod === 'AM' && startHour === 12) startHour = 0;
+    
+    let endHour = parseInt(lastTimeStr);
+    if (lastPeriod === 'PM' && endHour !== 12) endHour += 12;
+    if (lastPeriod === 'AM' && endHour === 12) endHour = 0;
+    
+    return { start: startHour, end: endHour };
   });
   const [isSorting, setIsSorting] = useState<boolean>(false);
   // Generate time range options based on available data
