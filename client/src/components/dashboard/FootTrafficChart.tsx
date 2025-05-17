@@ -86,15 +86,17 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
     setTimeRange(prev => ({ ...prev, [type]: value }));
     setIsSorting(true);
     setShowForecast(false);
-  };  // Update chart data when time range changes
+  };  // Update chart data only when time range changes and we're not in real-time mode
   useEffect(() => {
-    if (!isSorting) return; // Only update when sorting/filtering is active
+    // Don't update if we're not sorting (in real-time mode)
+    if (!isSorting) return;
     
+    // Update only if time range changes
     const filteredLabels = filterLabelsByTimeRange(timeLabels);
     const filteredData = filterDataByTimeRange(locations, timeLabels);
     setChartData(filteredData);
     setCurrentLabels(filteredLabels);
-  }, [timeRange, locations, timeLabels, isSorting]);
+  }, [timeRange]); // Only depend on timeRange changes
   
 
   // Update only the latest data point when props change to simulate real-time updates
