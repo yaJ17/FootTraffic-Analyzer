@@ -28,6 +28,7 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
   const [currentLabels, setCurrentLabels] = useState<string[]>(timeLabels);
   const [showForecast, setShowForecast] = useState<boolean>(true);
   const [timeRange, setTimeRange] = useState<{ start: number; end: number }>({ start: 0, end: 23 });
+  const [isSorting, setIsSorting] = useState<boolean>(false);
 
   // Generate time range options based on available data
   const timeRangeOptions = React.useMemo(() => {
@@ -53,6 +54,10 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
       // Reset the chart data to show all available data
       setChartData(locations);
       setCurrentLabels(timeLabels);
+      // Re-enable forecast when resetting time range
+      setShowForecast(true);
+      // Reset sorting flag
+      setIsSorting(false);
     }
   };
 
@@ -81,10 +86,18 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
     const filteredData = filterDataByTimeRange(locations, timeLabels);
     setChartData(filteredData);
     setCurrentLabels(filteredLabels);
+    // Turn off forecast when time range is changed
+    setShowForecast(false);
+    // Set sorting flag when time range is different from full range
+    setIsSorting(timeRange.start !== timeRangeOptions[0]?.value || 
+                 timeRange.end !== timeRangeOptions[timeRangeOptions.length - 1]?.value);
   }, [timeRange, locations, timeLabels]);
 
   // Update only the latest data point when props change to simulate real-time updates
   useEffect(() => {
+    // Skip updates if sorting is active
+    if (isSorting) return;
+
     if (locations.length > 0 && timeLabels.length > 0) {
       // Check if we need to add a new time label
       if (timeLabels[timeLabels.length - 1] !== currentLabels[currentLabels.length - 1]) {
@@ -125,7 +138,7 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
       setChartData(locations);
       setCurrentLabels(timeLabels);
     }
-  }, [locations, timeLabels]);
+  }, [locations, timeLabels, isSorting]);
 
   // Calculate average dwell time and get current value
   const locationStats = chartData.map(loc => ({
@@ -174,8 +187,8 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
         
         // Create forecast bars with a striped pattern
         const forecastBar = {
-          x: forecastLabels,
-          y: originalLocation.dwellTimeForecast,
+          x: [...currentLabels.slice(-1), ...forecastLabels], // Start from last historical point
+          y: [location.values[location.values.length - 1], ...originalLocation.dwellTimeForecast], // Include last historical point
           type: 'bar',
           name: `${location.name} (Forecast)`,
           marker: { 

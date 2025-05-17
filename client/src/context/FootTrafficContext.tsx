@@ -118,8 +118,9 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const hourNum = parseInt(hour);
     
     return Array.from({ length: numPoints }, (_, i) => {
+      // Always increment forward, wrapping around 24 if needed
       const nextHour = (hourNum + i + 1) % 24;
-      return `${nextHour}:00`;
+      return `${nextHour.toString().padStart(2, '0')}:00`;
     });
   };
 
@@ -250,15 +251,25 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const getCurrentMultiplier = () => {
     const hour = new Date().getHours();
     
-    // Morning rush hour
-    if (hour >= 7 && hour <= 9) return 1.6;
+    // Early morning
+    if (hour >= 5 && hour <= 7) return 1.2;
+    // Morning rush
+    if (hour >= 8 && hour <= 10) return 1.8;
+    // Late morning
+    if (hour >= 11 && hour <= 12) return 1.4;
     // Lunch time
-    if (hour >= 11 && hour <= 13) return 1.8;
-    // Evening rush hour
+    if (hour >= 13 && hour <= 14) return 1.9;
+    // Afternoon
+    if (hour >= 15 && hour <= 16) return 1.3;
+    // Evening rush
     if (hour >= 17 && hour <= 19) return 2.0;
+    // Evening
+    if (hour >= 20 && hour <= 21) return 1.5;
     // Late night
-    if (hour >= 22 || hour <= 4) return 0.4;
-    // Default for other times
+    if (hour >= 22 && hour <= 23) return 0.8;
+    // Very late night / early morning
+    if (hour >= 0 && hour <= 4) return 0.3;
+    // Default for any other time
     return 1.0;
   };
 
@@ -392,10 +403,10 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // Generate time series data
     // Generate realistic time labels based on current time
     const now = new Date();
-    const timeLabels = Array.from({ length: 12 }, (_, i) => {
+    const timeLabels = Array.from({ length: 20 }, (_, i) => {
       const time = new Date(now);
-      time.setHours(time.getHours() - (11 - i));
-      return time.getHours() + ':00';
+      time.setHours(time.getHours() - (20 - i));
+      return `${time.getHours().toString().padStart(2, '0')}:00`;
     });
 
     // Generate forecast labels (future hours)
@@ -411,14 +422,24 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const hour = parseInt(label.split(':')[0]);
         let multiplier = 1.0;
         
-        // Morning rush
-        if (hour >= 7 && hour <= 9) multiplier = 1.6;
-        // Lunch time
-        if (hour >= 11 && hour <= 13) multiplier = 1.8;
-        // Evening rush 
+        // Early morning (5-7)
+        if (hour >= 5 && hour <= 7) multiplier = 1.2;
+        // Morning rush (8-10)
+        if (hour >= 8 && hour <= 10) multiplier = 1.8;
+        // Late morning (11-12)
+        if (hour >= 11 && hour <= 12) multiplier = 1.4;
+        // Lunch time (13-14)
+        if (hour >= 13 && hour <= 14) multiplier = 1.9;
+        // Afternoon (15-16)
+        if (hour >= 15 && hour <= 16) multiplier = 1.3;
+        // Evening rush (17-19)
         if (hour >= 17 && hour <= 19) multiplier = 2.0;
-        // Late night
-        if (hour >= 22 || hour <= 4) multiplier = 0.4;
+        // Evening (20-21)
+        if (hour >= 20 && hour <= 21) multiplier = 1.5;
+        // Late night (22-23)
+        if (hour >= 22 && hour <= 23) multiplier = 0.8;
+        // Very late night / early morning (0-4)
+        if (hour >= 0 && hour <= 4) multiplier = 0.3;
         
         // Add some randomness
         multiplier *= (0.85 + Math.random() * 0.3);

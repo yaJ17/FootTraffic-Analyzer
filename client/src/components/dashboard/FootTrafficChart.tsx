@@ -28,6 +28,7 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
   const [currentLabels, setCurrentLabels] = useState<string[]>(timeLabels);
   const [showForecast, setShowForecast] = useState<boolean>(true);
   const [timeRange, setTimeRange] = useState<{ start: number; end: number }>({ start: 0, end: 23 });
+  const [isSorting, setIsSorting] = useState<boolean>(false);
 
   // Generate time range options based on available data
   const timeRangeOptions = React.useMemo(() => {
@@ -53,6 +54,10 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
       // Reset the chart data to show all available data
       setChartData(locations);
       setCurrentLabels(timeLabels);
+      // Re-enable forecast when resetting time range
+      setShowForecast(true);
+      // Reset sorting flag
+      setIsSorting(false);
     }
   };
 
@@ -81,10 +86,18 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
     const filteredData = filterDataByTimeRange(locations, timeLabels);
     setChartData(filteredData);
     setCurrentLabels(filteredLabels);
+    // Turn off forecast when time range is changed
+    setShowForecast(false);
+    // Set sorting flag when time range is different from full range
+    setIsSorting(timeRange.start !== timeRangeOptions[0]?.value || 
+                 timeRange.end !== timeRangeOptions[timeRangeOptions.length - 1]?.value);
   }, [timeRange, locations, timeLabels]);
 
   // Update only the latest data point when props change to simulate real-time updates
   useEffect(() => {
+    // Skip updates if sorting is active
+    if (isSorting) return;
+
     if (locations.length > 0 && timeLabels.length > 0) {
       // Check if we need to add a new time label
       if (timeLabels[timeLabels.length - 1] !== currentLabels[currentLabels.length - 1]) {
@@ -125,7 +138,7 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
       setChartData(locations);
       setCurrentLabels(timeLabels);
     }
-  }, [locations, timeLabels]);
+  }, [locations, timeLabels, isSorting]);
 
   // Calculate total foot traffic per location
   const totalValues = chartData.map(loc => ({
@@ -175,8 +188,8 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
 
     // Create the forecast trace with dashed line
     const forecastTrace = {
-      x: forecastLabels,
-      y: originalLocation.trafficForecast,
+      x: [...currentLabels.slice(-1), ...forecastLabels], // Start from last historical point
+      y: [location.values[location.values.length - 1], ...originalLocation.trafficForecast], // Include last historical point
       type: 'scatter',
       mode: 'lines',
       name: `${location.name} (Forecast)`,
@@ -191,18 +204,7 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
       showlegend: false
     };
 
-    // Create a small gap between historical and forecast data to visually separate them
-    const separatorTrace = {
-      x: [currentLabels[currentLabels.length - 1], forecastLabels[0]],
-      y: [location.values[location.values.length - 1], originalLocation.trafficForecast[0]],
-      type: 'scatter',
-      mode: 'lines',
-      line: { color: location.color, width: 1, dash: 'dot' },
-      showlegend: false,
-      hoverinfo: 'skip'
-    };
-
-    return [historicalTrace, separatorTrace, forecastTrace];
+    return [historicalTrace, forecastTrace];
   });
 
   const layout = {
