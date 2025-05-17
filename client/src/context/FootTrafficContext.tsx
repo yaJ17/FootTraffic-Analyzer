@@ -111,16 +111,18 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return forecastValue;
     });
   };
-
   // Generate forecast time labels (future hours)
   const generateForecastLabels = (lastTimeLabel: string, numPoints: number = 4): string[] => {
-    const [hour] = lastTimeLabel.split(':');
-    const hourNum = parseInt(hour);
+    const [timeStr, period] = lastTimeLabel.split(' ');
+    let hour = parseInt(timeStr);
+    let currentPeriod = period;
     
     return Array.from({ length: numPoints }, (_, i) => {
-      // Always increment forward, wrapping around 24 if needed
-      const nextHour = (hourNum + i + 1) % 24;
-      return `${nextHour.toString().padStart(2, '0')}:00`;
+      hour = hour % 12 + 1;
+      if (hour === 12) {
+        currentPeriod = currentPeriod === 'AM' ? 'PM' : 'AM';
+      }
+      return `${hour} ${currentPeriod}`;
     });
   };
 
@@ -399,14 +401,19 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // Calculate total people count
     const totalCount = markers.reduce((total, marker) => total + marker.count, 0);
     setTotalPeopleCount(totalCount);
-    
     // Generate time series data
     // Generate realistic time labels based on current time
     const now = new Date();
-    const timeLabels = Array.from({ length: 20 }, (_, i) => {
+    now.setMinutes(0, 0, 0); // Just set to current hour without rounding
+    
+    // Generate time labels for the last 10 hours
+    const timeLabels = Array.from({ length: 10 }, (_, i) => {
       const time = new Date(now);
-      time.setHours(time.getHours() - (20 - i));
-      return `${time.getHours().toString().padStart(2, '0')}:00`;
+      time.setHours(time.getHours() - (9 - i));  // Changed from 10-i to show current hour
+      const hours = time.getHours();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const hours12 = hours % 12 || 12;
+      return `${hours12} ${ampm}`;
     });
 
     // Generate forecast labels (future hours)
