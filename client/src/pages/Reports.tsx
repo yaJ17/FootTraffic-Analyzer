@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from "date-fns";
 import { 
@@ -58,6 +58,36 @@ const Reports: React.FC = () => {
   }).sort((a, b) => b.totalFootTraffic - a.totalFootTraffic) || [];
 
   const forecastInterpretation = reportsData?.forecastInterpretation || staticReportsData.forecastInterpretation;
+
+  // Create a stable list of all available locations
+  const availableLocations = useMemo(() => {
+    // Create a list of special locations first to maintain their order
+    const specialLocations = [
+      { id: 'manilaCathedral', name: 'Manila Cathedral', sortOrder: 0 },
+      { id: 'divisoriaMarket', name: 'Divisoria Market', sortOrder: 1 },
+      { id: 'fortSantiago', name: 'Fort Santiago', sortOrder: 2 }
+    ];
+
+    // Get locations from barangay reports
+    const reportLocationIds = barangayReports?.map(report => ({
+      id: report.name.toLowerCase().replace(/\s+/g, '_'),
+      name: report.name,
+      sortOrder: parseInt(report.id.toString()) + specialLocations.length // Add offset to keep after special locations
+    })) || [];
+
+    // Combine both lists
+    const allLocations = [...specialLocations, ...reportLocationIds];
+
+    // Create a map to remove duplicates while maintaining order
+    const locationsMap = new Map();
+    allLocations.forEach(loc => {
+      if (!locationsMap.has(loc.id)) {
+        locationsMap.set(loc.id, loc);
+      }
+    });
+
+    return Array.from(locationsMap.values()).sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [barangayReports]);
 
   // Handle location checkbox selection
   const toggleLocation = (location: string) => {
@@ -440,8 +470,8 @@ const Reports: React.FC = () => {
             </div>
             
             <div className="space-y-3">
-              <h3 className="font-medium text-sm">Locations</h3>
-              <div className="grid grid-cols-2 gap-2 max-h-[180px] overflow-y-auto border rounded-md p-3">
+              <h3 className="font-medium text-sm">Locations</h3>              <div className="grid grid-cols-2 gap-2 max-h-[180px] overflow-y-auto border rounded-md p-3">
+                {/* All Locations option always first */}
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -455,66 +485,22 @@ const Reports: React.FC = () => {
                   </label>
                 </div>
                 
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="location-manilaCathedral"
-                    checked={selectedLocations.includes('manilaCathedral')}
-                    onChange={() => toggleLocation('manilaCathedral')}
-                    className="rounded border-gray-300"
-                    disabled={selectedLocations.includes('all')}
-                  />
-                  <label htmlFor="location-manilaCathedral" className="text-sm">
-                    Manila Cathedral
-                  </label>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="location-divisoriaMarket"
-                    checked={selectedLocations.includes('divisoriaMarket')}
-                    onChange={() => toggleLocation('divisoriaMarket')}
-                    className="rounded border-gray-300"
-                    disabled={selectedLocations.includes('all')}
-                  />
-                  <label htmlFor="location-divisoriaMarket" className="text-sm">
-                    Divisoria Market
-                  </label>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="location-fortSantiago"
-                    checked={selectedLocations.includes('fortSantiago')}
-                    onChange={() => toggleLocation('fortSantiago')}
-                    className="rounded border-gray-300"
-                    disabled={selectedLocations.includes('all')}
-                  />
-                  <label htmlFor="location-fortSantiago" className="text-sm">
-                    Fort Santiago
-                  </label>
-                </div>
-                
-                {barangayReports.map((barangay) => {
-                  const locationId = barangay.name.toLowerCase().replace(/\s+/g, '_');
-                  return (
-                    <div key={barangay.id} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={`location-${locationId}`}
-                        checked={selectedLocations.includes(locationId)}
-                        onChange={() => toggleLocation(locationId)}
-                        className="rounded border-gray-300"
-                        disabled={selectedLocations.includes('all')}
-                      />
-                      <label htmlFor={`location-${locationId}`} className="text-sm">
-                        {barangay.name}
-                      </label>
-                    </div>
-                  );
-                })}
+                {/* Render all other locations in stable order */}
+                {availableLocations.map((location) => (
+                  <div key={location.id} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id={`location-${location.id}`}
+                      checked={selectedLocations.includes(location.id)}
+                      onChange={() => toggleLocation(location.id)}
+                      className="rounded border-gray-300"
+                      disabled={selectedLocations.includes('all')}
+                    />
+                    <label htmlFor={`location-${location.id}`} className="text-sm">
+                      {location.name}
+                    </label>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
