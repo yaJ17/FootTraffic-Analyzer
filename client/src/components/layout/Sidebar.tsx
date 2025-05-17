@@ -19,12 +19,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { logoutUser } = useAuth();
 
   const navItems = [
-    { path: '/profile', icon: 'person', label: 'Profile' },
     { path: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
     { path: '/statistics', icon: 'insert_chart', label: 'Statistics' },
     { path: '/calendar', icon: 'calendar_today', label: 'Calendar' },
     { path: '/reports', icon: 'description', label: 'Reports' },
     { path: '/video-analysis', icon: 'videocam', label: 'Video Analysis' },
+    { path: '/profile', icon: 'person', label: 'Profile' },
   ];
 
   const [, setLocation] = useLocation();

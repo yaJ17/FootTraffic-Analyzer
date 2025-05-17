@@ -27,8 +27,20 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
   const [description, setDescription] = useState('');
 
   const handleSubmit = () => {
-    if (!title || !selectedDate) {
-      // Show error or validation message
+    // Validate title
+    if (!title || title.trim() === '') {
+      onAddTask({
+        title: '',
+        date: '',
+        type: '',
+        description: '',
+        color: ''
+      });
+      return;
+    }
+
+    // Validate date
+    if (!selectedDate) {
       return;
     }
     
@@ -71,6 +83,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
             className="w-full"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            required
           />
         </div>
         

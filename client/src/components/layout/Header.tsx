@@ -120,7 +120,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 p-0" align="end">
+            <PopoverContent className="w-80 p-0 shadow-lg !z-50" align="end">
               <div className="p-4 border-b flex justify-between items-center">
                 <h3 className="font-medium">Notifications</h3>
                 <div className="flex items-center text-xs text-gray-500">

@@ -295,7 +295,7 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom, markers, zoneInfo }) =>
         
         <div className="relative w-full rounded-lg overflow-hidden border border-gray-200">
           {/* Zone info overlay */}
-          <div className="absolute top-3 left-3 bg-white/80 backdrop-blur-sm rounded-md px-3 py-2 text-sm font-medium z-[1000] shadow-sm border border-gray-200">
+          <div className="absolute top-3 left-3 bg-white/80 backdrop-blur-sm rounded-md px-3 py-2 text-sm font-medium z-10 shadow-sm border border-gray-200">
             <div className="flex items-center">
               <span className="material-icons text-primary text-sm mr-1">location_on</span>
               {zoneInfo || 'Manila'} Area

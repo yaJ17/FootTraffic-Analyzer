@@ -6,6 +6,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Override z-index for Popover to ensure it's above everything */
+[data-radix-popper-content-wrapper] {
+  z-index: 9999 !important;
+}
+
+/* Ensure map elements don't overlap with popups */
+.leaflet-pane {
+  z-index: 400;
+}
+
+.leaflet-control {
+  z-index: 800;
+}
+
+.leaflet-popup {
+  z-index: 900;
+}
+
 /* Authentication page sliding animations */
 .auth-container {
   position: fixed;

@@ -21,6 +21,10 @@ const Calendar: React.FC = () => {
   
   const [staticCalendarData] = useState(getCalendarData());
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [showPastDateDialog, setShowPastDateDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showTitleRequiredDialog, setShowTitleRequiredDialog] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
   
   // When calendar data is loaded, set tasks
   React.useEffect(() => {
@@ -37,8 +41,23 @@ const Calendar: React.FC = () => {
   }, [calendarData, staticCalendarData]);
 
   const handleAddTask = (task: any) => {
+    // Check if title is empty or only contains whitespace
+    if (!task.title || task.title.trim() === '') {
+      setShowTitleRequiredDialog(true);
+      return;
+    }
+
+    const selectedDate = new Date(task.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (selectedDate < today) {
+      setShowPastDateDialog(true);
+      return;
+    }
+
     const newTask: Task = {
-      id: Date.now(), // Simple unique ID for demo
+      id: Date.now(),
       title: task.title,
       start: task.date,
       color: task.color,
@@ -49,7 +68,16 @@ const Calendar: React.FC = () => {
   };
   
   const handleDeleteTask = (taskId: number) => {
-    setTasks(tasks.filter(task => task.id !== taskId));
+    setTaskToDelete(taskId);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteTask = () => {
+    if (taskToDelete) {
+      setTasks(tasks.filter(task => task.id !== taskToDelete));
+      setShowDeleteDialog(false);
+      setTaskToDelete(null);
+    }
   };
 
   if (isLoading) {
@@ -62,6 +90,62 @@ const Calendar: React.FC = () => {
 
   return (
     <div className="p-6">
+      {/* Title Required Dialog */}
+      {showTitleRequiredDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+            <h3 className="text-lg font-bold mb-4">Title Required</h3>
+            <p className="text-gray-600 mb-6">Please enter a title for your task. The title field cannot be empty.</p>
+            <button
+              onClick={() => setShowTitleRequiredDialog(false)}
+              className="w-full bg-primary text-white py-2 rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Past Date Dialog */}
+      {showPastDateDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+            <h3 className="text-lg font-bold mb-4">Cannot Add Task</h3>
+            <p className="text-gray-600 mb-6">You cannot add tasks for past dates. Please select a current or future date.</p>
+            <button
+              onClick={() => setShowPastDateDialog(false)}
+              className="w-full bg-primary text-white py-2 rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+            <h3 className="text-lg font-bold mb-4">Delete Task</h3>
+            <p className="text-gray-600 mb-6">Are you sure you want to delete this task? This action cannot be undone.</p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowDeleteDialog(false)}
+                className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteTask}
+                className="flex-1 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Sidebar with task form and agenda - takes 1/4 of space */}
         <div className="md:col-span-1">
