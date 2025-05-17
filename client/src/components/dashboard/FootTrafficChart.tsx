@@ -86,12 +86,14 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
     const filteredData = filterDataByTimeRange(locations, timeLabels);
     setChartData(filteredData);
     setCurrentLabels(filteredLabels);
-    // Turn off forecast when time range is changed
-    setShowForecast(false);
-    // Set sorting flag when time range is different from full range
-    setIsSorting(timeRange.start !== timeRangeOptions[0]?.value || 
-                 timeRange.end !== timeRangeOptions[timeRangeOptions.length - 1]?.value);
   }, [timeRange, locations, timeLabels]);
+
+  // Handle time range selection changes
+  const handleTimeRangeChange = (type: 'start' | 'end', value: number) => {
+    setTimeRange(prev => ({ ...prev, [type]: value }));
+    setIsSorting(true);
+    setShowForecast(false);
+  };
 
   // Update only the latest data point when props change to simulate real-time updates
   useEffect(() => {
@@ -284,7 +286,7 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
             <div className="flex items-center gap-2">
               <select
                 value={timeRange.start}
-                onChange={(e) => setTimeRange(prev => ({ ...prev, start: parseInt(e.target.value) }))}
+                onChange={(e) => handleTimeRangeChange('start', parseInt(e.target.value))}
                 className="text-xs px-2 py-1 rounded border border-gray-200"
               >
                 {timeRangeOptions.map(option => (
@@ -296,7 +298,7 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
               <span className="text-xs text-gray-500">to</span>
               <select
                 value={timeRange.end}
-                onChange={(e) => setTimeRange(prev => ({ ...prev, end: parseInt(e.target.value) }))}
+                onChange={(e) => handleTimeRangeChange('end', parseInt(e.target.value))}
                 className="text-xs px-2 py-1 rounded border border-gray-200"
               >
                 {timeRangeOptions.map(option => (
