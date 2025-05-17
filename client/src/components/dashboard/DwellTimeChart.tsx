@@ -134,7 +134,7 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
     const filteredData = filterDataByTimeRange(locations, timeLabels);
     setChartData(filteredData);
     setCurrentLabels(filteredLabels);
-  }, [timeRange, locations, timeLabels, isSorting]); // Include all dependencies used in the effect
+  }, [timeRange]); // Only depend on timeRange changes
 
   // Handle time range selection changes
   const handleTimeRangeChange = (type: 'start' | 'end', value: number) => {
