@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from "date-fns";
 import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -11,6 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 import { getReportData } from '@/data/reportData';
 import { useFootTraffic } from '@/context/FootTrafficContext';
 import { useAuth } from '@/context/AuthContext';
+import { generateForecastInterpretation } from '@/utils/aiService';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 // Import the company logo
 import logoImg from '../assets/logo.png';
@@ -24,6 +28,21 @@ interface BarangayReport {
   avgDwellTime: string;
   totalDwellTime: string;
 }
+
+// Function to format location names
+const formatLocationName = (key: string): string => {
+  // Convert snake_case to Title Case and handle special cases
+  return key
+    .split('_')
+    .map(word => {
+      // Handle special cases
+      if (word.toLowerCase() === 'sm') return 'SM';
+      if (word.toLowerCase() === 'of') return 'of';
+      // Capitalize first letter of other words
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+};
 
 const Reports: React.FC = () => {
   const { videoStats, mapData, totalPeopleCount } = useFootTraffic();
@@ -39,6 +58,8 @@ const Reports: React.FC = () => {
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
   const [exportDialogOpen, setExportDialogOpen] = useState<boolean>(false);
   const [selectedLocations, setSelectedLocations] = useState<string[]>(["all"]);
+  const [useAI, setUseAI] = useState(false);
+  const [apiKey, setApiKey] = useState('');
   const { toast } = useToast();
   
   // Create dynamic barangay reports
@@ -56,27 +77,71 @@ const Reports: React.FC = () => {
       totalDwellTime: `${Math.floor(marker.count * 0.2)} hrs ${Math.floor(Math.random() * 60)} min`
     };
   }).sort((a, b) => b.totalFootTraffic - a.totalFootTraffic) || [];
+  // Get top 3 locations by foot traffic
+  const top3Locations = barangayReports.slice(0, 3);
+  
+  // Generate AI interpretations for top locations
+  const generateAIInterpretations = async () => {
+    if (!apiKey) {
+      toast({
+        title: "API Key Required",
+        description: "Please enter your OpenRouter API key to use AI interpretations.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const forecastInterpretation = reportsData?.forecastInterpretation || staticReportsData.forecastInterpretation;
+    const newInterpretations: Record<string, string> = {};
+    
+    for (const location of top3Locations) {
+      const result = await generateForecastInterpretation(location, apiKey);
+      if (result.success) {
+        const locationKey = location.name.toLowerCase().replace(/\s+/g, '_');
+        newInterpretations[locationKey] = result.interpretation;
+      } else {
+        toast({
+          title: "Error",
+          description: `Failed to generate interpretation for ${location.name}: ${result.error}`,
+          variant: "destructive",
+        });
+      }
+    }
+
+    setForecastInterpretation(newInterpretations);
+  };
+
+  // Create dynamic forecast interpretations for top 3 locations
+  const [forecastInterpretation, setForecastInterpretation] = useState<Record<string, string>>(
+    top3Locations.reduce((acc: Record<string, string>, location) => {
+      const locationKey = location.name.toLowerCase().replace(/\s+/g, '_');
+      acc[locationKey] = `${location.name} shows significant foot traffic with ${location.avgFootTraffic} average visitors. ` +
+        `Based on the current trend, we predict a ${Math.floor(Math.random() * 20) + 10}% increase in foot traffic ` +
+        `during peak hours. The average dwell time of ${location.avgDwellTime} suggests ${
+          parseInt(location.avgDwellTime) > 15 ? 'high engagement' : 'quick pass-through traffic'
+        }.`;
+      return acc;
+    }, {})
+  );
+
+  useEffect(() => {
+    if (useAI && apiKey) {
+      generateAIInterpretations();
+    }
+  }, [useAI, apiKey]);
 
   // Create a stable list of all available locations
   const availableLocations = useMemo(() => {
     // Create a list of special locations first to maintain their order
-    const specialLocations = [
-      { id: 'manilaCathedral', name: 'Manila Cathedral', sortOrder: 0 },
-      { id: 'divisoriaMarket', name: 'Divisoria Market', sortOrder: 1 },
-      { id: 'fortSantiago', name: 'Fort Santiago', sortOrder: 2 }
-    ];
 
     // Get locations from barangay reports
     const reportLocationIds = barangayReports?.map(report => ({
       id: report.name.toLowerCase().replace(/\s+/g, '_'),
       name: report.name,
-      sortOrder: parseInt(report.id.toString()) + specialLocations.length // Add offset to keep after special locations
+      sortOrder: parseInt(report.id.toString())  // Add offset to keep after special locations
     })) || [];
 
     // Combine both lists
-    const allLocations = [...specialLocations, ...reportLocationIds];
+    const allLocations = [...reportLocationIds];
 
     // Create a map to remove duplicates while maintaining order
     const locationsMap = new Map();
@@ -492,6 +557,7 @@ const Reports: React.FC = () => {
 
   return (
     <div className="p-6">
+      {/* Export Dialog */}
       <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
@@ -617,6 +683,36 @@ const Reports: React.FC = () => {
                 ))}
               </div>
             </div>
+
+            <div className="space-y-3">
+              <h3 className="font-medium text-sm">AI Interpretations</h3>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="use-ai"
+                    checked={useAI}
+                    onChange={(e) => setUseAI(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <label htmlFor="use-ai" className="text-sm">
+                    Use AI for interpretations
+                  </label>
+                </div>
+                {useAI && (
+                  <div className="space-y-2">
+                    <Label htmlFor="api-key">OpenRouter API Key</Label>
+                    <Input
+                      id="api-key"
+                      type="password"
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder="Enter your OpenRouter API key"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
           
           <DialogFooter>
@@ -694,12 +790,9 @@ const Reports: React.FC = () => {
         <div className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {Object.entries(forecastInterpretation).map(([key, value]) => (
-              <div key={key} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <h3 className="font-bold text-lg mb-2 flex items-center">
+              <div key={key} className="bg-gray-50 p-4 rounded-lg border border-gray-200">                <h3 className="font-bold text-lg mb-2 flex items-center">
                   <span className="material-icons text-primary mr-2 text-sm">place</span>
-                  {key === 'manilaCathedral' ? 'Manila Cathedral' :
-                   key === 'divisoriaMarket' ? 'Divisoria Market' :
-                   key === 'fortSantiago' ? 'Fort Santiago' : key}
+                  {formatLocationName(key)}
                 </h3>
                 <p className="text-sm">{typeof value === 'string' ? value : 'No interpretation available'}</p>
                 <div className="mt-3 flex justify-end">
