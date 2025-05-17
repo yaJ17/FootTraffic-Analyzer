@@ -80,67 +80,83 @@ const FootTrafficChart: React.FC<FootTrafficChartProps> = ({
     });
   };
 
-  // Update chart data when time range changes
-  useEffect(() => {
-    const filteredLabels = filterLabelsByTimeRange(timeLabels);
-    const filteredData = filterDataByTimeRange(locations, timeLabels);
-    setChartData(filteredData);
-    setCurrentLabels(filteredLabels);
-  }, [timeRange, locations, timeLabels]);
 
   // Handle time range selection changes
   const handleTimeRangeChange = (type: 'start' | 'end', value: number) => {
     setTimeRange(prev => ({ ...prev, [type]: value }));
     setIsSorting(true);
     setShowForecast(false);
-  };
+  };  // Update chart data when time range changes
+  useEffect(() => {
+    if (!isSorting) return; // Only update when sorting/filtering is active
+    
+    const filteredLabels = filterLabelsByTimeRange(timeLabels);
+    const filteredData = filterDataByTimeRange(locations, timeLabels);
+    setChartData(filteredData);
+    setCurrentLabels(filteredLabels);
+  }, [timeRange, locations, timeLabels, isSorting]);
+  
 
   // Update only the latest data point when props change to simulate real-time updates
   useEffect(() => {
-    // Skip updates if sorting is active
+    // Skip updates if sorting/filtering is active
     if (isSorting) return;
 
+    // Handle initial load
+    if (!chartData.length || !currentLabels.length) {
+      const filteredLabels = filterLabelsByTimeRange(timeLabels);
+      const filteredData = filterDataByTimeRange(locations, timeLabels);
+      setChartData(filteredData);
+      setCurrentLabels(filteredLabels);
+      return;
+    }
+
     if (locations.length > 0 && timeLabels.length > 0) {
-      // Check if we need to add a new time label
-      if (timeLabels[timeLabels.length - 1] !== currentLabels[currentLabels.length - 1]) {
+      const latestTimeLabel = timeLabels[timeLabels.length - 1];
+      const currentLatestLabel = currentLabels[currentLabels.length - 1];
+
+      // Check if we have a new time point
+      if (latestTimeLabel !== currentLatestLabel) {
         // Add the new time label
-        setCurrentLabels(prev => [...prev.slice(1), timeLabels[timeLabels.length - 1]]);
+        setCurrentLabels(prev => [...prev.slice(1), latestTimeLabel]);
         
-        // Shift all data points and add the new one
+        // Update data points with the latest values
         setChartData(prev => 
-          prev.map((loc, idx) => {
-            const matchingLocation = locations.find(l => l.name === loc.name);
-            if (!matchingLocation) return loc;
-            
-            return {
-              ...loc,
-              values: [...loc.values.slice(1), matchingLocation.values[matchingLocation.values.length - 1]]
-            };
-          })
-        );
-      } else {
-        // Just update the last value of each location
-        setChartData(prev => 
-          prev.map((loc, idx) => {
+          prev.map(loc => {
             const matchingLocation = locations.find(l => l.name === loc.name);
             if (!matchingLocation) return loc;
             
             return {
               ...loc,
               values: [
-                ...loc.values.slice(0, -1), 
+                ...loc.values.slice(1), 
                 matchingLocation.values[matchingLocation.values.length - 1]
               ]
             };
           })
         );
+      } else {
+        // Just update the last value of each location if it has changed
+        setChartData(prev => 
+          prev.map(loc => {
+            const matchingLocation = locations.find(l => l.name === loc.name);
+            if (!matchingLocation) return loc;
+            
+            const latestValue = matchingLocation.values[matchingLocation.values.length - 1];
+            if (loc.values[loc.values.length - 1] === latestValue) return loc;
+            
+            return {
+              ...loc,
+              values: [
+                ...loc.values.slice(0, -1),
+                latestValue
+              ]
+            };
+          })
+        );
       }
-    } else {
-      // Initial load
-      setChartData(locations);
-      setCurrentLabels(timeLabels);
     }
-  }, [locations, timeLabels, isSorting]);
+  }, [locations, timeLabels, isSorting, chartData.length, currentLabels.length]);
 
   // Calculate total foot traffic per location
   const totalValues = chartData.map(loc => ({
