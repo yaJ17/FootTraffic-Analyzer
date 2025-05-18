@@ -6,7 +6,8 @@ import {
   signUpWithEmail, 
   signInWithGoogle, 
   logOut, 
-  onAuthChange 
+  onAuthChange,
+  sendVerificationEmail
 } from '../lib/firebase';
 import { generateVerificationCode, sendVerificationCode } from '../lib/emailjs';
 
@@ -59,7 +60,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await signInWithEmail(email, password);
       if (result) {
-        // Store the user temporarily but don't set it as the main user yet
+        if (!result.emailVerified) {
+          // Try to send a new verification email
+          await sendVerificationEmail(result);
+          throw new Error("Please verify your email before signing in. Check your inbox for the verification link.");
+        }
+        // Only proceed with 2FA if email is verified
         setTempUser(result);
         const code = generateVerificationCode();
         await sendVerificationCode(email, code);
@@ -76,7 +82,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await signInWithGoogle();
       if (result) {
-        // Store the user temporarily but don't set it as the main user yet
+        if (!result.emailVerified) {
+          // For Google sign-in, we should send a verification email
+          await sendVerificationEmail(result);
+          // Sign out and prompt for verification
+          await logOut();
+          throw new Error("Please verify your email before signing in. Check your inbox for the verification link.");
+        }
+        // Only proceed with 2FA if email is verified
         setTempUser(result);
         const code = generateVerificationCode();
         await sendVerificationCode(result.email || '', code);

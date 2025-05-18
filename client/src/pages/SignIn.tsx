@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import signinImage from '../assets/signin_img.jpg';
+import { auth, signInWithEmail, sendVerificationEmail } from '@/lib/firebase';
 
 const SignIn: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -24,11 +25,31 @@ const SignIn: React.FC = () => {
   const { toast } = useToast();
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     try {
+      const result = await signInWithEmail(email, password);
+      
+      if (result && !result.emailVerified) {
+        try {
+          await sendVerificationEmail(result);
+          await auth.signOut();
+          
+          toast({
+            title: "Email Not Verified",
+            description: "Please check your email and verify your account before signing in. A new verification email has been sent.",
+            variant: "destructive"
+          });
+          return;
+        } catch (verificationError) {
+          console.error('Error sending verification email:', verificationError);
+          throw verificationError;
+        }
+      }
+
+      // If email is verified, proceed with normal sign in flow
       await loginWithEmail(email, password);
-      console.log('Login successful, should show verification'); // Debug log
     } catch (error: any) {
-      console.error('Login error:', error); // Debug log
+      console.error('Login error:', error);
       toast({
         title: "Login Failed",
         description: error.message || "Failed to sign in with email and password",

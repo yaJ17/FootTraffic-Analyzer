@@ -7,6 +7,26 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import signupImage from '../assets/signup_img.jpg';
 
+// Password validation function
+const validatePassword = (password: string): { isValid: boolean; message: string } => {
+  const hasCapital = /[A-Z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  
+  if (!hasCapital) return { isValid: false, message: "Password must contain at least one capital letter" };
+  if (!hasNumber) return { isValid: false, message: "Password must contain at least one number" };
+  if (!hasSpecial) return { isValid: false, message: "Password must contain at least one special character" };
+  
+  return { isValid: true, message: "" };
+};
+
+// Email validation function
+const validateEmail = (email: string): { isValid: boolean; message: string } => {
+  const isGmail = email.toLowerCase().endsWith('@gmail.com');
+  if (!isGmail) return { isValid: false, message: "Please use a Gmail address" };
+  return { isValid: true, message: "" };
+};
+
 const SignUp: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,6 +40,28 @@ const SignUp: React.FC = () => {
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate email
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      toast({
+        title: "Invalid Email",
+        description: emailValidation.message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      toast({
+        title: "Invalid Password",
+        description: passwordValidation.message,
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (password !== confirmPassword) {
       toast({
         title: "Password Mismatch",
@@ -33,7 +75,7 @@ const SignUp: React.FC = () => {
       await registerWithEmail(email, password);
       toast({
         title: "Registration Success",
-        description: "Your account has been created. Redirecting to sign in...",
+        description: "Please check your email to verify your account before signing in.",
         variant: "default"
       });
       // Redirect to sign in page after successful registration

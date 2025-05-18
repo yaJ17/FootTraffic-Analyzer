@@ -7,7 +7,9 @@ import {
   GoogleAuthProvider, 
   signInWithPopup,
   onAuthStateChanged,
-  User 
+  User,
+  sendEmailVerification,
+  applyActionCode
 } from "firebase/auth";
 
 const firebaseConfig = {
@@ -33,6 +35,16 @@ export const signInWithGoogle = async () => {
   }
 };
 
+export const sendVerificationEmail = async (user: User) => {
+  try {
+    await sendEmailVerification(user, {
+      url: window.location.origin + '/signin'
+    });
+  } catch (error) {
+    throw error;
+  }
+};
+
 export const signInWithEmail = async (email: string, password: string) => {
   try {
     const result = await signInWithEmailAndPassword(auth, email, password);
@@ -45,6 +57,12 @@ export const signInWithEmail = async (email: string, password: string) => {
 export const signUpWithEmail = async (email: string, password: string) => {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, password);
+    // Send email verification
+    if (result.user) {
+      await sendEmailVerification(result.user, {
+        url: window.location.origin + '/signin', // Redirect URL after verification
+      });
+    }
     // Immediately sign out after registration to prevent auto-login
     await signOut(auth);
     return result.user;
@@ -63,6 +81,15 @@ export const logOut = async () => {
 
 export const onAuthChange = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
+};
+
+export const verifyEmail = async (actionCode: string) => {
+  try {
+    await applyActionCode(auth, actionCode);
+    return true;
+  } catch (error) {
+    throw error;
+  }
 };
 
 export { auth };
