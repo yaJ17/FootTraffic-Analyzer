@@ -12,16 +12,23 @@ const SignIn: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const { loginWithEmail, loginWithGoogle } = useAuth();
+  const [verificationCode, setVerificationCode] = useState('');
+  const { 
+    loginWithEmail, 
+    loginWithGoogle, 
+    pendingVerification, 
+    verificationEmail,
+    verifyCode
+  } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await loginWithEmail(email, password);
-      setLocation('/dashboard');
+      console.log('Login successful, should show verification'); // Debug log
     } catch (error: any) {
+      console.error('Login error:', error); // Debug log
       toast({
         title: "Login Failed",
         description: error.message || "Failed to sign in with email and password",
@@ -33,7 +40,6 @@ const SignIn: React.FC = () => {
   const handleGoogleLogin = async () => {
     try {
       await loginWithGoogle();
-      setLocation('/dashboard');
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -43,14 +49,34 @@ const SignIn: React.FC = () => {
     }
   };
 
+  const handleVerifyCode = () => {
+    if (verificationCode.trim() === '') {
+      toast({
+        title: "Verification Code Required",
+        description: "Please enter the verification code sent to your email",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const isValid = verifyCode(verificationCode);
+    if (isValid) {
+      setLocation('/dashboard');
+    } else {
+      toast({
+        title: "Invalid Code",
+        description: "The verification code you entered is incorrect",
+        variant: "destructive"
+      });
+      setVerificationCode('');
+    }
+  };
+
   // Track animation states
   const [isNavigating, setIsNavigating] = useState(false);
-  
-  // Check if we're coming from SignUp (to add slide-in animation)
   const [comingFromSignUp, setComingFromSignUp] = useState(false);
   
   useEffect(() => {
-    // Check if we're coming from the SignUp page via URL params
     const params = new URLSearchParams(window.location.search);
     if (params.get('from') === 'signup') {
       setComingFromSignUp(true);
@@ -61,9 +87,53 @@ const SignIn: React.FC = () => {
     setIsNavigating(true);
     setTimeout(() => {
       setLocation('/signup?from=signin');
-    }, 500); // Wait for animation to complete
+    }, 500);
   };
+  // Debug log for verification state
+  useEffect(() => {
+    console.log('SignIn component verification state:', { 
+      pendingVerification, 
+      verificationEmail 
+    });
+  }, [pendingVerification, verificationEmail]);
 
+  // Show verification screen if pending verification
+  if (pendingVerification) {
+    console.log('Rendering verification screen');
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md space-y-8">
+          <div className="flex flex-col items-center">
+            <Logo textColor="text-black" />
+            <h2 className="mt-6 text-3xl font-bold text-center">Enter Verification Code</h2>
+            <p className="mt-2 text-sm text-gray-600 text-center">
+              We've sent a verification code to {verificationEmail}
+            </p>
+          </div>
+
+          <div className="mt-8 space-y-4">
+            <Input
+              type="text"
+              placeholder="Enter 6-digit code"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              className="w-full p-2 border rounded-md text-center text-2xl tracking-wider"
+              maxLength={6}
+            />
+
+            <Button
+              onClick={handleVerifyCode}
+              className="w-full py-2 bg-accent text-darkText rounded-md font-medium hover:bg-yellow-500 transition"
+            >
+              Verify & Continue
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login form
   return (
     <div className={`min-h-screen overflow-hidden auth-container signin-container ${comingFromSignUp ? 'slide-in-from-right' : ''} ${isNavigating ? 'slide-out' : ''}`}>
       <div className="flex min-h-screen">

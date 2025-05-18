@@ -19,25 +19,36 @@ import { useEffect } from "react";
 import './App.css';
 
 function AuthenticatedRoute({ component: Component }: { component: React.ComponentType }) {
-  const { user, loading } = useAuth();
+  const { user, loading, pendingVerification } = useAuth();
   const [, setLocation] = useLocation();
-  
+
   useEffect(() => {
-    if (!loading && !user) {
-      setLocation("/signin");
+    if (!loading) {
+      if (!user) {
+        // If no user at all, redirect to sign in
+        setLocation("/signin");
+      } else if (pendingVerification) {
+        // If user exists but verification is pending, stay on signin page 
+        // the signin page will show verification UI
+        setLocation("/signin");
+      }
     }
-  }, [user, loading, setLocation]);
+  }, [user, loading, pendingVerification, setLocation]);
 
   if (loading) {
-    return <div className="h-screen w-full flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        Loading...
+      </div>
+    );
   }
 
-  return user ? <Component /> : null;
+  return user && !pendingVerification ? <Component /> : null;
 }
 
 function Router() {
   const [location] = useLocation();
-  const { user, loading } = useAuth();
+  const { user, loading, pendingVerification } = useAuth();
   
   // Check if path is one of the authenticated routes
   const isAuthPath = (
@@ -49,15 +60,29 @@ function Router() {
     location === "/profile" ||
     location === "/video-analysis"
   );
+
+  // Handle loading state
+  if (loading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        Loading...
+      </div>
+    );
+  }
   
-  // Handle root path redirection
-  if (location === "/" && user && !loading) {
+  // If verification is pending, only allow access to signin page
+  if (pendingVerification && location !== "/signin") {
+    return <Redirect to="/signin" />;
+  }
+
+  // Redirect authenticated and verified users away from auth pages
+  if ((location === "/signin" || location === "/signup") && user && !pendingVerification) {
     return <Redirect to="/dashboard" />;
   }
   
-  // Handle authentication redirection for login/signup pages
-  if ((location === "/signin" || location === "/signup") && user && !loading) {
-    return <Redirect to="/dashboard" />;
+  // Redirect unauthenticated users to signin
+  if (isAuthPath && !user) {
+    return <Redirect to="/signin" />;
   }
 
   return (
