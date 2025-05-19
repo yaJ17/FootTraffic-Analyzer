@@ -38,7 +38,8 @@ export default function VideoAnalysis() {
     [
       { url: 'https://www.youtube.com/watch?v=p0Qhe4vhYLQ', title: 'Loading...' },
       { url: 'https://www.youtube.com/watch?v=TRG2EQtlmzI', title: 'Loading...' },
-      { url: 'https://www.youtube.com/watch?v=y-Os52eW2rg', title: 'Loading...' }
+      { url: 'https://www.youtube.com/watch?v=y-Os52eW2rg', title: 'Loading...' },
+      { url: 'https://www.youtube.com/watch?v=Sz2K42XFf1Q', title: 'Loading...' }
     ]
   );
   const [newYoutubeLink, setNewYoutubeLink] = useState<string>('');

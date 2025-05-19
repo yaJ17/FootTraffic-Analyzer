@@ -629,36 +629,6 @@ const Reports: React.FC = () => {
                 ))}
               </div>
             </div>
-
-            <div className="space-y-3">
-              <h3 className="font-medium text-sm">AI Interpretations</h3>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="use-ai"
-                    checked={useAI}
-                    onChange={(e) => setUseAI(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <label htmlFor="use-ai" className="text-sm">
-                    Use AI for interpretations
-                  </label>
-                </div>
-                {useAI && (
-                  <div className="space-y-2">
-                    <Label htmlFor="api-key">OpenRouter API Key</Label>
-                    <Input
-                      id="api-key"
-                      type="password"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      placeholder="Enter your OpenRouter API key"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
           
           <DialogFooter>
