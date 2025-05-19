@@ -45,6 +45,39 @@ export default function VideoAnalysis() {
   );
   const [newYoutubeLink, setNewYoutubeLink] = useState<string>('');
   
+  // Add a function to stop the stream
+  const stopStream = async () => {
+    try {
+      await fetch(`${flaskServerUrl}/stop_stream`, {
+        method: 'POST'
+      });
+      
+      setIsAnalyzing(false);
+      setIsYoutubeAnalyzing(false);
+      setStreamStatus({ isReady: false, error: null });
+      setStats(ensureStatsConsistency({
+        people_count: 0,
+        avg_dwell_time: 0,
+        highest_dwell_time: 0,
+        location: selectedSample ? (selectedSample === 'school' ? 'School Entrance' : 'Palengke Market') : 
+                youtubeUrl ? (savedYoutubeVideos.find(v => v.url === youtubeUrl)?.title || 'YouTube Stream') : '',
+        timestamp: new Date().toISOString()
+      }));
+      
+      toast({
+        title: "Stream Stopped",
+        description: "Video stream has been stopped successfully."
+      });
+    } catch (err) {
+      console.error('Error stopping stream:', err);
+      toast({
+        title: "Error",
+        description: "Failed to stop video stream",
+        variant: "destructive"
+      });
+    }
+  };
+  
   // Use the FootTrafficContext
   const { flaskServerUrl: contextFlaskUrl, updateAnalysisStats } = useFootTraffic();
   
@@ -271,12 +304,12 @@ export default function VideoAnalysis() {
       const data = await response.json();
       
       // Update location from response
-      setStats(prev => {
-        const baseStats = prev || {
+      setStats(prevStats => {
+        const baseStats ={
           people_count: 0,
           avg_dwell_time: 0,
           highest_dwell_time: 0,
-          timestamp: new Date().toISOString()
+          timestamp: ""
         };
         
         return ensureStatsConsistency({
@@ -648,22 +681,34 @@ export default function VideoAnalysis() {
               <Card className="flex flex-col">
                 <CardHeader>
                   <CardTitle>Live Video Stream</CardTitle>
-                </CardHeader>
-                <CardContent className="flex justify-center flex-1">
+                </CardHeader>                <CardContent className="flex justify-center flex-1">
                   <div className="relative w-full max-w-xl border overflow-hidden rounded-md">
                     {isFlaskRunning && streamStatus.isReady ? (
-                      <img 
-                        key={streamKey}
-                        src={`${flaskServerUrl}/video_feed?t=${videoTimestamp}`}
-                        alt="Live Video Analysis"
-                        className="w-full h-auto"
-                        onError={() => {
-                          setStreamStatus(prev => ({
-                            ...prev,
-                            error: 'Failed to load video stream'
-                          }));
-                        }}
-                      />
+                      <div className="relative">
+                        <img 
+                          key={streamKey}
+                          src={`${flaskServerUrl}/video_feed?t=${videoTimestamp}`}
+                          alt="Live Video Analysis"
+                          className="w-full h-auto"
+                          onError={() => {
+                            setStreamStatus(prev => ({
+                              ...prev,
+                              error: 'Failed to load video stream'
+                            }));
+                          }}
+                        />
+                        <div className="absolute top-2 right-2">
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={async () => {
+                              stopStream();
+                            }}
+                          >
+                            Stop Stream
+                          </Button>
+                        </div>
+                      </div>
                     ) : (
                       <div className="bg-gray-100 p-8 text-center h-64 flex flex-col items-center justify-center">
                         <FiVideo className="text-5xl text-gray-400 mb-4" />
@@ -843,17 +888,29 @@ export default function VideoAnalysis() {
               <Card className="flex flex-col">
                 <CardHeader>
                   <CardTitle>Live Video Stream</CardTitle>
-                </CardHeader>
-                <CardContent className="flex justify-center flex-1">
+                </CardHeader>                <CardContent className="flex justify-center flex-1">
                   <div className="relative w-full max-w-xl border overflow-hidden rounded-md">
                     {isFlaskRunning && streamStatus.isReady ? (
-                      <img 
-                        key={streamKey}
-                        src={`${flaskServerUrl}/video_feed?t=${videoTimestamp}`}
-                        alt="Live Video Analysis"
-                        className="w-full h-auto"
-                        onError={handleVideoError}
-                      />
+                      <div className="relative">
+                        <img 
+                          key={streamKey}
+                          src={`${flaskServerUrl}/video_feed?t=${videoTimestamp}`}
+                          alt="Live Video Analysis"
+                          className="w-full h-auto"
+                          onError={handleVideoError}
+                        />
+                        <div className="absolute top-2 right-2">
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={async () => {
+                              stopStream();
+                            }}
+                          >
+                            Stop Stream
+                          </Button>
+                        </div>
+                      </div>
                     ) : (
                       <div className="bg-gray-100 p-8 text-center h-64 flex flex-col items-center justify-center">
                         <FiVideo className="text-5xl text-gray-400 mb-4" />

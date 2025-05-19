@@ -51,6 +51,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 video_path = None
 output_frame = None
 processing_complete = False
+stream_active = True  # Flag to control stream generation
 stream_lock = threading.Lock()  # Add lock for thread safety
 current_stats = {
     "people_count": 0,
@@ -64,9 +65,10 @@ model = None
 current_video_title = None
 
 def initialize_yolo():
-    global model, video_initialization_error
+    global model, video_initialization_error, stream_active
     try:
         model = YOLO("model.pt")
+        stream_active = False
         logger.info("YOLO model loaded successfully")
         return True
     except Exception as e:
@@ -172,13 +174,14 @@ def is_point_in_region(point, region):
 
 def reset_stream():
     """Reset all stream-related variables"""
-    global video_path, output_frame, processing_complete, current_stats, video_initialization_error, current_video_title
+    global video_path, output_frame, processing_complete, current_stats, video_initialization_error, current_video_title, stream_active
     with stream_lock:
         video_path = None
         output_frame = None
         processing_complete = False
         video_initialization_error = None
         current_video_title = None
+        stream_active = False  # Set the flag to stop the generator function
         current_stats = {
             "people_count": 0,
             "avg_dwell_time": 0,
@@ -191,6 +194,7 @@ def reset_stream():
 @app.route('/stop_stream', methods=['POST'])
 def stop_stream():
     """Stop the current video stream"""
+    logger.info("Stop stream requested - resetting stream variables")
     reset_stream()
     return jsonify({"success": True, "message": "Stream stopped successfully"})
 
@@ -289,9 +293,12 @@ def process_sample():
                     "success": False,
                     "error": video_initialization_error
                 }), 500
-            
-            # Set the new video path
+              # Set the new video path
             video_path = file_path
+            
+            # Set stream as active
+            global stream_active
+            stream_active = True
             
             # Update current stats
             current_stats.update({
@@ -404,10 +411,13 @@ def draw_stats_overlay(frame, people_count, avg_dwell_time, highest_dwell_time, 
 
 def generate_frames():
     """Generate video frames with person detection"""
-    global video_path, output_frame, processing_complete, current_stats, frame_count, face_recognition_active
+    global video_path, output_frame, processing_complete, current_stats, frame_count, face_recognition_active, stream_active
     
     if not video_path:
         return
+    
+    # Set the stream as active
+    stream_active = True
     
     try:
         # Initialize frame counter
@@ -426,7 +436,8 @@ def generate_frames():
     max_reconnect_attempts = 5
     max_consecutive_failures = 3
     
-    while True:
+    # Fixed the loop to use stream_active instead of undefined 'x'
+    while stream_active:
         try:
             cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
@@ -463,8 +474,12 @@ def generate_frames():
             dwell_times = {}
             people_in_region = set()
             start_time = time.time()
-            
-            while True:
+            while stream_active:
+                # Check if the stream has been stopped
+                if not stream_active:
+                    logger.info("Stream stop requested, breaking out of processing loop")
+                    break
+                
                 success, frame = cap.read()
                 if not success:
                     consecutive_failures += 1
@@ -615,14 +630,19 @@ def generate_frames():
                             
                             # Draw stats overlay
                             draw_stats_overlay(display_frame, len(people_in_region), avg_dwell_time, highest_dwell_time, fps/frame_skip)
-                            
-                            # Export stats if needed
+                              # Export stats if needed
                             if stats_exporter.should_export(current_time):
                                 stats_exporter.export_stats(len(people_in_region), avg_dwell_time)
                         
+                        # Save the display frame for potential use in the next iteration
                         last_frame = display_frame
                     else:
                         display_frame = last_frame if last_frame is not None else frame
+                    
+                    # Check again if stream was stopped during processing
+                    if not stream_active:
+                        logger.info("Stream stop detected during frame processing")
+                        break
                     
                     ret, buffer = cv2.imencode('.jpg', display_frame)
                     if not ret:
@@ -634,15 +654,17 @@ def generate_frames():
                     
                 except Exception as e:
                     logger.error(f"Error processing frame: {e}")
-                    if last_frame is not None:
+                    if last_frame is not None and stream_active:
                         ret, buffer = cv2.imencode('.jpg', last_frame)
                         if ret:
                             frame_bytes = buffer.tobytes()
                             yield (b'--frame\r\n'
                                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
             
-            cap.release()
-            
+            # Make sure to release resources
+            if cap is not None:
+                cap.release()
+                logger.info("Video capture released")
         except Exception as e:
             logger.error(f"Error in video processing: {e}")
             time.sleep(1)
@@ -790,9 +812,12 @@ def process_youtube():
                     "success": False,
                     "error": "Failed to initialize YOLO model"
                 }), 500
-            
-            # Set the video path to the stream URL
+              # Set the video path to the stream URL
             video_path = video_url
+            
+            # Set stream as active
+            global stream_active
+            stream_active = True
             
             # Update current stats
             current_stats.update({
