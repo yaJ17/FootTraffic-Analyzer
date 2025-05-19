@@ -503,8 +503,35 @@ def generate_frames():
                         
                         if last_detection is not None:
                             detections = last_detection.boxes
-                            people_detections = [box for box in detections if int(box.cls[0]) == 0 and box.conf[0] > 0.35]
-                            
+                            people_detections = []
+                            for box in detections:
+                                cls_id = int(box.cls[0])
+                                conf = float(box.conf[0])
+
+                                if cls_id != 0 or conf < 0.35:
+                                    continue  # skip non-human or low confidence
+
+                                # Bounding box coordinates
+                                x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
+                                width = x2 - x1
+                                height = y2 - y1
+
+                                # Aspect ratio (height divided by width)
+                                if width == 0:
+                                    continue  # avoid division by zero
+                                aspect_ratio = height / width
+
+                                # Filter thresholds (adjustable)
+                                min_aspect_ratio = 1.2   # humans are usually taller than wide
+                                max_aspect_ratio = 4.0   # extremely tall boxes might be false positives
+                                min_area = 800           # ignore too small objects (e.g., 20x40)
+                                max_area = 50000         # ignore too large (e.g., full-frame noise)
+
+                                area = width * height
+
+                                if (min_aspect_ratio <= aspect_ratio <= max_aspect_ratio) and (min_area <= area <= max_area):
+                                    people_detections.append(box)
+                                                        
                             people_in_region.clear()
                             current_time = time.time()
                             
