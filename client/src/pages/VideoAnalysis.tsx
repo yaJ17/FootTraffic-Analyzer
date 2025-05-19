@@ -8,6 +8,7 @@ import { FiUpload, FiVideo, FiBarChart2, FiClock, FiUsers, FiMapPin } from 'reac
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useFootTraffic } from "@/context/FootTrafficContext";
+import { StatsFs } from 'fs';
 
 interface Stats {
   people_count: number;
@@ -63,7 +64,7 @@ export default function VideoAnalysis() {
     if (isAnalyzing) {
       const interval = setInterval(() => {
         fetchStats();
-      }, 3000);
+      }, 1000);
       
       return () => clearInterval(interval);
     }
@@ -74,7 +75,7 @@ export default function VideoAnalysis() {
     if (isYoutubeAnalyzing) {
       const interval = setInterval(() => {
         fetchStats();
-      }, 2000);
+      }, 1000);
       return () => clearInterval(interval);
     }
   }, [isYoutubeAnalyzing]);
@@ -218,7 +219,7 @@ export default function VideoAnalysis() {
     // If people_count is 0, ensure avg_dwell_time is also 0
     if (updatedStats.people_count === 0) {
       updatedStats.avg_dwell_time = 0;
-      updatedStats.highest_dwell_time ==0;
+      updatedStats.highest_dwell_time = 0;
     }
     
     return updatedStats;
