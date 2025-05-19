@@ -325,19 +325,6 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
     } catch (err) {
       console.error('Error fetching video analysis stats:', err);
       
-      // Generate some realistic sample data if we can't fetch real data
-      if (!videoStats) {
-        const timeMultiplier = getCurrentMultiplier();
-        const sampleStats: VideoStats = {
-          people_count: Math.floor(45 * timeMultiplier + Math.random() * 20),
-          avg_dwell_time: Math.floor(120 * timeMultiplier + Math.random() * 60),
-          highest_dwell_time: Math.floor(300 * timeMultiplier + Math.random() * 120),
-          location: 'Sample Location',
-          timestamp: new Date().toISOString()
-        };
-        setVideoStats(sampleStats);
-        updateDerivedData(sampleStats);
-      }
     }
   };
 

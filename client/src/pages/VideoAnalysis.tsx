@@ -218,6 +218,7 @@ export default function VideoAnalysis() {
     // If people_count is 0, ensure avg_dwell_time is also 0
     if (updatedStats.people_count === 0) {
       updatedStats.avg_dwell_time = 0;
+      updatedStats.highest_dwell_time ==0;
     }
     
     return updatedStats;
