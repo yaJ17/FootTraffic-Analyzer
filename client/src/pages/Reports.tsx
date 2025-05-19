@@ -27,6 +27,7 @@ interface BarangayReport {
   totalFootTraffic: number;
   avgDwellTime: string;
   totalDwellTime: string;
+  trafficCategory: string;
 }
 
 // Function to format location names
@@ -61,11 +62,22 @@ const Reports: React.FC = () => {
   const [useAI, setUseAI] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const { toast } = useToast();
-  
-  // Create dynamic barangay reports
+    // Create dynamic barangay reports with traffic categories
   const barangayReports: BarangayReport[] = mapData?.markers.map((marker, index) => {
     const existingReport = (reportsData?.barangays || staticReportsData.barangays)
       .find((report: BarangayReport) => report.name.includes(marker.name) || marker.name.includes(report.name));
+    
+    // Determine traffic category
+    let trafficCategory = 'Medium';
+    if (marker.name === videoStats?.location) {
+      // Use the category from the live video stats if available
+      trafficCategory = videoStats.trafficCategory || 'Medium';
+    } else {
+      // Simple categorization based on count
+      if (marker.count > 300) trafficCategory = 'High';
+      else if (marker.count > 100) trafficCategory = 'Medium';
+      else trafficCategory = 'Low';
+    }
 
     return {
       id: index + 1,
@@ -74,7 +86,8 @@ const Reports: React.FC = () => {
       avgFootTraffic: Math.round(marker.count * 0.8),
       totalFootTraffic: marker.count * 24,
       avgDwellTime: `${Math.floor(2 + Math.random() * 8)} min ${Math.floor(Math.random() * 60)} sec`,
-      totalDwellTime: `${Math.floor(marker.count * 0.2)} hrs ${Math.floor(Math.random() * 60)} min`
+      totalDwellTime: `${Math.floor(marker.count * 0.2)} hrs ${Math.floor(Math.random() * 60)} min`,
+      trafficCategory
     };
   }).sort((a, b) => b.totalFootTraffic - a.totalFootTraffic) || [];
   // Get top 3 locations by foot traffic
@@ -109,15 +122,16 @@ const Reports: React.FC = () => {
 
     setForecastInterpretation(newInterpretations);
   };
-
   // Create dynamic forecast interpretations for top 3 locations
   const [forecastInterpretation, setForecastInterpretation] = useState<Record<string, string>>(
     top3Locations.reduce((acc: Record<string, string>, location) => {
       const locationKey = location.name.toLowerCase().replace(/\s+/g, '_');
-      acc[locationKey] = `${location.name} shows significant foot traffic with ${location.avgFootTraffic} average visitors. ` +
+      acc[locationKey] = `${location.name} shows ${location.trafficCategory.toLowerCase()} foot traffic with ${location.avgFootTraffic} average visitors. ` +
         `Based on the current trend, we predict a ${Math.floor(Math.random() * 20) + 10}% increase in foot traffic ` +
         `during peak hours. The average dwell time of ${location.avgDwellTime} suggests ${
-          parseInt(location.avgDwellTime) > 15 ? 'high engagement' : 'quick pass-through traffic'
+          location.trafficCategory === 'High' ? 'high engagement' : 
+          location.trafficCategory === 'Medium' ? 'moderate engagement' : 
+          'quick pass-through traffic'
         }.`;
       return acc;
     }, {})
@@ -310,8 +324,7 @@ const Reports: React.FC = () => {
               <p><strong>Selected Locations:</strong> ${selectedLocations.includes('all') ? 'All Locations' : selectedLocations.map(loc => formatLocationName(loc)).join(', ')}</p>
             </div>
 
-            ${selectedLocations.includes('all') 
-              ? `<div class="all-locations-content">
+            ${selectedLocations.includes('all')              ? `<div class="all-locations-content">
                   <h2 class="section-title">Combined Foot Traffic Analysis</h2>
                   <table>
                     <thead>
@@ -322,6 +335,7 @@ const Reports: React.FC = () => {
                         <th>Total Foot Traffic</th>
                         <th>Avg. Dwell Time</th>
                         <th>Total Dwell Time</th>
+                        <th>Traffic Category</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -333,6 +347,11 @@ const Reports: React.FC = () => {
                           <td>${report.totalFootTraffic.toLocaleString()}</td>
                           <td>${report.avgDwellTime}</td>
                           <td>${report.totalDwellTime}</td>
+                          <td style="font-weight: 600; color: ${
+                            report.trafficCategory === 'High' ? '#dc2626' : 
+                            report.trafficCategory === 'Medium' ? '#d97706' : 
+                            '#16a34a'
+                          }">${report.trafficCategory}</td>
                         </tr>
                       `).join('')}
                     </tbody>
@@ -353,13 +372,14 @@ const Reports: React.FC = () => {
                   ${filteredReports.map(report => {
                     const locationKey = report.name.toLowerCase().replace(/\s+/g, '_');
                     let interpretation;
-                    
-                    // Create an interpretation if it doesn't exist for this location
+                      // Create an interpretation if it doesn't exist for this location
                     if (!forecastInterpretation[locationKey]) {
-                      interpretation = `${report.name} shows significant foot traffic with ${report.avgFootTraffic} average visitors. ` +
+                      interpretation = `${report.name} shows ${report.trafficCategory.toLowerCase()} foot traffic with ${report.avgFootTraffic} average visitors. ` +
                         `Based on the current trend, we predict a ${Math.floor(Math.random() * 20) + 10}% increase in foot traffic ` +
                         `during peak hours. The average dwell time of ${report.avgDwellTime} suggests ${
-                          parseInt(report.avgDwellTime) > 15 ? 'high engagement' : 'quick pass-through traffic'
+                          report.trafficCategory === 'High' ? 'high engagement' : 
+                          report.trafficCategory === 'Medium' ? 'moderate engagement' : 
+                          'quick pass-through traffic'
                         }.`;
                     } else {
                       interpretation = forecastInterpretation[locationKey];
@@ -427,12 +447,11 @@ const Reports: React.FC = () => {
           variant: "destructive",
         });
       }
-    } 
-    else if (exportFormat === 'csv') {
+    }    else if (exportFormat === 'csv') {
       const csvContent = [
-        'Location,Population,Avg Foot Traffic,Total Foot Traffic,Avg Dwell Time,Total Dwell Time',
+        'Location,Population,Avg Foot Traffic,Total Foot Traffic,Avg Dwell Time,Total Dwell Time,Traffic Category',
         ...filteredReports.map(report => 
-          `${report.name},${report.population},${report.avgFootTraffic},${report.totalFootTraffic},"${report.avgDwellTime}","${report.totalDwellTime}"`
+          `${report.name},${report.population},${report.avgFootTraffic},${report.totalFootTraffic},"${report.avgDwellTime}","${report.totalDwellTime}","${report.trafficCategory}"`
         )
       ].join('\n');
       
@@ -668,14 +687,14 @@ const Reports: React.FC = () => {
         <div className="p-4">
           <div className="overflow-x-auto">
             <table className="min-w-full bg-white">
-              <thead>
-                <tr className="bg-primary text-white text-left">
+              <thead>                <tr className="bg-primary text-white text-left">
                   <th className="py-3 px-4 rounded-tl-lg">Location</th>
                   <th className="py-3 px-4">Population</th>
                   <th className="py-3 px-4">Avg. Foot Traffic</th>
                   <th className="py-3 px-4">Total Foot Traffic</th>
                   <th className="py-3 px-4">Avg. Dwell Time</th>
-                  <th className="py-3 px-4 rounded-tr-lg">Total Dwell Time</th>
+                  <th className="py-3 px-4">Total Dwell Time</th>
+                  <th className="py-3 px-4 rounded-tr-lg">Traffic Category</th>
                 </tr>
               </thead>
               <tbody>
@@ -687,6 +706,12 @@ const Reports: React.FC = () => {
                     <td className="py-3 px-4">{barangay.totalFootTraffic.toLocaleString()}</td>
                     <td className="py-3 px-4">{barangay.avgDwellTime}</td>
                     <td className="py-3 px-4">{barangay.totalDwellTime}</td>
+                    <td className={"py-3 px-4 font-medium " + 
+                      (barangay.trafficCategory === 'High' ? 'text-red-600' : 
+                       barangay.trafficCategory === 'Medium' ? 'text-amber-500' : 
+                       'text-green-600')}>
+                      {barangay.trafficCategory}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -10,6 +10,7 @@ export interface VideoStats {
   highest_dwell_time: number;
   location: string;
   timestamp: string;
+  trafficCategory?: 'Low' | 'Medium' | 'High';  // Added traffic categorization
 }
 
 export interface LocationMarker {
@@ -81,6 +82,51 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // Initialize with default data
   const [peakHoursData, setPeakHoursData] = useState(dashboardStaticData.defaultData.peakHours);
   const [weeklySummaryData, setWeeklySummaryData] = useState(dashboardStaticData.defaultData.weeklySummary);
+  // Function to categorize foot traffic based on current and historical data
+  const categorizeFootTraffic = (
+    currentDwell: number, 
+    historicalDwell: number[], 
+    currentCount: number, 
+    historicalCounts: number[]
+  ): 'Low' | 'Medium' | 'High' => {
+    // Need at least some historical data
+    if (historicalDwell.length < 2 || historicalCounts.length < 2) {
+      // Use simple thresholds if no historical data
+      if (currentCount > 150) return 'High';
+      if (currentCount > 50) return 'Medium';
+      return 'Low';
+    }
+    
+    // Compute averages and standard deviations
+    const dwellMean = historicalDwell.reduce((sum, val) => sum + val, 0) / historicalDwell.length;
+    const countMean = historicalCounts.reduce((sum, val) => sum + val, 0) / historicalCounts.length;
+    
+    // Calculate standard deviations
+    const dwellVariance = historicalDwell.reduce((sum, val) => sum + Math.pow(val - dwellMean, 2), 0) / historicalDwell.length;
+    const countVariance = historicalCounts.reduce((sum, val) => sum + Math.pow(val - countMean, 2), 0) / historicalCounts.length;
+    
+    const dwellStd = Math.sqrt(dwellVariance);
+    const countStd = Math.sqrt(countVariance);
+    
+    // Handle zero std deviation edge case
+    const dwellZ = dwellStd !== 0 ? (currentDwell - dwellMean) / dwellStd : 0;
+    const countZ = countStd !== 0 ? (currentCount - countMean) / countStd : 0;
+    
+    // Classify each metric
+    const classifyZ = (z: number): 'Low' | 'Medium' | 'High' => {
+      if (z < -1) return 'Low';
+      if (z > 1) return 'High';
+      return 'Medium';
+    };
+    
+    const dwellCategory = classifyZ(dwellZ);
+    const countCategory = classifyZ(countZ);
+    
+    // Priority-based decision: High > Medium > Low
+    if (dwellCategory === 'High' || countCategory === 'High') return 'High';
+    if (dwellCategory === 'Medium' || countCategory === 'Medium') return 'Medium';
+    return 'Low';
+  };
 
   // Function to generate forecast data based on historical patterns
   const generateForecast = (historicalData: number[], numPoints: number = 4): number[] => {
@@ -307,8 +353,7 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
       
       const data = await response.json();
-      
-      // Ensure we have a valid stats object with required fields
+        // Ensure we have a valid stats object with required fields
       if (data && typeof data === 'object' && data.stats) {
         // Create a validated stats object with defaults for missing values
         const validatedStats: VideoStats = {
@@ -318,6 +363,43 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
           location: data.stats.location || 'Unknown Location',
           timestamp: data.stats.timestamp || new Date().toISOString()
         };
+        
+        // If we have time series data, we can categorize traffic based on historical patterns
+        if (timeSeriesData && timeSeriesData.locations.length > 0) {
+          // Extract historical data for this location or use aggregate data if not found
+          const locationData = timeSeriesData.locations.find(
+            loc => loc.name === getCameraName(validatedStats.location)
+          );
+          
+          if (locationData) {
+            // Use this location's historical data
+            const historicalDwellTimes = locationData.dwellTimeValues;
+            const historicalCounts = locationData.trafficValues;
+            
+            validatedStats.trafficCategory = categorizeFootTraffic(
+              validatedStats.avg_dwell_time,
+              historicalDwellTimes,
+              validatedStats.people_count,
+              historicalCounts
+            );
+          } else {
+            // Use aggregate data from all locations
+            const historicalDwellTimes = timeSeriesData.locations.flatMap(loc => loc.dwellTimeValues);
+            const historicalCounts = timeSeriesData.locations.flatMap(loc => loc.trafficValues);
+            
+            validatedStats.trafficCategory = categorizeFootTraffic(
+              validatedStats.avg_dwell_time,
+              historicalDwellTimes,
+              validatedStats.people_count,
+              historicalCounts
+            );
+          }
+        } else {
+          // No historical data, use simple thresholds
+          if (validatedStats.people_count > 150) validatedStats.trafficCategory = 'High';
+          else if (validatedStats.people_count > 50) validatedStats.trafficCategory = 'Medium';
+          else validatedStats.trafficCategory = 'Low';
+        }
         
         setVideoStats(validatedStats);
         updateDerivedData(validatedStats);
