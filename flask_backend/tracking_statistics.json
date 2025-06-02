@@ -14759,6 +14759,69 @@
             "timestamp": "20250517_003141",
             "people_count": 1,
             "average_dwell_time": 191.33
+        },
+        {
+            "location": null,
+            "date": "06/02/2025",
+            "day": "Monday",
+            "time": "23:35:08",
+            "timestamp": "20250602_233508",
+            "people_count": 0,
+            "average_dwell_time": 0
+        },
+        {
+            "location": null,
+            "date": "06/02/2025",
+            "day": "Monday",
+            "time": "23:35:12",
+            "timestamp": "20250602_233512",
+            "people_count": 0,
+            "average_dwell_time": 0
+        },
+        {
+            "location": null,
+            "date": "06/02/2025",
+            "day": "Monday",
+            "time": "23:35:15",
+            "timestamp": "20250602_233515",
+            "people_count": 0,
+            "average_dwell_time": 0
+        },
+        {
+            "location": null,
+            "date": "06/02/2025",
+            "day": "Monday",
+            "time": "23:35:18",
+            "timestamp": "20250602_233518",
+            "people_count": 0,
+            "average_dwell_time": 0
+        },
+        {
+            "location": null,
+            "date": "06/02/2025",
+            "day": "Monday",
+            "time": "23:35:22",
+            "timestamp": "20250602_233522",
+            "people_count": 0,
+            "average_dwell_time": 0
+        },
+        {
+            "location": null,
+            "date": "06/02/2025",
+            "day": "Monday",
+            "time": "23:35:25",
+            "timestamp": "20250602_233525",
+            "people_count": 0,
+            "average_dwell_time": 0
+        },
+        {
+            "location": null,
+            "date": "06/02/2025",
+            "day": "Monday",
+            "time": "23:35:28",
+            "timestamp": "20250602_233528",
+            "people_count": 0,
+            "average_dwell_time": 0
         }
     ]
 }

@@ -3,6 +3,9 @@ import numpy as np
 import os
 from insightface.app import FaceAnalysis
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 class VideoFaceRecognition:
     def __init__(self, family_dir="family_photos", safe_log_file="safe_members.txt"):
@@ -11,7 +14,7 @@ class VideoFaceRecognition:
         self.face_app.prepare(ctx_id=0, det_size=(640, 480))
         
         # Paths and settings
-        self.family_dir = family_dir
+        self.family_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), family_dir)
         self.safe_log_file = safe_log_file
         self.face_embeddings_cache = {}
         self.similarity_threshold = 0.35
@@ -23,35 +26,78 @@ class VideoFaceRecognition:
             
         # Load face embeddings
         self.load_face_embeddings()
+        logger.info(f"Loaded {len(self.face_embeddings_cache)} face embeddings")
         
         # Track recognized faces
         self.recognized_faces = set()
-
+        
     def load_face_embeddings(self):
+        """Load all saved face embeddings"""
+        self.face_embeddings_cache.clear()
+        
+        if not os.path.exists(self.family_dir):
+            logger.warning(f"Family directory not found: {self.family_dir}")
+            return
+            
+        # Look for embedding files directly in the family_photos directory
+        embedding_files = [f for f in os.listdir(self.family_dir) if f.endswith('_embedding.npy')]
+        for embedding_file in embedding_files:
+            try:
+                embedding_path = os.path.join(self.family_dir, embedding_file)
+                embedding = np.load(embedding_path)
+                name = os.path.splitext(embedding_file)[0][:-10]  # Remove '_embedding' suffix
+                logger.info(f"Loading embedding for {name}")
+                self.face_embeddings_cache[embedding_path] = {
+                    'embedding': embedding,
+                    'name': name,
+                    'family': 'Family'  # Default family group
+                }
+            except Exception as e:
+                logger.error(f"Error loading embedding {embedding_file}: {str(e)}")
+                
+    def cosine_similarity(self, emb1, emb2):
+        """Calculate cosine similarity between two embeddings"""
+        return np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2))
+
+    def recognize_face(self, embedding):
+        """Find best match for a face embedding"""
+        best_match = None
+        highest_similarity = 0
+        matched_family = None
+        
+        for embedding_path, cache_data in self.face_embeddings_cache.items():
+            try:
+                similarity = self.cosine_similarity(embedding, cache_data['embedding'])
+                if similarity > self.similarity_threshold and similarity > highest_similarity:
+                    highest_similarity = similarity
+                    best_match = cache_data['name']
+                    matched_family = cache_data['family']
+                    logger.debug(f"Found match: {best_match} with similarity {similarity:.3f}")
+            except Exception as e:
+                logger.error(f"Error comparing with {embedding_path}: {str(e)}")
+                
+        return best_match, matched_family, highest_similarity
         """Load all saved face embeddings"""
         self.face_embeddings_cache.clear()
         
         if not os.path.exists(self.family_dir):
             return
             
-        for family_folder in os.listdir(self.family_dir):
-            family_path = os.path.join(self.family_dir, family_folder)
-            if not os.path.isdir(family_path):
-                continue
-                
-            embedding_files = [f for f in os.listdir(family_path) if f.endswith('_embedding.npy')]
-            for embedding_file in embedding_files:
-                try:
-                    embedding_path = os.path.join(family_path, embedding_file)
-                    embedding = np.load(embedding_path)
-                    name = os.path.splitext(embedding_file)[0][:-10]
-                    self.face_embeddings_cache[embedding_path] = {
-                        'embedding': embedding,
-                        'name': name,
-                        'family': family_folder
-                    }
-                except Exception as e:
-                    print(f"Error loading embedding {embedding_file}: {str(e)}")
+        # Look for embedding files directly in the family_photos directory
+        embedding_files = [f for f in os.listdir(self.family_dir) if f.endswith('_embedding.npy')]
+        for embedding_file in embedding_files:
+            try:
+                embedding_path = os.path.join(self.family_dir, embedding_file)
+                embedding = np.load(embedding_path)
+                name = os.path.splitext(embedding_file)[0][:-10]  # Remove '_embedding' suffix
+                print(f"Loading embedding for {name}")
+                self.face_embeddings_cache[embedding_path] = {
+                    'embedding': embedding,
+                    'name': name,
+                    'family': 'Family'  # Default family group
+                }
+            except Exception as e:
+                print(f"Error loading embedding {embedding_file}: {str(e)}")
 
     def cosine_similarity(self, emb1, emb2):
         """Calculate cosine similarity between two embeddings"""
