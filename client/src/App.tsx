@@ -18,6 +18,12 @@ import AppLayout from "@/components/layout/AppLayout";
 import { useEffect } from "react";
 import './App.css';
 
+// Direct access component (no auth required)
+function DirectAccessRoute({ component: Component }: { component: React.ComponentType }) {
+  return <Component />;
+}
+
+// Original authenticated route (keeping for reference)
 function AuthenticatedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, loading, pendingVerification } = useAuth();
   const [, setLocation] = useLocation();
@@ -50,17 +56,6 @@ function Router() {
   const [location] = useLocation();
   const { user, loading, pendingVerification } = useAuth();
   
-  // Check if path is one of the authenticated routes
-  const isAuthPath = (
-    location === "/" || 
-    location === "/dashboard" || 
-    location === "/statistics" || 
-    location === "/reports" || 
-    location === "/calendar" || 
-    location === "/profile" ||
-    location === "/video-analysis"
-  );
-
   // Handle loading state
   if (loading) {
     return (
@@ -69,21 +64,6 @@ function Router() {
       </div>
     );
   }
-  
-  // If verification is pending, only allow access to signin page
-  if (pendingVerification && location !== "/signin") {
-    return <Redirect to="/signin" />;
-  }
-
-  // Redirect authenticated and verified users away from auth pages
-  if ((location === "/signin" || location === "/signup") && user && !pendingVerification) {
-    return <Redirect to="/dashboard" />;
-  }
-  
-  // Redirect unauthenticated users to signin
-  if (isAuthPath && !user) {
-    return <Redirect to="/signin" />;
-  }
 
   return (
     <Switch>
@@ -91,32 +71,32 @@ function Router() {
       <Route path="/signup" component={SignUp} />
       <Route path="/dashboard">
         <AppLayout>
-          <AuthenticatedRoute component={Dashboard} />
+          <DirectAccessRoute component={Dashboard} />
         </AppLayout>
       </Route>
       <Route path="/statistics">
         <AppLayout>
-          <AuthenticatedRoute component={Statistics} />
+          <DirectAccessRoute component={Statistics} />
         </AppLayout>
       </Route>
       <Route path="/reports">
         <AppLayout>
-          <AuthenticatedRoute component={Reports} />
+          <DirectAccessRoute component={Reports} />
         </AppLayout>
       </Route>
       <Route path="/calendar">
         <AppLayout>
-          <AuthenticatedRoute component={Calendar} />
+          <DirectAccessRoute component={Calendar} />
         </AppLayout>
       </Route>
       <Route path="/profile">
         <AppLayout>
-          <AuthenticatedRoute component={Profile} />
+          <DirectAccessRoute component={Profile} />
         </AppLayout>
       </Route>
       <Route path="/video-analysis">
         <AppLayout>
-          <AuthenticatedRoute component={VideoAnalysis} />
+          <DirectAccessRoute component={VideoAnalysis} />
         </AppLayout>
       </Route>
       <Route path="/">
