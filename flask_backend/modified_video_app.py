@@ -1,7 +1,12 @@
-from flask import Flask, render_template, request, send_file, Response, jsonify
-import os
+from flask import Flask, render_template, request, send_file, Response, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 from ultralytics import YOLO
+from datetime import datetime
+from flask_cors import CORS
+from urllib.parse import urlparse, parse_qs
+from video_face_recognition import VideoFaceRecognition
+import imghdr
+import os
 import cv2
 import time
 import json
@@ -11,13 +16,16 @@ from flask_cors import CORS
 import threading
 import logging
 import yt_dlp
-from urllib.parse import urlparse, parse_qs
-from video_face_recognition import VideoFaceRecognition
 
 location = None
 frame_count = None
 face_recognition_active = False
 face_recognition_system = None
+
+# Configure family photos directory
+FAMILY_PHOTOS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'family_photos')
+if not os.path.exists(FAMILY_PHOTOS_DIR):
+    os.makedirs(FAMILY_PHOTOS_DIR)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -161,6 +169,15 @@ class StatsExporter:
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def validate_image(stream):
+    """Validate if the file is a valid image"""
+    header = stream.read(512)
+    stream.seek(0)
+    format = imghdr.what(None, header)
+    if not format:
+        return None
+    return '.' + (format if format != 'jpeg' else 'jpg')
 
 @app.route('/')
 def hello():
@@ -871,6 +888,70 @@ def toggle_face_recognition():
             "success": False,
             "error": str(e)
         }), 500
+
+# Photo handling routes
+@app.route('/api/photos')
+def get_photos():
+    """Get list of all photos in the family photos directory"""
+    photos = []
+    for filename in os.listdir(FAMILY_PHOTOS_DIR):
+        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+            photos.append({
+                'name': filename,
+                'url': f'http://localhost:5001/api/photos/{filename}'
+            })
+    return jsonify({'photos': photos})
+
+@app.route('/api/photos/<filename>')
+def serve_photo(filename):
+    """Serve a specific photo file"""
+    response = send_from_directory(FAMILY_PHOTOS_DIR, filename)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
+
+@app.route('/api/upload_photos', methods=['POST'])
+def upload_photos():
+    """Handle photo upload requests"""
+    if 'photos' not in request.files:
+        return jsonify({'error': 'No photos provided'}), 400
+
+    uploaded_files = request.files.getlist('photos')
+    saved_files = []
+
+    for file in uploaded_files:
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            file_ext = os.path.splitext(filename)[1].lower()
+            
+            if file_ext not in ['.jpg', '.jpeg', '.png', '.webp']:
+                continue
+            
+            if not validate_image(file.stream):
+                continue
+            
+            file_path = os.path.join(FAMILY_PHOTOS_DIR, filename)
+            file.save(file_path)
+            saved_files.append(filename)
+
+    if not saved_files:
+        return jsonify({'error': 'No valid photos were uploaded'}), 400
+
+    return jsonify({
+        'message': f'Successfully uploaded {len(saved_files)} photos',
+        'files': saved_files
+    })
+
+@app.route('/api/delete_photo/<filename>', methods=['DELETE'])
+def delete_photo(filename):
+    """Delete a specific photo"""
+    file_path = os.path.join(FAMILY_PHOTOS_DIR, secure_filename(filename))
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        return jsonify({'message': 'Photo deleted successfully'})
+    return jsonify({'error': 'Photo not found'}), 404
 
 if __name__ == '__main__':
     start_flask_server()

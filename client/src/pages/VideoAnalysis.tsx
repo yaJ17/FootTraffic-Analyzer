@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { FiUpload, FiVideo, FiBarChart2, FiClock, FiUsers, FiMapPin } from 'react-icons/fi';
+import { FiUpload, FiVideo, FiBarChart2, FiClock, FiUsers, FiMapPin, FiImage, FiTrash2 } from 'react-icons/fi';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useFootTraffic } from "@/context/FootTrafficContext";
@@ -21,6 +21,11 @@ interface Stats {
 interface YouTubeVideo {
   url: string;
   title: string;
+}
+
+interface Photo {
+  name: string;
+  url: string;
 }
 
 export default function VideoAnalysis() {
@@ -44,6 +49,8 @@ export default function VideoAnalysis() {
     ]
   );
   const [newYoutubeLink, setNewYoutubeLink] = useState<string>('');
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   
   // Add a function to stop the stream
   const stopStream = async () => {
@@ -614,6 +621,110 @@ export default function VideoAnalysis() {
     }
   }, [selectedSample, youtubeUrl]);
 
+  // Load existing photos on component mount
+  useEffect(() => {
+    loadPhotos();
+  }, []);
+
+  const loadPhotos = async () => {
+    try {
+      const response = await fetch(`${flaskServerUrl}/api/photos`);
+      if (!response.ok) throw new Error('Failed to load photos');
+      const data = await response.json();
+      setPhotos(data.photos.map((photo: Photo) => ({
+        ...photo,
+        url: `${flaskServerUrl}/api/photos/${photo.name}?t=${Date.now()}`
+      })));
+    } catch (err) {
+      console.error('Error loading photos:', err);
+      setUploadStatus({
+        type: 'error',
+        message: 'Failed to load photos'
+      });
+    }
+  };
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    const formData = new FormData();
+    Array.from(files).forEach(file => {
+      formData.append('photos', file);
+    });
+
+    try {
+      setUploadStatus({
+        type: 'success',
+        message: 'Uploading photos...'
+      });
+
+      const response = await fetch(`${flaskServerUrl}/api/upload_photos`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Failed to upload photos');
+
+      const result = await response.json();
+      setUploadStatus({
+        type: 'success',
+        message: 'Photos uploaded successfully!'
+      });
+
+      // Refresh the photos list
+      loadPhotos();
+
+      toast({
+        title: "Success",
+        description: "Photos uploaded successfully",
+      });
+    } catch (err) {
+      console.error('Error uploading photos:', err);
+      setUploadStatus({
+        type: 'error',
+        message: 'Failed to upload photos'
+      });
+      toast({
+        title: "Error",
+        description: "Failed to upload photos",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeletePhoto = async (photoName: string) => {
+    try {
+      const response = await fetch(`${flaskServerUrl}/api/delete_photo/${photoName}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete photo');
+
+      setPhotos(prevPhotos => prevPhotos.filter(photo => photo.name !== photoName));
+      setUploadStatus({
+        type: 'success',
+        message: 'Photo deleted successfully!'
+      });
+      
+      toast({
+        title: "Success",
+        description: "Photo deleted successfully",
+      });
+    } catch (err) {
+      console.error('Error deleting photo:', err);
+      setUploadStatus({
+        type: 'error',
+        message: 'Failed to delete photo'
+      });
+      toast({
+        title: "Error",
+        description: "Failed to delete photo",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
       <h1 className="text-3xl font-bold mb-6">Video Analysis</h1>
@@ -623,6 +734,7 @@ export default function VideoAnalysis() {
           <TabsTrigger value="analyze">Sample Videos</TabsTrigger>
           <TabsTrigger value="youtube">YouTube Live</TabsTrigger>
           <TabsTrigger value="upload">Upload Video</TabsTrigger>
+          <TabsTrigger value="photos">Family Photos</TabsTrigger>
         </TabsList>
         
         <TabsContent value="analyze" className="space-y-6">
@@ -645,6 +757,7 @@ export default function VideoAnalysis() {
                   <SelectContent>
                     <SelectItem value="palengke">Palengke (Market)</SelectItem>
                     <SelectItem value="school">School Entrance</SelectItem>
+                    <SelectItem value='friends'> Friends Group</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1030,6 +1143,102 @@ export default function VideoAnalysis() {
                     Go to Upload Page
                   </a>
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="photos">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FiImage className="mr-2" />
+                Family Photos
+              </CardTitle>
+              <CardDescription>
+                Upload and manage your family photos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div 
+                  className="border-2 border-dashed rounded-md p-6 text-center hover:border-blue-500 transition-colors cursor-pointer"
+                  onClick={() => document.getElementById('photo-upload')?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.add('border-blue-500');
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('border-blue-500');
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('border-blue-500');
+                    if (e.dataTransfer.files.length > 0) {
+                      const input = document.getElementById('photo-upload') as HTMLInputElement;
+                      if (input) {
+                        input.files = e.dataTransfer.files;
+                        handlePhotoUpload({ target: input } as any);
+                      }
+                    }
+                  }}
+                >
+                  <input
+                    type="file"
+                    id="photo-upload"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    multiple
+                  />
+                  <FiUpload className="mx-auto text-3xl mb-2 text-gray-400" />
+                  <p className="text-sm text-gray-500">
+                    Click to upload photos or drag and drop
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Supports: JPG, PNG, WEBP
+                  </p>
+                </div>
+
+                {uploadStatus && (
+                  <Alert variant={uploadStatus.type === 'success' ? 'default' : 'destructive'}>
+                    <AlertDescription>{uploadStatus.message}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {photos.length === 0 ? (
+                    <div className="col-span-full text-center py-8 text-gray-500">
+                      No photos uploaded yet
+                    </div>
+                  ) : (
+                    photos.map((photo, index) => (
+                      <div key={index} className="relative group aspect-square">
+                        <img
+                          src={photo.url}
+                          alt={photo.name}
+                          className="w-full h-full object-cover rounded-md"
+                          onError={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%23eee"/><text x="50%" y="50%" font-family="sans-serif" font-size="12" text-anchor="middle" dy=".3em" fill="%23999">Error loading image</text></svg>';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeletePhoto(photo.name)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <FiTrash2 className="mr-2" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
