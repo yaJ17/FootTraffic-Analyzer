@@ -200,9 +200,13 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
         });
         
         // Also add to time series data
+        // Convert hours to 12-hour format with AM/PM
         const now = new Date();
-        const currentHour = `${now.getHours()}:00`;
-        
+        const hours = now.getHours();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const hours12 = hours % 12 || 12;
+        const currentHour = `${hours12} ${ampm}`;
+
         // Check if we need to add this timeLabel
         if (timeSeriesData.timeLabels[timeSeriesData.timeLabels.length - 1] !== currentHour) {
           // Add the new time point
