@@ -304,20 +304,19 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
     setMapData(newMapData);
 
-    // Get top 5 locations by traffic
-    const topLocations = [...generatedData.locationData]
+    // Sort locations by total traffic for consistent ordering
+    const allLocations = [...generatedData.locationData]
       .sort((a, b) => {
         const aSum = a.trafficValues.reduce((sum: number, val: number) => sum + val, 0);
         const bSum = b.trafficValues.reduce((sum: number, val: number) => sum + val, 0);
         return bSum - aSum;
-      })
-      .slice(0, 5);
+      });
 
-    // Update time series data
+    // Update time series data with all locations
     setTimeSeriesData({
       timeLabels: generatedData.timeLabels,
       forecastLabels: generatedData.forecastLabels,
-      locations: topLocations.map(loc => ({
+      locations: allLocations.map(loc => ({
         name: loc.name,
         color: loc.color,
         trafficValues: loc.trafficValues,
