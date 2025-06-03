@@ -3,6 +3,21 @@ import { getDashboardData } from '@/data/footTrafficData';
 import { getStatisticsData } from '@/data/locationData';
 import { getReportData } from '@/data/reportData';
 
+// Define colors for camera locations
+const cameraColors = {
+  'School Entrance Camera': '#6366F1', // Indigo
+  'Palengke Market Camera': '#D946EF', // Fuchsia
+  'YouTube Stream Camera': '#14B8A6', // Teal
+};
+
+// Utility function to get consistent camera name from location string
+const getCameraName = (location: string): string => {
+  if (location.includes('School')) return 'School Entrance Camera';
+  if (location.includes('Palengke')) return 'Palengke Market Camera';
+  if (location.includes('Youtube') || location.includes('YouTube')) return 'YouTube Stream Camera';
+  return location + ' Camera';
+};
+
 // Define interfaces for the data
 export interface VideoStats {
   people_count: number;
@@ -86,13 +101,48 @@ const generateConsistentLocationData = (
     return `${hours12} ${ampm}`;
   });
 
-  // Generate traffic patterns for all locations
-  const locationData = manilaLocations.map(location => {
-    const isCurrentLocation = currentStats && location.name === getCameraName(currentStats.location);
-    const isAnalysisLocation = analysisStats && location.name === getCameraName(analysisStats.location);
+  // Include video analysis location if it exists
+  const allLocations = [...manilaLocations];
+  if (analysisStats) {
+    const cameraName = getCameraName(analysisStats.location);
+    const analysisLocation = {
+      id: 'analysis-camera',
+      name: cameraName,
+      lat: 14.5995,
+      lon: 120.9842,
+      baseCount: Math.max(50, analysisStats.people_count || 50)  // Ensure we have a reasonable base count
+    };
+
+    // Remove any existing entry with the same name to avoid duplicates
+    const existingIndex = allLocations.findIndex(loc => loc.name === cameraName);
+    if (existingIndex !== -1) {
+      allLocations.splice(existingIndex, 1);
+    }
     
-    // Generate 24-hour traffic pattern
+    // Add the new location
+    allLocations.push(analysisLocation);
+    console.log('Added analysis location:', cameraName, 'with base count:', analysisLocation.baseCount);
+  }
+
+  // Generate traffic patterns for all locations
+  const locationData = allLocations.map(location => {
+    const isCurrentLocation = currentStats && getCameraName(currentStats.location) === location.name;
+    const isAnalysisLocation = analysisStats && getCameraName(analysisStats.location) === location.name;
+    
+    // Generate traffic values
     const trafficValues = timeLabels.map((_, index) => {
+      // For the current hour (last index), use actual stats if available
+      if (index === timeLabels.length - 1) {
+        if (isCurrentLocation && currentStats) {
+          console.log('Using current stats for', location.name, ':', currentStats.people_count);
+          return currentStats.people_count;
+        }
+        if (isAnalysisLocation && analysisStats) {
+          console.log('Using analysis stats for', location.name, ':', analysisStats.people_count);
+          return analysisStats.people_count;
+        }
+      }
+      
       const hour = (now.getHours() - (19 - index) + 24) % 24;
       let multiplier = 1.0;
       
@@ -109,52 +159,53 @@ const generateConsistentLocationData = (
       
       // Add controlled randomness
       multiplier *= (0.85 + Math.random() * 0.3);
-      
-      // Use real counts for current and analysis locations at current hour
-      if (index === timeLabels.length - 1) {
-        if (isCurrentLocation && currentStats) return currentStats.people_count;
-        if (isAnalysisLocation && analysisStats) return analysisStats.people_count;
-      }
-      
       return Math.floor(location.baseCount * multiplier);
     });
     
-    // Generate correlated dwell times
+    // Generate dwell times with actual data for current hour
     const dwellTimeValues = trafficValues.map((traffic, index) => {
+      // For the current hour (last index), use actual stats if available
+      if (index === timeLabels.length - 1) {
+        if (isCurrentLocation && currentStats) {
+          console.log('Using current dwell time for', location.name, ':', currentStats.avg_dwell_time);
+          return currentStats.avg_dwell_time;
+        }
+        if (isAnalysisLocation && analysisStats) {
+          console.log('Using analysis dwell time for', location.name, ':', analysisStats.avg_dwell_time);
+          return analysisStats.avg_dwell_time;
+        }
+      }
+
       const busynessFactor = traffic / location.baseCount;
       let dwellMultiplier = 1.0;
       
       if (busynessFactor > 1.5) dwellMultiplier = 0.8;  // Busy times = shorter dwell
       else if (busynessFactor < 0.6) dwellMultiplier = 1.3;  // Quiet times = longer dwell
       
-      // Use real dwell times for current hour
-      if (index === timeLabels.length - 1) {
-        if (isCurrentLocation && currentStats) return currentStats.avg_dwell_time;
-        if (isAnalysisLocation && analysisStats) return analysisStats.avg_dwell_time;
-      }
-      
       return Math.floor((120 + Math.random() * 120) * dwellMultiplier);
     });
     
     // Generate forecasts based on recent patterns
+    const recentTraffic = trafficValues.slice(-4);
+    const avgTraffic = recentTraffic.reduce((sum, val) => sum + val, 0) / recentTraffic.length;
+    const trendTraffic = (recentTraffic[recentTraffic.length - 1] - recentTraffic[0]) / recentTraffic.length;
+
     const trafficForecast = forecastLabels.map((_, i) => {
-      const recentTraffic = trafficValues.slice(-4);
-      const avg = recentTraffic.reduce((sum: number, val: number) => sum + val, 0) / recentTraffic.length;
-      const trend = (recentTraffic[recentTraffic.length - 1] - recentTraffic[0]) / recentTraffic.length;
-      const trendEffect = trend * (1 - (i * 0.2));
+      const trendEffect = trendTraffic * (1 - (i * 0.2));
       const randomFactor = 0.05 + (i * 0.02);
-      const randomVariation = avg * randomFactor * (Math.random() - 0.5);
-      return Math.max(0, Math.round(avg + (trendEffect * (i + 1)) + randomVariation));
+      const randomVariation = avgTraffic * randomFactor * (Math.random() - 0.5);
+      return Math.max(0, Math.round(avgTraffic + (trendEffect * (i + 1)) + randomVariation));
     });
 
+    const recentDwell = dwellTimeValues.slice(-4);
+    const avgDwell = recentDwell.reduce((sum, val) => sum + val, 0) / recentDwell.length;
+    const trendDwell = (recentDwell[recentDwell.length - 1] - recentDwell[0]) / recentDwell.length;
+
     const dwellTimeForecast = forecastLabels.map((_, i) => {
-      const recentDwell = dwellTimeValues.slice(-4);
-      const avg = recentDwell.reduce((sum: number, val: number) => sum + val, 0) / recentDwell.length;
-      const trend = (recentDwell[recentDwell.length - 1] - recentDwell[0]) / recentDwell.length;
-      const trendEffect = trend * (1 - (i * 0.2));
+      const trendEffect = trendDwell * (1 - (i * 0.2));
       const randomFactor = 0.05 + (i * 0.02);
-      const randomVariation = avg * randomFactor * (Math.random() - 0.5);
-      return Math.max(0, Math.round(avg + (trendEffect * (i + 1)) + randomVariation));
+      const randomVariation = avgDwell * randomFactor * (Math.random() - 0.5);
+      return Math.max(0, Math.round(avgDwell + (trendEffect * (i + 1)) + randomVariation));
     });
 
     return {
@@ -162,7 +213,7 @@ const generateConsistentLocationData = (
       name: location.name,
       lat: location.lat,
       lon: location.lon,
-      color: dashboardStaticData.locationColors[location.name] || '#dc2626',
+      color: cameraColors[location.name as keyof typeof cameraColors] || dashboardStaticData.locationColors[location.name] || '#dc2626',
       currentCount: trafficValues[trafficValues.length - 1],
       trafficValues,
       dwellTimeValues,
@@ -171,11 +222,11 @@ const generateConsistentLocationData = (
     };
   });
 
-  // Calculate peak hours using all data (historical + forecast)
+  // Calculate peak hours using aggregated traffic data
   const allTimeLabels = [...timeLabels, ...forecastLabels];
   const aggregateTraffic = allTimeLabels.map((label, index) => {
     const isHistorical = index < timeLabels.length;
-    const total = locationData.reduce((sum: number, loc: LocationData) => {
+    const total = locationData.reduce((sum, loc) => {
       if (isHistorical) {
         return sum + loc.trafficValues[index];
       } else {
@@ -185,10 +236,10 @@ const generateConsistentLocationData = (
     return { time: label, traffic: total, isForecast: !isHistorical };
   });
 
-  // Calculate weekly patterns based on current day's data
+  // Calculate weekly patterns based on current day and traffic
   const currentDay = now.getDay();
   const isWeekend = currentDay === 0 || currentDay === 6;
-  const totalCurrentTraffic = locationData.reduce((sum: number, loc: LocationData) => sum + loc.currentCount, 0);
+  const totalCurrentTraffic = locationData.reduce((sum, loc) => sum + loc.currentCount, 0);
   
   const weeklyData: WeeklyData = {
     monday: Math.floor(totalCurrentTraffic * (currentDay === 1 ? 1 : 0.9)),
@@ -369,10 +420,67 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Function to update analysis stats from VideoAnalysis component
   const updateAnalysisStats = (stats: VideoStats) => {
-    setAnalysisVideoStats(stats);
-    if (videoStats) {
-      updateVisualizations(videoStats);
-    }
+    const cameraName = getCameraName(stats.location);
+    console.log('Updating analysis stats for:', cameraName, 'with count:', stats.people_count);
+
+    // Update analysis stats
+    setAnalysisVideoStats({
+      ...stats,
+      trafficCategory: stats.people_count > 50 ? 'High' : stats.people_count > 20 ? 'Medium' : 'Low'
+    });
+
+    // Generate new consistent data with both video and analysis stats
+    const generatedData = generateConsistentLocationData(
+      videoStats,
+      stats, // Use the new stats directly instead of waiting for state update
+      manilaLocations,
+      dashboardStaticData
+    );
+
+    // Update all visualizations with the new data
+    setMapData({
+      center: { lat: 14.5995, lon: 120.9842 },
+      zoom: 12,
+      zoneInfo: cameraName,
+      markers: generatedData.locationData.map(loc => ({
+        id: loc.id,
+        name: loc.name,
+        lat: loc.lat,
+        lon: loc.lon,
+        color: loc.color,
+        count: loc.currentCount
+      }))
+    });
+
+    // Sort locations by total traffic for consistent ordering
+    const allLocations = [...generatedData.locationData]
+      .sort((a, b) => {
+        const aSum = a.trafficValues.reduce((sum: number, val: number) => sum + val, 0);
+        const bSum = b.trafficValues.reduce((sum: number, val: number) => sum + val, 0);
+        return bSum - aSum;
+      });
+
+    // Update time series data with all locations
+    setTimeSeriesData({
+      timeLabels: generatedData.timeLabels,
+      forecastLabels: generatedData.forecastLabels,
+      locations: allLocations.map(loc => ({
+        name: loc.name,
+        color: loc.color,
+        trafficValues: loc.trafficValues,
+        dwellTimeValues: loc.dwellTimeValues,
+        trafficForecast: loc.trafficForecast,
+        dwellTimeForecast: loc.dwellTimeForecast
+      }))
+    });
+
+    // Update weekly summary data
+    setWeeklySummaryData(generatedData.weeklyData);
+
+    // Update total people count
+    setTotalPeopleCount(
+      generatedData.locationData.reduce((sum: number, loc: LocationData) => sum + loc.currentCount, 0)
+    );
   };
 
   // Determine Flask server URL based on hostname
@@ -447,12 +555,4 @@ export const FootTrafficProvider: React.FC<{ children: React.ReactNode }> = ({ c
       {children}
     </FootTrafficContext.Provider>
   );
-};
-
-// Get a formatted camera name for display
-const getCameraName = (location: string): string => {
-  if (location?.includes('School')) return 'School Entrance Camera';
-  if (location?.includes('Palengke')) return 'Palengke Market Camera';
-  if (location?.includes('YouTube')) return 'YouTube Stream Camera';
-  return location || 'Unknown Location';
 };
