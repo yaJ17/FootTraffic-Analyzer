@@ -21,21 +21,22 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
   locations, 
   timeLabels,
   forecastLabels = [] 
-}) => {  // Add state to track selected locations
+}) => {  
   const [selectedLocations, setSelectedLocations] = useState<Set<string>>(new Set(locations.map(loc => loc.name)));
   const [chartData, setChartData] = useState<LocationData[]>(() => {
-    // Initialize with only the last 10 data points
+    // Initialize with only the last 4 hours of data points
     return locations.map(loc => ({
       ...loc,
-      values: loc.values.slice(-10)
+      values: loc.values.slice(-4)
     }));
   });
-  const [currentLabels, setCurrentLabels] = useState<string[]>(() => timeLabels.slice(-10));
-  const [showForecast, setShowForecast] = useState<boolean>(true);  const [timeRange, setTimeRange] = useState<{ start: number; end: number}>(() => {
-    // Initialize with the last 10 time labels
-    const last10Labels = timeLabels.slice(-10);
-    const [firstTimeStr, firstPeriod] = last10Labels[0].split(' ');
-    const [lastTimeStr, lastPeriod] = last10Labels[last10Labels.length - 1].split(' ');
+  const [currentLabels, setCurrentLabels] = useState<string[]>(() => timeLabels.slice(-4));
+  const [showForecast, setShowForecast] = useState<boolean>(true);
+  const [timeRange, setTimeRange] = useState<{ start: number; end: number}>(() => {
+    // Initialize with the last 4 time labels
+    const last4Labels = timeLabels.slice(-4);
+    const [firstTimeStr, firstPeriod] = last4Labels[0].split(' ');
+    const [lastTimeStr, lastPeriod] = last4Labels[last4Labels.length - 1].split(' ');
     
     let startHour = parseInt(firstTimeStr);
     if (firstPeriod === 'PM' && startHour !== 12) startHour += 12;
@@ -72,14 +73,14 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
   // Reset time range to show last 10 hours + forecast
   const resetTimeRange = () => {
     if (timeRangeOptions.length > 0) {
-      // Get the last 10 hours of data
-      const last10Labels = timeLabels.slice(-10);
-      const [lastTimeStr, lastPeriod] = last10Labels[last10Labels.length - 1].split(' ');
+      // Get the last 4 hours of data
+      const last4Labels = timeLabels.slice(-4);
+      const [lastTimeStr, lastPeriod] = last4Labels[last4Labels.length - 1].split(' ');
       let lastHour = parseInt(lastTimeStr);
       if (lastPeriod === 'PM' && lastHour !== 12) lastHour += 12;
       if (lastPeriod === 'AM' && lastHour === 12) lastHour = 0;
       
-      const [firstTimeStr, firstPeriod] = last10Labels[0].split(' ');
+      const [firstTimeStr, firstPeriod] = last4Labels[0].split(' ');
       let firstHour = parseInt(firstTimeStr);
       if (firstPeriod === 'PM' && firstHour !== 12) firstHour += 12;
       if (firstPeriod === 'AM' && firstHour === 12) firstHour = 0;
@@ -89,12 +90,12 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
         end: lastHour
       });
       
-      // Reset the chart data to show last 10 hours
+      // Reset the chart data to show last 4 hours
       setChartData(locations.map(loc => ({
         ...loc,
-        values: loc.values.slice(-10)
+        values: loc.values.slice(-4)
       })));
-      setCurrentLabels(last10Labels);
+      setCurrentLabels(last4Labels);
       // Re-enable forecast when resetting time range
       setShowForecast(true);
       // Reset sorting flag
@@ -148,13 +149,13 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
 
     // Handle initial load
     if (!chartData.length || !currentLabels.length) {
-      const filteredLabels = filterLabelsByTimeRange(timeLabels.slice(-10));
+      const filteredLabels = filterLabelsByTimeRange(timeLabels.slice(-4));
       const filteredData = filterDataByTimeRange(
         locations.map(loc => ({
           ...loc,
-          values: loc.values.slice(-10)
+          values: loc.values.slice(-4)
         })), 
-        timeLabels.slice(-10)
+        timeLabels.slice(-4)
       );
       setChartData(filteredData);
       setCurrentLabels(filteredLabels);
@@ -167,8 +168,8 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
 
       // Check if we have a new time point
       if (latestTimeLabel !== currentLatestLabel) {
-        // Add the new time label
-        setCurrentLabels(prev => [...prev.slice(1), latestTimeLabel]);
+        // Add the new time label while maintaining 4-hour window
+        setCurrentLabels(prev => [...prev.slice(Math.max(prev.length - 3, 0)), latestTimeLabel]);
         
         // Update data points with the latest values
         setChartData(prev => 
@@ -179,7 +180,7 @@ const DwellTimeChart: React.FC<DwellTimeChartProps> = ({
             return {
               ...loc,
               values: [
-                ...loc.values.slice(1), 
+                ...loc.values.slice(Math.max(loc.values.length - 3, 0)), 
                 matchingLocation.values[matchingLocation.values.length - 1]
               ]
             };
