@@ -734,7 +734,7 @@ export default function VideoAnalysis() {
           <TabsTrigger value="analyze">Sample Videos</TabsTrigger>
           <TabsTrigger value="youtube">YouTube Live</TabsTrigger>
           <TabsTrigger value="upload">Upload Video</TabsTrigger>
-          <TabsTrigger value="photos">Family Photos</TabsTrigger>
+          <TabsTrigger value="photos">Upload Photos</TabsTrigger>
         </TabsList>
         
         <TabsContent value="analyze" className="space-y-6">
@@ -1153,10 +1153,10 @@ export default function VideoAnalysis() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <FiImage className="mr-2" />
-                Family Photos
+                Photos
               </CardTitle>
               <CardDescription>
-                Upload and manage your family photos
+                Upload and manage your photos
               </CardDescription>
             </CardHeader>
             <CardContent>
